@@ -1,0 +1,84 @@
+[package]
+name = "crack"
+
+[package.edition]
+workspace = true
+
+[package.version]
+workspace = true
+
+[package.authors]
+workspace = true
+
+[dependencies.consensus_crackhead]
+path = "./packages/consensus_crackhead"
+
+[dependencies.net_crackpipe]
+path = "./packages/net_crackpipe"
+
+[dependencies.storage_crackhouse]
+path = "./packages/storage_crackhouse"
+
+[workspace]
+members = [
+    "crack_demo",
+    "packages/consensus_crackhead",
+    "packages/net_crackpipe",
+    "packages/storage_crackhouse",
+]
+resolver = "2"
+
+[workspace.dependencies]
+tracing = "0.1"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Your Name <you@example.com>"]
+edition = "2024"
+
+[workspace.lints.clippy]
+new_without_default = "allow"
+unused-async = "warn"
+
+[profile.android-dev]
+inherits = "dev"
+
+[profile.desktop-dev]
+opt-level = 1
+debug = 2
+inherits = "dev"
+
+[profile.desktop-dev.package."*"]
+opt-level = 3
+debug = 2
+
+[profile.dev]
+opt-level = 1
+debug = 0
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
+
+[profile.dev.package."*"]
+opt-level = 3
+debug = 0
+
+[profile.dev.build-override]
+opt-level = 3
+codegen-units = 16
+debug = 0
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+debug = 0
+strip = true
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.wasm-dev]
+opt-level = 1
+debug = 0
+inherits = "dev"
