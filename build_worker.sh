@@ -10,7 +10,7 @@ set -ex
 # rm -rf crack_demo2/assets/pkg_web_serviceworker
 cargo build --package web_serviceworker_crackslave --target wasm32-unknown-unknown
 wasm-bindgen \
-   --keep-debug --debug \
+   --keep-debug --debug --keep-lld-exports \
    --target no-modules  --no-typescript \
    --out-dir crack_demo2/assets/pkg_web_serviceworker \
    ./target/wasm32-unknown-unknown/debug/web_serviceworker_crackslave.wasm

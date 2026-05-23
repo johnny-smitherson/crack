@@ -270,7 +270,7 @@ async fn _try_ping(version: String) -> Result<WorkerPipe, JsValue> {
     };
     tracing::info!("worker = {:?}", worker);
 
-    let (req_tx, mut req_rx) = tokio::sync::mpsc::channel(1024);
+    let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<WorkerMessage>(1024);
     let (resp_tx, resp_rx) = tokio::sync::mpsc::channel(1024);
     let (one_tx, mut one_rx) = tokio::sync::mpsc::channel(1);
 
@@ -280,7 +280,7 @@ async fn _try_ping(version: String) -> Result<WorkerPipe, JsValue> {
     let version2 = version.clone();
     let c: T = Closure::wrap(Box::new(move |event: web_sys::MessageEvent| {
         let one_tx = one_tx.clone();
-        tracing::info!("backflop event: {:#?}", event);
+        // tracing::info!("backflop event: {:#?}", event);
         let data = event.data();
         let data = serde_wasm_bindgen::from_value::<WorkerMessage>(data);
         let data = match data {
@@ -315,11 +315,39 @@ async fn _try_ping(version: String) -> Result<WorkerPipe, JsValue> {
                 }
             } else {
                 tracing::info!("SERVER VERSION OK.");
-                let _ = one_tx.send(());
+                wasm_bindgen_futures::spawn_local(async move {
+                    let _r = one_tx.send(()).await;
+                    match _r {
+                        Ok(_r) => {
+                            tracing::info!("reply ok.");
+                        }
+                        Err(e) => {
+                            tracing::error!("error sending pong! err => {e:#?}")
+                        }
+                    }
+                });
             };
         } else {
-            // send message to parent queue
-            let _ = resp_tx.send(data.clone());
+            let resp_tx = (&resp_tx).clone();
+
+            wasm_bindgen_futures::spawn_local(async move {
+                tracing::info!(
+                    "Passing message back to caller: {}({})",
+                    &data.msg_type,
+                    &data.msg_type
+                );
+
+                match resp_tx.send(data.clone()).await {
+                    Ok(_r) => {}
+                    Err(e) => {
+                        tracing::error!(
+                            "FAILED to send message back to caller: {}({}): {e:#?}",
+                            &data.msg_type,
+                            &data.msg_type
+                        )
+                    }
+                }
+            });
         }
     }));
 
@@ -338,11 +366,34 @@ async fn _try_ping(version: String) -> Result<WorkerPipe, JsValue> {
     // wait for response
     tracing::info!("waiting for response from worker...");
     let _o = one_rx.recv().await;
+    if _o.is_none() {
+        tracing::error!("pingpong fail.");
+        return Err("pingpong fail!".into());
+    }
     tracing::info!("Ok. starting worker dispatching...");
 
-    while let Some(req) = req_rx.recv().await {
-        worker.post_message(&serde_wasm_bindgen::to_value(&req)?)?;
+    wasm_bindgen_futures::spawn_local(async move {
+        while let Some(req) = req_rx.recv().await {
+        tracing::info!("Posting message to web worker: {}({})", &req.msg_type, &req.msg_id);
+        match &serde_wasm_bindgen::to_value(&req) {
+            Ok(o) => {
+                match worker.post_message(o) {
+                    Ok(_o) => {
+                        tracing::info!("Successfully posted service worker message: {}({})", &req.msg_type, &req.msg_id )
+                    }
+                    Err(e) => {
+                        tracing::error!("worker.post_message() error: {e:#?}");
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("to_value() error: {e:#?}");
+            }
+        }
     }
+    // Ok(())
+    ;
+    });
 
     c.forget();
     Ok(WorkerPipe { req_tx, resp_rx })

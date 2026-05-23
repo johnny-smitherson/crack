@@ -1,3 +1,4 @@
+use crack::api_asscrack::api::{api_client::ApiClient, api_worker_declarations::WorkerPing};
 use dioxus::{logger::tracing, prelude::*};
 use web_serviceworker_crackloader::WebWorkerFactory;
 
@@ -30,8 +31,57 @@ static WORKER_FOLDER: Asset = asset!(
     AssetOptions::folder().with_hash_suffix(false)
 );
 
+// #[cfg(target_family = "wasm")]
+// unsafe extern "C" {
+//     fn __wasm_call_ctors();
+// }
+//  use scattered_collect::{gather, scatter, slice::ScatteredSlice};
+
+// #[gather]
+// static SLICE_PLUGINS: ScatteredSlice<&'static str>;
+
+// #[scatter(SLICE_PLUGINS)]
+// const _: &'static str = "json";
+
+// #[scatter(SLICE_PLUGINS)]
+// const _: &'static str = "yaml";
+
+// fn scattered_test2() {
+
+//     assert_eq!(SLICE_PLUGINS.len(), 2);
+//     assert!(SLICE_PLUGINS.contains(&"json"));
+// }
+
 fn main() {
+    //     #[cfg(target_family = "wasm")]
+    // unsafe {
+    //     __wasm_call_ctors();
+    // }
+
     dioxus::launch(App);
+}
+
+async fn get_crack() -> anyhow::Result<ApiClient> {
+    // scattered_test2();
+
+    tracing::info!("Get Crack!");
+    let opt = WebWorkerFactory {
+        worker_url: "/assets/scripts/worker.js".to_string(),
+        worker_type: "classic".to_string(),
+        worker_scope: "/assets/scripts/".to_string(),
+        version: String::from_utf8_lossy(include_bytes!("../assets/pkg_web_serviceworker/md5.txt"))
+            .trim()
+            .to_string(),
+    };
+    use crack::api_asscrack::crack_worker::WorkerLoaderFactory;
+    let _active = opt.load_worker().await?;
+    tracing::info!("Got Pipe. Getting client ....");
+
+    let c = ApiClient::new(_active).await;
+    tracing::info!("Client OK. Sending Api PING...");
+    let _r = c.call::<WorkerPing>(()).await?;
+    tracing::info!("Client OK. Crack Connected!");
+    Ok(c)
 }
 
 #[component]
@@ -40,28 +90,7 @@ fn App() -> Element {
     // let script_wasm = String::from_utf8_lossy( include_bytes!("../assets/pkg_web_serviceworker/web_serviceworker_crackslave.js")).to_string();
     // let script_launch = String::from_utf8_lossy( include_bytes!("../assets/scripts/index.js")).to_string();
 
-    let web_worker = use_resource(move || async move {
-        let opt = WebWorkerFactory {
-            worker_url: "/assets/scripts/worker.js".to_string(),
-            worker_type: "classic".to_string(),
-            worker_scope: "/assets/scripts/".to_string(),
-            version: String::from_utf8_lossy(include_bytes!(
-                "../assets/pkg_web_serviceworker/md5.txt"
-            ))
-            .trim()
-            .to_string(),
-        };
-        use crack::api_asscrack::crack_worker::WorkerLoaderFactory;
-        let _active = opt.load_worker().await;
-
-        if let Err(e) = &_active {
-            tracing::error!("Error with web worker: {e:?}");
-        } else {
-            tracing::info!("Web worker init OK.");
-        }
-
-        _active
-    });
+    let web_worker = use_resource(move || async move { get_crack().await });
 
     let web_worker_status = match web_worker.read().as_ref() {
         None => rsx! {h1{"Loading..."}},

@@ -1,46 +1,39 @@
-mod compute_message;
+use std::sync::Arc;
 
-use api_asscrack::crack_worker::{
-    WorkerComputeDyn, WorkerComputeImpl, WorkerLoaderFactory, WorkerMessage, WorkerPipe,
-};
+use api_asscrack::crack_worker::{WorkerLoaderFactory, WorkerMessage, WorkerPipe, api_worker::ApiImplMapping};
 
 // Called when the wasm module is instantiated
 
-pub struct ThreadWorkerFactory;
+pub struct ThreadWorkerFactory {
+    pub impl_mapping:  Arc<ApiImplMapping>
+}
 
 #[api_asscrack::async_trait::async_trait(?Send)]
 impl WorkerLoaderFactory for ThreadWorkerFactory {
     async fn load_worker(&self) -> anyhow::Result<WorkerPipe> {
-        let worker_compute = std::sync::Arc::new(ThreadWorkerCompute);
-        let t = init_thread(worker_compute).await?;
+        // let worker_compute = std::sync::Arc::new(ThreadWorkerCompute);
+        let t = init_thread(self.impl_mapping.clone()).await?;
 
         Ok(t)
     }
 }
 
-pub struct ThreadWorkerCompute;
-#[api_asscrack::async_trait::async_trait]
-impl WorkerComputeImpl for ThreadWorkerCompute {
-    async fn compute_response_message(&self, req: WorkerMessage) -> WorkerMessage {
-        crate::compute_message::compute_response_message(req).await
-    }
-}
-
-async fn init_thread(worker_compute: WorkerComputeDyn) -> anyhow::Result<WorkerPipe> {
+async fn init_thread(mapping:  Arc<ApiImplMapping>) -> anyhow::Result<WorkerPipe> {
     let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<WorkerMessage>(1024);
     let (resp_tx, resp_rx) = tokio::sync::mpsc::channel(1024);
 
     let _t = tokio::task::spawn(async move {
         while let Some(req) = req_rx.recv().await {
             let resp_tx = resp_tx.clone();
-            let worker_compute = worker_compute.clone();
+            let mapping = mapping.clone();
+            // let worker_compute = worker_compute.clone();
             tokio::task::spawn(async move {
                 let resp = if &req.msg_type == "ping" {
                     let mut new = req.clone();
                     new.msg_type = "pong".to_string();
                     new
                 } else {
-                    worker_compute.compute_response_message(req).await
+                    api_asscrack::crack_worker::api_worker::compute_response_message(req, mapping).await
                 };
                 let m = resp_tx.send(resp).await;
                 match m {

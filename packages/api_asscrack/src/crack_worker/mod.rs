@@ -1,3 +1,5 @@
+pub mod api_worker;
+
 pub struct WorkerPipe {
     pub req_tx: tokio::sync::mpsc::Sender<WorkerMessage>,
     pub resp_rx: tokio::sync::mpsc::Receiver<WorkerMessage>,
@@ -14,10 +16,3 @@ pub struct WorkerMessage {
 pub trait WorkerLoaderFactory {
     async fn load_worker(&self) -> anyhow::Result<WorkerPipe>;
 }
-
-#[async_trait::async_trait]
-pub trait WorkerComputeImpl {
-    async fn compute_response_message(&self, req: WorkerMessage) -> WorkerMessage;
-}
-
-pub type WorkerComputeDyn = std::sync::Arc<dyn WorkerComputeImpl + Send + Sync>;

@@ -1,15 +1,30 @@
-use crate::{crack_worker::WorkerMessage, declare_api_group, declare_api_method, impl_api_method};
+
+use crate::declare_api_group2;
+use crate::implement_api_group2;
 
 
-declare_api_group!(WorkerApiGroup);
-
-declare_api_method!(WorkerApiGroup, WorkerPing, (), ());
-
-declare_api_method!(WorkerApiGroup, RunSql, String, String);
-
-
-pub async fn worker2(_x: ()) -> anyhow::Result<()> {
-    Ok(())
+declare_api_group2! {
+    WorkerApiGroup2,
+    [
+        (WorkerPing, (), ()),
+        (RunSql, String, Vec<String>),
+    ]
 }
 
-impl_api_method!(WorkerPing, worker2);
+implement_api_group2! {
+    WorkerApiGroup2,
+    [
+        (WorkerPing, worker_ping),
+        (RunSql, worker_run_sql),
+    ]
+}
+
+
+
+pub async fn worker_run_sql(_x: String) -> anyhow::Result<Vec<String>> {
+    Ok(vec![])
+}
+
+pub async fn worker_ping(_x: ()) -> anyhow::Result<()> {
+    Ok(())
+}

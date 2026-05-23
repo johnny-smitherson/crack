@@ -1,5 +1,7 @@
-use api_asscrack::crack_worker::WorkerComputeDyn;
+use std::sync::Arc;
+
 use api_asscrack::crack_worker::WorkerMessage;
+use api_asscrack::crack_worker::api_worker::ApiImplMapping;
 use wasm_bindgen::JsValue;
 
 #[derive(thiserror::Error, Debug)]
@@ -17,9 +19,7 @@ impl From<ServiceWorkerError> for JsValue {
 use wasm_bindgen::prelude::*;
 use web_sys::{ServiceWorkerGlobalScope, console};
 
-pub(crate) fn do_worker_registration(
-    worker_compute: WorkerComputeDyn,
-) -> std::result::Result<(), JsValue> {
+pub(crate) fn do_worker_registration(mapping: Arc<ApiImplMapping>) -> std::result::Result<(), JsValue> {
     let global = js_sys::global();
     tracing::info!("global!! {:#?}", &global);
 
@@ -30,6 +30,7 @@ pub(crate) fn do_worker_registration(
         let global: ServiceWorkerGlobalScope = global.unchecked_into::<ServiceWorkerGlobalScope>();
 
         let version = get_version(global.clone()).unwrap_or_default();
+        tracing::info!("version  =  '{}'", &version);
 
         // Force immediate activation
         let on_install = on_install(&global)?;
@@ -38,7 +39,7 @@ pub(crate) fn do_worker_registration(
         global.set_onactivate(Some(on_activate.as_ref().unchecked_ref()));
 
         // register all the other callbacks
-        let on_message = on_message(&global, version, worker_compute)?;
+        let on_message = on_message(&global, version, mapping)?;
         global.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
 
         // Ensure that the closures are not dropped before the service worker is terminated
@@ -98,12 +99,13 @@ fn on_activate(
 fn on_message(
     _global: &ServiceWorkerGlobalScope,
     version: String,
-    worker_compute: WorkerComputeDyn,
+    mapping:  Arc<ApiImplMapping>,
 ) -> std::result::Result<Closure<dyn FnMut(web_sys::ExtendableMessageEvent)>, JsValue> {
     let reg = _global.registration();
 
     // let clients = _global.clients();
     console::log_1(&JsValue::from_str("serviceworker on_message()"));
+    let mapping = mapping.clone();
     Ok(Closure::wrap(
         Box::new(move |event: web_sys::ExtendableMessageEvent| {
             // let event_source = event.source();
@@ -142,6 +144,7 @@ fn on_message(
                     seppukku(reg);
                 }
 
+                tracing::info!("Create message type=pong and version={}", version);
                 let data2 = WorkerMessage {
                     msg_id: 0,
                     msg_type: "pong".to_string(),
@@ -156,12 +159,15 @@ fn on_message(
                     }
                 }
             } else {
-                tracing::info!("Got App Message, type = {}", data.msg_type);
+                tracing::info!("Got App Message, type = {}({})", data.msg_type, data.msg_id);
+                let mapping = mapping.clone();
 
-                let worker_compute = worker_compute.clone();
                 wasm_bindgen_futures::spawn_local(async move {
                     let request = data.clone();
-                    let response = worker_compute.compute_response_message(request).await;
+                    let mapping = mapping.clone();
+                    let response =
+                        api_asscrack::crack_worker::api_worker::compute_response_message(request, mapping)
+                            .await;
                     let response = serde_wasm_bindgen::to_value(&response).expect("serialize");
                     match client.post_message(&response) {
                         Ok(_i) => {}
@@ -209,7 +215,7 @@ async fn worker_loop() -> anyhow::Result<()> {
 
 async fn worker_iteration() -> anyhow::Result<()> {
     tracing::info!(
-        "worker_iteration crack smoker init. timestamp = {}",
+        "worker_iteration crack smoker init 2. timestamp = {}",
         get_timestamp_now_ms()
     );
 

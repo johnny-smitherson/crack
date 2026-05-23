@@ -1,27 +1,34 @@
-mod compute_message;
 mod register_web_worker;
 
-use api_asscrack::crack_worker::{WorkerComputeImpl, WorkerMessage};
+use std::sync::Arc;
+
+use api_asscrack::{api::api_worker_declarations::*, crack_worker::api_worker::make_api_mapping};
 use wasm_bindgen::prelude::*;
 
 // Called when the wasm module is instantiated
 #[wasm_bindgen(start)]
 fn init_worker() -> std::result::Result<(), JsValue> {
+    // unsafe {
+    //     __wasm_call_ctors();
+    // }
+
     use tracing::Level;
 
     dioxus_logger::init(Level::INFO).expect("logger failed to init");
     tracing::info!("tracing...");
+    use dioxus_logger::tracing;
 
-    let worker_compute = std::sync::Arc::new(WebServiceWorkerCompute);
-    register_web_worker::do_worker_registration(worker_compute)?;
+    tracing::debug!("{:?}", WorkerPing);
+
+    register_web_worker::do_worker_registration(make_api_mapping(vec![
+        Arc::new(WorkerApiGroup2),
+    ]))?;
+
+    tracing::info!("init_worker() finished! WORKER IS RUNNING!!!");
 
     Ok(())
 }
 
-struct WebServiceWorkerCompute;
-#[api_asscrack::async_trait::async_trait]
-impl WorkerComputeImpl for WebServiceWorkerCompute {
-    async fn compute_response_message(&self, req: WorkerMessage) -> WorkerMessage {
-        crate::compute_message::compute_response_message(req).await
-    }
-}
+// unsafe extern "C" {
+//     fn __wasm_call_ctors();
+// }
