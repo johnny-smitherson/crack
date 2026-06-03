@@ -13,7 +13,7 @@ const clientPorts = new Map();
 let nextClientId = 1;
 
 // Retry configuration for Dedicated Worker initialization
-let currentRetryDelay = 60; // Starts at 60ms, doubles on failure
+let currentRetryDelay = 120; // Starts at 120ms, doubles on failure
 let retryTimeoutId = null;
 
 // Message Queue and active processing state
@@ -57,7 +57,7 @@ self.onconnect = (event) => {
       dbWorkerPort = receivedPort;
       
       // Reset exponential backoff delay on successful registration
-      currentRetryDelay = 60;
+      currentRetryDelay = 120;
       if (retryTimeoutId) {
         clearTimeout(retryTimeoutId);
         retryTimeoutId = null;
@@ -68,7 +68,7 @@ self.onconnect = (event) => {
         const dbData = dbEvent.data;
         if (!dbData) return;
 
-        console.log('[SharedWorker] Received reply from Dedicated Worker:', dbData);
+        // console.log('[SharedWorker] Received reply from Dedicated Worker:', dbData);
 
         if (dbData.type === 'execute_reply') {
           // Clear active processing timeout and complete current item
@@ -106,7 +106,7 @@ self.onconnect = (event) => {
 
     // 3. Handle Client Message (Queueing)
     if (data.type === 'client_message') {
-      console.log(`[SharedWorker] Queueing message from client ${clientId}:`, data.payload);
+      // console.log(`[SharedWorker] Queueing message from client ${clientId}:`, data.payload);
       messageQueue.push({
         clientId: clientId,
         payload: data.payload
@@ -205,7 +205,7 @@ function processQueue() {
   // Retrieve next message
   currentProcessingItem = messageQueue.shift();
   const item = currentProcessingItem;
-  console.log(`[SharedWorker] Dispatching message for client ${item.clientId} to Dedicated Worker:`, item.payload);
+  // console.log(`[SharedWorker] Dispatching message for client ${item.clientId} to Dedicated Worker:`, item.payload);
 
   // Set response timeout (500ms). If no reply comes back, we assume the worker was killed.
   processingTimeoutId = setTimeout(() => {
@@ -228,7 +228,7 @@ function processQueue() {
 /**
  * Handles communication failures with the Dedicated Worker.
  * Attempts to instruct the leader tab to terminate its worker.
- * Waits up to 60ms for a SHUTDOWN_OK reply, then elects a new leader randomly.
+ * Waits up to 120ms for a SHUTDOWN_OK reply, then elects a new leader randomly.
  */
 function handleDedicatedWorkerFailure() {
   if (processingTimeoutId) {
@@ -269,11 +269,11 @@ function handleDedicatedWorkerFailure() {
   if (leaderPort) {
     console.log(`[SharedWorker] Sending SHUTDOWN_WORKER request to leader client ${leaderClientId}.`);
     
-    // Register 60ms grace period
+    // Register 120ms grace period
     shutdownTimeoutId = setTimeout(() => {
-      console.warn('[SharedWorker] 60ms grace period expired without SHUTDOWN_OK. Proceeding anyway...');
+      console.warn('[SharedWorker] 120ms grace period expired without SHUTDOWN_OK. Proceeding anyway...');
       proceedToNewAllocation();
-    }, 60);
+    }, 120);
 
     self.pendingShutdownResolver = () => {
       console.log('[SharedWorker] SHUTDOWN_OK received within grace period.');

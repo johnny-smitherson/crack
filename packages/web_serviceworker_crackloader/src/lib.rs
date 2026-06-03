@@ -107,7 +107,7 @@ async fn make_worker() -> anyhow::Result<WorkerPipe> {
                         tracing::info!("reply ok.");
                     }
                     Err(e) => {
-                        tracing::error!("error sending pong! err => {e:#?}")
+                        tracing::info!("error sending pong! err => {e:#?}")
                     }
                 }
             });
@@ -139,7 +139,7 @@ async fn make_worker() -> anyhow::Result<WorkerPipe> {
         msg_content: "".as_bytes().to_vec(),
     };
 
-    const N: i32 = 10;
+    const N: i32 = 200;
     let mut _ok = false;
     for _i in 1..=N {
         js_handles.send_message(&serde_wasm_bindgen::to_value(&ping)?);

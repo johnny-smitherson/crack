@@ -21,15 +21,6 @@ fn init_worker() -> std::result::Result<(), JsValue> {
 
     spawn_local(async move {
         tracing::info!("Web Worker : spawned...");
-        // #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-        // crack::storage_crackhouse::install_relaxed_idb().await;
-        #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-        {
-            tracing::error!("install_opfs_sahpool() ... ");
-            let t = crack::storage_crackhouse::install_opfs_sahpool().await;
-            tracing::error!("install_opfs_sahpool() = {:#?}", t);
-            t.unwrap()
-        }
 
         tracing::info!("Web Worker : web_worker_registration()...");
         let _r = web_worker_registration(make_api_mapping(vec![

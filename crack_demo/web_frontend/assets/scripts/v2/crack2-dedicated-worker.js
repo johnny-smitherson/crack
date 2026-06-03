@@ -19,7 +19,7 @@ async function init_wasm_bindgen() {
     console.log('[DedicatedWorker] Dedicated Worker script loaded and initialized.');
 
     // 1. Direct messages from the tab (e.g. before port is bridged)
-    self.onmessage = (event) => {
+    self.onmessage = async (event) => {
       const data = event.data;
       if (!data) return;
 
@@ -34,7 +34,7 @@ async function init_wasm_bindgen() {
       if (data.type === 'init_dedicated_worker') {
         console.log('[DedicatedWorker] Custom initialization requested. Running initDedicatedWorker()...');
         try {
-          initDedicatedWorker();
+          await initDedicatedWorker();
           console.info('[DedicatedWorker] initDedicatedWorker() DONE - OK');
           self.postMessage({ type: 'init_result', success: true });
         } catch (err) {
@@ -59,7 +59,7 @@ async function init_wasm_bindgen() {
           const bridgeData = bridgeEvent.data;
           if (!bridgeData) return;
 
-          console.log('[DedicatedWorker] Message received from SharedWorker via bridge:', bridgeData);
+          // console.log('[DedicatedWorker] Message received from SharedWorker via bridge:', bridgeData);
 
           if (bridgeData.type === 'execute') {
             const originalPayload = bridgeData.payload;
@@ -74,7 +74,7 @@ async function init_wasm_bindgen() {
                 console.error('[DedicatedWorker] Got Payload Without msg_type!', originalPayload);
               }
 
-              console.log('[DedicatedWorker] Finished processing. Sending reply back:', modifiedPayload);
+              // console.log('[DedicatedWorker] Finished processing. Sending reply back:', modifiedPayload);
 
               bridgedPort.postMessage({
                 type: 'execute_reply',

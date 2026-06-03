@@ -77,7 +77,7 @@ export function init_workers2() {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    // Ping/pong check with timeout = 60ms, after fail sleep = 60ms, retry count = 10
+    // Ping/pong check with timeout = 120ms, after fail sleep = 120ms, retry count = 10
     async function verifyConnection() {
         for (let attempt = 1; attempt <= 10; attempt++) {
             console.log(`[Client] Sending ping attempt ${attempt}/10...`);
@@ -93,9 +93,9 @@ export function init_workers2() {
             sharedWorker.port.addEventListener('message', pingListener);
             sharedWorker.port.postMessage({ type: 'ping', id: pingId });
 
-            // Wait up to 60ms for pong
+            // Wait up to 120ms for pong
             await Promise.race([
-                sleep(60),
+                sleep(120),
                 new Promise((resolve) => {
                     const checkInterval = setInterval(() => {
                         if (pongReceived) {
@@ -114,8 +114,8 @@ export function init_workers2() {
                 pingSuccessful = true;
                 break;
             } else {
-                console.warn(`[Client] Ping attempt ${attempt} timed out. Sleeping 60ms before retry...`);
-                await sleep(60);
+                console.warn(`[Client] Ping attempt ${attempt} timed out. Sleeping 120ms before retry...`);
+                await sleep(120);
             }
         }
 
@@ -147,7 +147,7 @@ export function init_workers2() {
             return;
         }
 
-        // 1. Ping/pong loop with Dedicated Worker (timeout = 60ms, after fail sleep = 60ms, retry count = 10)
+        // 1. Ping/pong loop with Dedicated Worker (timeout = 120ms, after fail sleep = 120ms, retry count = 10)
         let workerPingSucceeded = false;
         for (let attempt = 1; attempt <= 10; attempt++) {
             console.log(`[Client] Dedicated Worker direct ping attempt ${attempt}/10...`);
@@ -163,9 +163,9 @@ export function init_workers2() {
             dedicatedWorker.addEventListener('message', listener);
             dedicatedWorker.postMessage({ type: 'ping', id: pingId });
 
-            // Wait up to 60ms for pong
+            // Wait up to 120ms for pong
             await Promise.race([
-                sleep(60),
+                sleep(120),
                 new Promise((resolve) => {
                     const checkInterval = setInterval(() => {
                         if (pongReceived) {
@@ -183,8 +183,8 @@ export function init_workers2() {
                 workerPingSucceeded = true;
                 break;
             } else {
-                console.warn(`[Client] Dedicated Worker ping attempt ${attempt} timed out. Sleeping 60ms...`);
-                await sleep(60);
+                console.warn(`[Client] Dedicated Worker ping attempt ${attempt} timed out. Sleeping 120ms...`);
+                await sleep(120);
             }
         }
 
@@ -270,7 +270,7 @@ export function init_workers2() {
             }
             sharedWorker.port.postMessage({ type: 'SHUTDOWN_OK' });
         } else if (data.type === 'forwarded_reply') {
-            console.log('[Client] Received reply payload from Shared Worker:', data.payload, 'is_error:', data.is_error);
+            // console.log('[Client] Received reply payload from Shared Worker:', data.payload, 'is_error:', data.is_error);
             if (typeof onMessageCallback === 'function') {
                 onMessageCallback(data.payload, data.is_error);
             }
@@ -288,7 +288,7 @@ export function init_workers2() {
     // Return the standard WorkerHandles interface
     const handles = {
         send_message(message_obj) {
-            console.log('[Client] WorkerHandles.send_message() called with:', message_obj);
+            // console.log('[Client] WorkerHandles.send_message() called with:', message_obj);
             sharedWorker.port.postMessage({
                 type: 'client_message',
                 payload: message_obj

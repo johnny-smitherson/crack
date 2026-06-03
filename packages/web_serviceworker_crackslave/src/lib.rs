@@ -11,14 +11,26 @@ use api_asscrack::crack_worker::api_worker::ApiImplMapping;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 #[wasm_bindgen(js_name = "initDedicatedWorker")]
-pub fn _js_init_dedicated_worker() -> Result<(), JsValue> {
+pub async fn _js_init_dedicated_worker() -> Result<(), JsValue> {
     tracing::info!("init_dedicated_worker");
+
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    {
+        tracing::info!("install_opfs_sahpool() ... ");
+        storage_crackhouse::install_opfs_sahpool()
+            .await
+            .map_err(|e| {
+                tracing::error!("install_opfs_sahpool() error: {e:#?}");
+                JsValue::from_str(&format!("install_opfs_sahpool() erorr: {e:#?}"))
+            })?;
+        tracing::warn!("install_opfs_sahpool() success!");
+    }
     Ok(())
 }
 
 #[wasm_bindgen(js_name = "computePayloadReply")]
 pub async fn _js_compute_payload_reply(msg: JsValue) -> Result<JsValue, JsValue> {
-    tracing::info!("compute_payload_reply: msg={msg:?}");
+    // tracing::info!("compute_payload_reply: msg={msg:?}");
 
     _compute_payload_2(msg)
         .await
@@ -38,7 +50,7 @@ async fn _compute_payload_2(msg: JsValue) -> anyhow::Result<JsValue> {
         }
     };
 
-    tracing::info!("on_message data: {:#?}", data);
+    // tracing::info!("on_message data: {:#?}", data);
 
     if &data.msg_type == "ping" {
         let client_version = data.msg_content;
