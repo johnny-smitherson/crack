@@ -1,7 +1,6 @@
 pub mod api;
-pub mod basic;
 pub mod impl_rusqulite;
-pub mod models;
+pub mod types;
 
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
 pub async fn install_opfs_sahpool() -> anyhow::Result<()> {

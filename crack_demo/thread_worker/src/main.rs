@@ -14,7 +14,7 @@ use crack::{
         },
         crack_worker::{WorkerLoaderFactory, api_worker::make_api_mapping},
     },
-    storage_crackhouse::api::{ExecuteSQL, StorageCrackhouseApiGroup},
+    storage_crackhouse::api::StorageCrackhouseApiGroup,
 };
 
 #[tokio::main]
@@ -42,19 +42,13 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("\n\n====================\n\n WRITE SQL: >>> ");
     while let Ok(sql) = std::io::read_to_string(std::io::stdin()) {
-        let ret = c.call::<ExecuteSQL>(sql.clone()).await;
         let ret2 = c.call::<ExecuteSQL2>(sql.clone()).await;
-
-        let ret = match ret {
-            Ok(r) => r,
-            Err(e) => format!("{e:#?}"),
-        };
 
         let ret2 = match ret2 {
             Ok(r) => format!("{:#?}", r),
             Err(e) => format!("{e:#?}"),
         };
-        tracing::info!("===========\n\n{ret}\n\n================\n\n{ret2}\n\n==============");
+        tracing::info!("===========\n\n{ret2}\n\n================\n\n{ret2}\n\n==============");
     }
 
     Ok(())

@@ -17,16 +17,16 @@ rusqlite = { version = "0.38.0", features = ["bundled", "serde_json", "chrono"] 
 # sea-orm-sync = {version = "=2.0.0-rc.38", features = ["rusqlite", "entity-registry", "schema-sync"]}
 
 # sea-orm-sync = {path="../../../sea-orm/sea-orm-sync",  features = ["rusqlite", "entity-registry", "schema-sync"]}
-sea-orm-sync = {git="https://github.com/johnny-smitherson/sea-orm", branch="remove-instant-now",  features = ["rusqlite", "entity-registry", "schema-sync"]}
-sea-query = { version = "=1.0.0-rc.33", default-features = false, features = [
-    "thread-safe",
-    "hashable-value",
-    "backend-mysql",
-    "backend-postgres",
-    "backend-sqlite",
-    "sea-orm",
-    "serde",
-] }
+# sea-orm-sync = {git="https://github.com/johnny-smitherson/sea-orm", branch="remove-instant-now",  features = ["rusqlite", "entity-registry", "schema-sync"]}
+# sea-query = { version = "=1.0.0-rc.33", default-features = false, features = [
+#     "thread-safe",
+#     "hashable-value",
+#     "backend-mysql",
+#     "backend-postgres",
+#     "backend-sqlite",
+#     "sea-orm",
+#     "serde",
+# ] }
 
 # diesel = { version = "2.3.2",  features = ["sqlite", "returning_clauses_for_sqlite_3_35"] }
 # diesel_migrations = { version = "2.3.2", features = ["sqlite"] }

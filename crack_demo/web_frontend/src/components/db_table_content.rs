@@ -1,6 +1,6 @@
 use crack::storage_crackhouse::{
-    api::{ExecuteSQL2, ExecuteSQLParams, SQLAndParams},
-    basic::DbValue,
+    api::{ExecuteSQL2, ExecuteSQLParams},
+    types::{DbValue, SQLAndParams},
 };
 use dioxus::{logger::tracing, prelude::*};
 
@@ -11,21 +11,23 @@ use crate::{
 
 #[component]
 pub fn TableContentPane(table: ReadSignal<String>) -> Element {
-    let sql = "SELECT * FROM pragma_table_info(?);";
-
     let result = use_resource(move || {
+        let select_star = format!("SELECT * FROM {} LIMIT 100", table.read().clone());
+
+        let sql = "SELECT name FROM pragma_table_info(?);";
         let param = DbValue::Text(table.read().clone());
         tracing::info!("TableContentPane {param:?}");
 
-        let arg = SQLAndParams {
-            sql: sql.to_string(),
-            params: vec![param],
-        };
-
-        let arg2 = arg.clone();
         async move {
             let api = use_crack();
-            api.call::<ExecuteSQLParams>(arg2.clone()).await
+            (
+                api.call::<ExecuteSQLParams>(SQLAndParams {
+                    sql: sql.to_string(),
+                    params: vec![param],
+                })
+                .await,
+                api.call::<ExecuteSQL2>(select_star.clone()).await,
+            )
         }
     });
 
@@ -33,10 +35,26 @@ pub fn TableContentPane(table: ReadSignal<String>) -> Element {
     let Some(result) = result.as_ref() else {
         return rsx! {"Loading"};
     };
-    let result = match result {
-        Ok(result) => result,
-        Err(e) => return rsx! {pre{"Error {e:?}!"}},
+
+    let (_r1, r2) = match result {
+        (Ok(r1), Ok(r2)) => (r1, r2),
+        _ => return rsx! {pre{"Error in TableContentPane!"}},
     };
+    let cols: Vec<_> = _r1
+        .rows
+        .iter()
+        .filter_map(|r| {
+            if let Some(DbValue::Text(txt)) = r.cols.get(0) {
+                Some(txt.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let mut r2 = r2.clone();
+    if r2.column_names.is_empty() {
+        r2.column_names = cols;
+    }
 
     rsx! {
         div {
@@ -46,10 +64,21 @@ pub fn TableContentPane(table: ReadSignal<String>) -> Element {
                 border: 1px solid red;
             ",
                     DisplayTable::<DefaultTableRenderer> {
-                        data: result.clone(),
+                        data: r2.clone(),
                         renderer: DefaultTableRenderer,
                     }
 
+        }
+        div {
+            style: "
+                width: 400px;
+                border: 1px solid red;
+            ",
+
+            DisplayTable::<DefaultTableRenderer> {
+                data: _r1.clone(),
+                renderer: DefaultTableRenderer,
+            }
         }
     }
 }

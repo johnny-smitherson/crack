@@ -1,5 +1,5 @@
 use super::display_table::*;
-use crack::storage_crackhouse::{api::ExecuteSQL2, basic::DbValue};
+use crack::storage_crackhouse::{api::ExecuteSQL2, types::DbValue};
 use dioxus::prelude::*;
 
 use crate::{crack::use_crack, route::Route};

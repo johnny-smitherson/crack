@@ -1,4 +1,4 @@
-use crack::storage_crackhouse::basic::{DbValue, SqlResultSet};
+use crack::storage_crackhouse::types::{DbValue, SqlResultSet};
 use dioxus::prelude::*;
 
 pub trait TableCellRenderer: PartialEq + Clone + 'static {

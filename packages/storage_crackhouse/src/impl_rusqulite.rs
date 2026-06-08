@@ -1,74 +1,83 @@
-use rusqlite::{Connection, Result};
+use anyhow::Context;
+use rusqlite::{Connection, Result, types::Value};
+use std::{
+    cell::RefCell,
+    sync::{Arc, MutexGuard, OnceLock, RwLock},
+};
+use tokio::sync::Mutex;
 
-#[derive(Debug)]
-struct Person {
-    id: i32,
-    name: String,
-    data: Option<Vec<u8>>,
-}
+use crate::types::{DbValue, SQLAndParams, SqlResultRow, SqlResultSet};
 
-pub fn connect() -> Result<Connection> {
+fn _new_connection() -> Result<Connection> {
     // ON WASM
     #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-    const FILE: &str = "file:/assets/scripts/post.db?vfs=opfs-sahpool";
+    const FILE: &str = "file:/assets/scripts/post3.db?vfs=opfs-sahpool";
 
     // ON NON-WASM
     #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
-    const FILE: &str = "post.db";
+    const FILE: &str = "post3.db";
 
     Connection::open(FILE)
 }
 
-pub fn run_test_person() -> Result<()> {
-    let conn = connect()?;
-    tracing::info!("CREATE TABLE");
+lazy_static::lazy_static! {
+pub static ref CONN: Arc<Mutex<Result<Connection>>> = Arc::new(Mutex::new(_new_connection()));
+}
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS person (
-            id    INTEGER PRIMARY KEY,
-            name  TEXT NOT NULL,
-            data  BLOB
-        )",
-        (), // empty list of parameters.
-    )?;
-    let me = Person {
-        id: 0,
-        name: "Steven".to_string(),
-        data: None,
+pub async fn sql_query(sql: SQLAndParams) -> anyhow::Result<SqlResultSet> {
+    let conn = CONN.lock().await;
+    let conn = conn
+        .as_ref()
+        .map_err(|e| anyhow::anyhow!("Error fetching SQL lock: {e:?}"))?;
+    // let conn = conn.as_ref().map_err(|e| anyhow::anyhow!("Error obtaining SQL connection: {e:?}"))?;
+    let mut _stmt = conn.prepare(&sql.sql)?;
+    let column_count = _stmt.column_count();
+
+    let mut r = SqlResultSet {
+        column_names: vec![],
+        rows: vec![],
     };
-    conn.execute(
-        "INSERT INTO person (name, data) VALUES (?1, ?2)",
-        (&me.name, &me.data),
-    )?;
 
-    let mut stmt = conn.prepare("SELECT id, name, data FROM person")?;
-    let person_iter = stmt.query_map([], |row| {
-        Ok(Person {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            data: row.get(2)?,
-        })
-    })?;
+    r.column_names = _stmt
+        .column_names()
+        .into_iter()
+        .map(String::from)
+        .collect::<Vec<_>>();
 
-    for person in person_iter {
-        tracing::info!(
-            "Found person {}: {:?}",
-            person.as_ref().unwrap().id,
-            person.as_ref().unwrap()
-        );
+    for (i, param) in sql.params.into_iter().enumerate() {
+        let param = Value::from(param);
+        _stmt.raw_bind_parameter(1 + i, param)?;
     }
-    Ok(())
-}
-
-pub fn sql_inject(sql: String) -> anyhow::Result<String> {
-    let conn = connect()?;
-    let mut _stmt = conn.prepare(&sql)?;
     let mut _resp = _stmt.raw_query();
-    let mut txt = String::from("");
-    while let Ok(Some(_row)) = _resp.next() {
-        let rowtxt = format!("{_row:?}\n\n");
-        txt += &rowtxt;
+
+    while let Some(_row) = _resp.next()? {
+        let mut v = vec![];
+        for j in 0..column_count {
+            let col_val = _row.get_ref(j)?;
+            let col_val = rusqlite::types::Value::from(col_val);
+            let col_val = DbValue::from(col_val);
+            v.push(col_val);
+        }
+        r.rows.push(SqlResultRow { cols: v });
     }
 
-    Ok(txt)
+    Ok(r)
 }
+
+// impl SqlResultSet {
+//     pub fn deserialize<T: DeserializeOwned>(&self) -> anyhow::Result<Vec<T>> {
+//         let mut objs = vec![];
+//         for row in self.rows.iter() {
+//             let mut obj = serde_json::map::Map::new();
+//             for ((_j, col), value) in self.column_names.iter().enumerate().zip(row.cols.iter()) {
+//                 obj.insert(col.to_string(), value.clone());
+//             }
+//             let val = serde_json::Value::Object(obj);
+//             objs.push(val);
+//         }
+//         let objs = serde_json::Value::Array(objs);
+
+//         let t = serde_json::from_value(objs)?;
+//         Ok(t)
+//     }
+// }
