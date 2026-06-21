@@ -3,8 +3,8 @@
 use bevy::{
     prelude::*,
     render::{
-        settings::{Backends, WgpuSettings},
         RenderPlugin,
+        settings::{Backends, WgpuSettings},
     },
     window::WindowResolution,
 };
@@ -35,20 +35,24 @@ pub fn main_bevy() {
                     ..default()
                 })
                 .set(RenderPlugin {
-                    render_creation:
-                        bevy::render::settings::RenderCreation::Automatic(
-                            Box::new(WgpuSettings {
-                                backends: Some(backends),
-                                ..default()
-                            }),
-                        ),
+                    render_creation: bevy::render::settings::RenderCreation::Automatic(Box::new(
+                        WgpuSettings {
+                            backends: Some(backends),
+                            ..default()
+                        },
+                    )),
+                    ..default()
+                })
+                .set(bevy::asset::io::web::WebAssetPlugin {
+                    silence_startup_warning: true,
+                })
+                .set(AssetPlugin {
+                    meta_check: bevy::asset::AssetMetaCheck::Never,
                     ..default()
                 }),
         )
         .insert_resource(bevy::winit::WinitSettings {
-            focused_mode: bevy::winit::UpdateMode::reactive(
-                std::time::Duration::from_millis(20),
-            ),
+            focused_mode: bevy::winit::UpdateMode::reactive(std::time::Duration::from_millis(20)),
             unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(
                 std::time::Duration::from_millis(666),
             ),
