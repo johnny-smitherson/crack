@@ -1,4 +1,4 @@
-use bevy::{core::FrameCount, prelude::*};
+use bevy::{diagnostic::FrameCount, prelude::*};
 
 use bevy_egui::*;
 
@@ -8,7 +8,7 @@ impl Plugin for UiEguiPlugin {
     fn build(&self, app: &mut App) {
         info!("loading: UiEguiPlugin...");
         web_set_loading_status(true, "Loading UiEguiPlugin...");
-        app.add_plugins(EguiPlugin)
+        app.add_plugins(EguiPlugin::default())
             .init_resource::<UiState>()
             .add_systems(Update, ui_example_system)
             .add_systems(Update, update_web_loading_status);
@@ -47,7 +47,10 @@ fn ui_example_system(
     mut fit_again: Local<i32>,
     mut initialized: Local<bool>,
 ) {
-    let ctx = contexts.ctx_mut();
+    let Ok(ctx) = contexts.ctx_mut() else {
+        tracing::error!("no ctx in ui_example_system");
+        return;
+    };
     if !*initialized {
         *initialized = true;
         web_set_resolution(ui_state.resolution);

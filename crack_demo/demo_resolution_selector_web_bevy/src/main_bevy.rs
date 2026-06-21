@@ -10,10 +10,10 @@ use bevy::{
 };
 pub fn main_bevy() {
     info!("exec main_bevy()...");
-    // #[cfg(feature = "web")]
+    #[cfg(feature = "web")]
     let backends = Backends::GL;
-    // #[cfg(not(feature = "web"))]
-    // let backends = Backends::PRIMARY;
+    #[cfg(not(feature = "web"))]
+    let backends = Backends::PRIMARY;
 
     info!("backends: {:?}", backends);
 
@@ -28,7 +28,7 @@ pub fn main_bevy() {
                         // resizable: true,
                         fit_canvas_to_parent: true,
                         prevent_default_event_handling: false,
-                        resolution: WindowResolution::new(1280.0, 720.0)
+                        resolution: WindowResolution::new(1280, 720)
                             .with_scale_factor_override(1.15),
                         ..default()
                     }),
@@ -37,10 +37,10 @@ pub fn main_bevy() {
                 .set(RenderPlugin {
                     render_creation:
                         bevy::render::settings::RenderCreation::Automatic(
-                            WgpuSettings {
+                            Box::new(WgpuSettings {
                                 backends: Some(backends),
                                 ..default()
-                            },
+                            }),
                         ),
                     ..default()
                 }),
@@ -60,7 +60,7 @@ pub fn main_bevy() {
         .run();
 }
 
-fn log_dt(time: Res<Time<Real>>, frames: Res<bevy::core::FrameCount>) {
+fn log_dt(time: Res<Time<Real>>, frames: Res<bevy::diagnostic::FrameCount>) {
     if (frames.0 < 120 && time.delta_secs() > 0.1) || time.delta_secs() > 2.0 {
         info!("slow frame: {} / dt: {}", frames.0, time.delta_secs());
     }
