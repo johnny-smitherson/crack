@@ -3305,6 +3305,7 @@ dependencies = [
 name = "demo_resolution_selector_web_bevy"
 version = "0.1.0"
 dependencies = [
+ "_crack_utils",
  "avian3d",
  "bevy",
  "bevy_egui",

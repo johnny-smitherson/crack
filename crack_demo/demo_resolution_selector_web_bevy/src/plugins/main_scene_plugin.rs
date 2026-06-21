@@ -7,7 +7,7 @@ use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 use bytes::Bytes;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet::record::Field;
-use std::collections::{HashMap, HashSet, BinaryHeap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
 
 pub struct MainScenePlugin;
 
@@ -93,22 +93,28 @@ pub struct BBox {
 
 #[derive(Resource, Default, Debug)]
 pub struct Data3DResource {
-    pub nodes: HashMap<String, TreeNode>,
-    pub children: HashMap<String, HashMap<char, String>>,
-    pub parents: HashMap<String, String>,
+    pub nodes: BTreeMap<String, TreeNode>,
+    pub children: BTreeMap<String, BTreeMap<char, String>>,
+    pub parents: BTreeMap<String, String>,
     pub bbox: Option<BBox>,
     pub parsed: bool,
-    pub rendered_nodes: HashSet<String>,
+    pub rendered_nodes: BTreeSet<String>,
     pub selected_node: Option<String>,
     
     // LOD and Reference point fields
     pub reference_points: Vec<Vec3>,
     pub lod_budget: u32,
     pub roots: Vec<String>,
-    pub target_rendered_nodes: Option<HashSet<String>>,
-    pub loaded_scenes: HashMap<String, Handle<WorldAsset>>,
-    pub loading_scenes: HashMap<String, Handle<WorldAsset>>,
+    pub target_rendered_nodes: Option<BTreeSet<String>>,
+    pub loaded_scenes: BTreeMap<String, Handle<WorldAsset>>,
+    pub loading_scenes: BTreeMap<String, Handle<WorldAsset>>,
     pub lod_timer: Option<Timer>,
+
+    // Iterative caching fields
+    pub last_reference_points: Vec<Vec3>,
+    pub last_lod_budget: u32,
+    pub node_distances: BTreeMap<String, Vec<f32>>,
+    pub node_min_distances: BTreeMap<String, f32>,
 }
 
 #[derive(Resource)]
@@ -309,11 +315,12 @@ fn check_and_parse_parquet(
             info!("Nodes parquet file loaded! Parsing...");
 
             let nodes_asset = parquet_assets.remove(&handles.nodes).unwrap();
-            let parsed_nodes = parse_tree_nodes(&nodes_asset.bytes);
+            let mut parsed_nodes = parse_tree_nodes(&nodes_asset.bytes);
+            parsed_nodes.sort_by(|a, b| a.name.cmp(&b.name));
 
             info!("Parsed {} raw nodes.", parsed_nodes.len());
 
-            let mut nodes = HashMap::new();
+            let mut nodes = BTreeMap::new();
             for node in parsed_nodes {
                 // skip non-mesh nodes
                 if node.r#type == "mesh" {
@@ -322,7 +329,7 @@ fn check_and_parse_parquet(
             }
 
             // group mesh names by octant_path
-            let mut path_to_meshes: HashMap<String, Vec<String>> = HashMap::new();
+            let mut path_to_meshes: BTreeMap<String, Vec<String>> = BTreeMap::new();
             for mesh in nodes.values() {
                 let path = get_octant_path(&mesh.name);
                 path_to_meshes
@@ -330,10 +337,14 @@ fn check_and_parse_parquet(
                     .or_default()
                     .push(mesh.name.clone());
             }
+            // Sort to ensure absolute stability
+            for list in path_to_meshes.values_mut() {
+                list.sort();
+            }
 
             // establish parents and children maps from octant path
-            let mut children: HashMap<String, HashMap<char, String>> = HashMap::new();
-            let mut parents: HashMap<String, String> = HashMap::new();
+            let mut children: BTreeMap<String, BTreeMap<char, String>> = BTreeMap::new();
+            let mut parents: BTreeMap<String, String> = BTreeMap::new();
 
             for mesh in nodes.values() {
                 let path = get_octant_path(&mesh.name);
@@ -366,12 +377,7 @@ fn check_and_parse_parquet(
                     roots.push(node_name.clone());
                 }
             }
-
-            // // Filter to roots with min name length (dropping outliers with a longer name)
-            // if !roots.is_empty() {
-            //     let min_len = roots.iter().map(|r| r.len()).min().unwrap_or(0);
-            //     roots.retain(|r| r.len() == min_len);
-            // }
+            roots.sort();
 
             info!("Found {} root nodes after filtering.", roots.len());
 
@@ -392,7 +398,7 @@ fn check_and_parse_parquet(
             }
 
             // originally keep all roots in rendered_nodes
-            let mut rendered_nodes = HashSet::new();
+            let mut rendered_nodes = BTreeSet::new();
             for root in &roots {
                 rendered_nodes.insert(root.clone());
             }
@@ -435,6 +441,17 @@ fn check_and_parse_parquet(
                 data_res.bbox = Some(bbox);
             }
 
+            let mut node_distances = BTreeMap::new();
+            let mut node_min_distances = BTreeMap::new();
+            for (name, node) in &nodes {
+                let cx = 0.0f32.clamp(node.minx.min(node.maxx), node.minx.max(node.maxx));
+                let cy = 0.0f32.clamp(node.miny.min(node.maxy), node.miny.max(node.maxy));
+                let cz = 0.0f32.clamp(node.minz.min(node.maxz), node.minz.max(node.maxz));
+                let dist = Vec3::new(cx, cy, cz).length();
+                node_distances.insert(name.clone(), vec![dist]);
+                node_min_distances.insert(name.clone(), dist);
+            }
+
             let budget = roots.len() as u32;
             data_res.nodes = nodes;
             data_res.children = children;
@@ -445,6 +462,10 @@ fn check_and_parse_parquet(
             data_res.lod_budget = budget;
             let timeout = 1.0 + rand::random::<f32>() * 1.0;
             data_res.lod_timer = Some(Timer::from_seconds(timeout, TimerMode::Once));
+            data_res.last_reference_points = vec![Vec3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY)];
+            data_res.last_lod_budget = 0;
+            data_res.node_distances = node_distances;
+            data_res.node_min_distances = node_min_distances;
             data_res.parsed = true;
 
             commands.remove_resource::<ParquetHandles>();
@@ -582,7 +603,7 @@ fn sync_node_models(
     }
 
     // Despawn models for nodes that are no longer in rendered_nodes
-    let mut spawned_names = HashSet::new();
+    let mut spawned_names = BTreeSet::new();
     for (entity, model) in &model_query {
         if !data_res.rendered_nodes.contains(&model.node_name) {
             commands.entity(entity).despawn();
@@ -666,6 +687,13 @@ fn draw_reference_points_gizmos(
     }
 }
 
+fn compute_distance_to_aabb(node: &TreeNode, p: Vec3) -> f32 {
+    let cx = p.x.clamp(node.minx.min(node.maxx), node.minx.max(node.maxx));
+    let cy = p.y.clamp(node.miny.min(node.maxy), node.miny.max(node.maxy));
+    let cz = p.z.clamp(node.minz.min(node.maxz), node.minz.max(node.maxz));
+    p.distance(Vec3::new(cx, cy, cz))
+}
+
 fn recompute_lod_system(
     mut data_res: ResMut<Data3DResource>,
     time: Res<Time>,
@@ -697,6 +725,110 @@ fn recompute_lod_system(
             timer.set_duration(std::time::Duration::from_secs_f32(next_timeout));
             timer.reset();
 
+            // Early exit check: did budget or reference points change?
+            let budget_changed = data_res.lod_budget != data_res.last_lod_budget;
+            let refs_changed = data_res.reference_points != data_res.last_reference_points;
+
+            if !budget_changed && !refs_changed {
+                return;
+            }
+
+            let start_time = _crack_utils::get_timestamp_now_ms();
+
+            // Determine re-evaluated nodes and update cache
+            let mut nodes_to_reevaluate = BTreeSet::new();
+            let last_refs = &data_res.last_reference_points;
+            let new_refs = &data_res.reference_points;
+
+            let mut addition_idx = None;
+            let mut removal_idx = None;
+
+            if new_refs.len() == last_refs.len() + 1 && new_refs[..last_refs.len()] == *last_refs {
+                addition_idx = Some(last_refs.len());
+            } else if last_refs.len() > 0 && new_refs.len() == last_refs.len() - 1 {
+                let mut diff_at = last_refs.len() - 1;
+                for i in 0..new_refs.len() {
+                    if new_refs[i] != last_refs[i] {
+                        diff_at = i;
+                        break;
+                    }
+                }
+                if new_refs[diff_at..] == last_refs[diff_at+1..] {
+                    removal_idx = Some(diff_at);
+                }
+            }
+
+            if let Some(idx) = addition_idx {
+                let new_pt = new_refs[idx];
+                let names: Vec<String> = data_res.nodes.keys().cloned().collect();
+                for name in names {
+                    let node = data_res.nodes.get(&name).unwrap();
+                    let d = compute_distance_to_aabb(node, new_pt);
+                    let old_min = *data_res.node_min_distances.get(&name).unwrap_or(&f32::INFINITY);
+                    
+                    {
+                        let dists = data_res.node_distances.entry(name.clone()).or_default();
+                        dists.push(d);
+                    }
+
+                    if d < old_min || budget_changed {
+                        data_res.node_min_distances.insert(name.clone(), d);
+                        nodes_to_reevaluate.insert(name);
+                    } else if budget_changed {
+                        nodes_to_reevaluate.insert(name);
+                    }
+                }
+            } else if let Some(idx) = removal_idx {
+                let names: Vec<String> = data_res.nodes.keys().cloned().collect();
+                for name in names {
+                    let old_min = *data_res.node_min_distances.get(&name).unwrap_or(&f32::INFINITY);
+                    let removed_d = {
+                        let dists = data_res.node_distances.get_mut(&name).unwrap();
+                        dists.remove(idx)
+                    };
+                    
+                    if (removed_d - old_min).abs() < 0.0001 || budget_changed {
+                        let new_min = {
+                            let dists = data_res.node_distances.get(&name).unwrap();
+                            if dists.is_empty() {
+                                let node = data_res.nodes.get(&name).unwrap();
+                                compute_distance_to_aabb(node, Vec3::ZERO)
+                            } else {
+                                dists.iter().copied().fold(f32::INFINITY, f32::min)
+                            }
+                        };
+                        data_res.node_min_distances.insert(name.clone(), new_min);
+                        nodes_to_reevaluate.insert(name);
+                    } else if budget_changed {
+                        nodes_to_reevaluate.insert(name);
+                    }
+                }
+            } else {
+                let names: Vec<String> = data_res.nodes.keys().cloned().collect();
+                let refs_to_use = if new_refs.is_empty() {
+                    vec![Vec3::ZERO]
+                } else {
+                    new_refs.clone()
+                };
+
+                for name in names {
+                    let node = data_res.nodes.get(&name).unwrap();
+                    let mut new_dists = Vec::new();
+                    for &pt in &refs_to_use {
+                        new_dists.push(compute_distance_to_aabb(node, pt));
+                    }
+                    let new_min = new_dists.iter().copied().fold(f32::INFINITY, f32::min);
+                    let old_min = *data_res.node_min_distances.get(&name).unwrap_or(&f32::INFINITY);
+
+                    data_res.node_distances.insert(name.clone(), new_dists);
+                    data_res.node_min_distances.insert(name.clone(), new_min);
+
+                    if (new_min - old_min).abs() > 0.0001 || budget_changed {
+                        nodes_to_reevaluate.insert(name);
+                    }
+                }
+            }
+
             // Run subdivision
             let (target_rendered, target_loaded) = run_lod_subdivision(&data_res);
             data_res.target_rendered_nodes = Some(target_rendered);
@@ -714,6 +846,21 @@ fn recompute_lod_system(
                     }
                 }
             }
+
+            // Deterministic logging to console
+            let elapsed_ms = _crack_utils::get_timestamp_now_ms() - start_time;
+            info!(
+                "LOD recompute iteration: budget = {}, ref_points = {}, rendered = {} tiles, re-evaluated nodes = {}, took = {}ms",
+                data_res.lod_budget,
+                data_res.reference_points.len(),
+                data_res.target_rendered_nodes.as_ref().map(|s| s.len()).unwrap_or(0),
+                nodes_to_reevaluate.len(),
+                elapsed_ms
+            );
+
+            // Update last budget and reference points cache
+            data_res.last_lod_budget = data_res.lod_budget;
+            data_res.last_reference_points = data_res.reference_points.clone();
         }
     }
 
@@ -725,7 +872,7 @@ fn recompute_lod_system(
             data_res.target_rendered_nodes = None;
 
             // Retain only ancestors and currently rendered nodes in loaded_scenes
-            let mut needed_loaded_nodes = HashSet::new();
+            let mut needed_loaded_nodes = BTreeSet::new();
             for rendered in &data_res.rendered_nodes {
                 needed_loaded_nodes.insert(rendered.clone());
                 let mut curr = rendered.clone();
@@ -739,19 +886,15 @@ fn recompute_lod_system(
     }
 }
 
+#[derive(PartialEq, Eq)]
 struct Candidate {
-    metric: f32,
+    metric: bevy::math::FloatOrd,
     node_name: String,
 }
-impl PartialEq for Candidate {
-    fn eq(&self, other: &Self) -> bool {
-        self.metric == other.metric
-    }
-}
-impl Eq for Candidate {}
 impl Ord for Candidate {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.metric.partial_cmp(&self.metric).unwrap_or(std::cmp::Ordering::Equal)
+        other.metric.cmp(&self.metric)
+            .then_with(|| self.node_name.cmp(&other.node_name))
     }
 }
 impl PartialOrd for Candidate {
@@ -760,19 +903,13 @@ impl PartialOrd for Candidate {
     }
 }
 
-fn run_lod_subdivision(data_res: &Data3DResource) -> (HashSet<String>, HashSet<String>) {
-    let mut rendered = HashSet::new();
-    let mut loaded = HashSet::new();
+fn run_lod_subdivision(data_res: &Data3DResource) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut rendered = BTreeSet::new();
+    let mut loaded = BTreeSet::new();
     for root in &data_res.roots {
         rendered.insert(root.clone());
         loaded.insert(root.clone());
     }
-
-    let refs = if data_res.reference_points.is_empty() {
-        &[Vec3::ZERO]
-    } else {
-        data_res.reference_points.as_slice()
-    };
 
     let compute_metric = |node_name: &str| -> f32 {
         if let Some(node) = data_res.nodes.get(node_name) {
@@ -782,16 +919,7 @@ fn run_lod_subdivision(data_res: &Data3DResource) -> (HashSet<String>, HashSet<S
                 (node.maxz - node.minz).abs(),
             );
             let tile_diagonal = size.length().max(0.0001);
-            let mut min_dist = f32::INFINITY;
-            for &p in refs {
-                let cx = p.x.clamp(node.minx.min(node.maxx), node.minx.max(node.maxx));
-                let cy = p.y.clamp(node.miny.min(node.maxy), node.miny.max(node.maxy));
-                let cz = p.z.clamp(node.minz.min(node.maxz), node.minz.max(node.maxz));
-                let dist = p.distance(Vec3::new(cx, cy, cz));
-                if dist < min_dist {
-                    min_dist = dist;
-                }
-            }
+            let min_dist = *data_res.node_min_distances.get(node_name).unwrap_or(&0.0);
             min_dist / tile_diagonal
         } else {
             f32::INFINITY
@@ -803,7 +931,7 @@ fn run_lod_subdivision(data_res: &Data3DResource) -> (HashSet<String>, HashSet<S
     for root in &data_res.roots {
         if data_res.children.contains_key(root) {
             let metric = compute_metric(root);
-            heap.push(Candidate { metric, node_name: root.clone() });
+            heap.push(Candidate { metric: bevy::math::FloatOrd(metric), node_name: root.clone() });
         }
     }
 
@@ -818,7 +946,7 @@ fn run_lod_subdivision(data_res: &Data3DResource) -> (HashSet<String>, HashSet<S
                     loaded.insert(child.clone());
                     if data_res.children.contains_key(child) {
                         let metric = compute_metric(child);
-                        heap.push(Candidate { metric, node_name: child.clone() });
+                        heap.push(Candidate { metric: bevy::math::FloatOrd(metric), node_name: child.clone() });
                     }
                 }
             } else {

@@ -47,6 +47,8 @@ fn ui_example_system(
     mut window: Single<&mut Window>,
     mut fit_again: Local<i32>,
     mut initialized: Local<bool>,
+    time: Res<Time>,
+    mut fps_accum: Local<f32>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         tracing::error!("no ctx in ui_example_system");
