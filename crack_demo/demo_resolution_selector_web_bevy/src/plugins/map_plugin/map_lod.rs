@@ -59,6 +59,7 @@ fn spawn_node_tiles(
             avian3d::prelude::ColliderConstructorHierarchy::new(
                 avian3d::prelude::ColliderConstructor::TrimeshFromMesh,
             ),
+            avian3d::prelude::Restitution::ZERO.with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
         ));
     }
 }
