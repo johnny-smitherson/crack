@@ -282,15 +282,13 @@ def main():
     except ValueError:
         args = []
 
-    if len(args) < 6:
-        print("Usage: blender -b -P build_blend.py -- <json_path> <out_blend_path> <ref_x> <ref_y> <ref_z> <masked_octants>")
+    if len(args) < 5:
+        print("Usage: blender -b -P build_blend.py -- <json_path> <out_blend_path> <ref_x> <ref_y> <ref_z>")
         sys.exit(1)
 
     json_path = args[0]
     out_blend_path = args[1]
     ref_point = np.array([float(args[2]), float(args[3]), float(args[4])])
-    masked_octants_str = args[5]
-    masked_octants = set(map(int, masked_octants_str.split(","))) if masked_octants_str else set()
 
     # Load JSON data
     with open(json_path, "r", encoding="utf-8") as f:
@@ -321,31 +319,16 @@ def main():
         indices_bytes = base64.b64decode(mesh_json.get("indices", ""))
         raw_strip = unpack_indices_to_strip(indices_bytes)
 
-        # 4. Unpack octant mask
+        # 4. Unpack octant mask (used only for layer bounds, not for filtering)
         layer_data_bytes = base64.b64decode(mesh_json.get("layer_and_octant_counts", ""))
         w_mask, layer_bounds = unpack_octant_mask_and_layer_bounds(
             layer_data_bytes, raw_strip, vertex_count
         )
 
-        # 5. Triangulate and filter
+        # 5. Triangulate (no masking - tiles are kept whole for dynamic LOD)
         max_idx = min(layer_bounds[3], len(raw_strip))
         truncated_strip = raw_strip[:max_idx]
         raw_indices = triangulate_strip(truncated_strip)
-
-        if masked_octants and len(layer_data_bytes) > 0 and len(raw_indices) > 0:
-            filtered = []
-            for i in range(0, len(raw_indices), 3):
-                a = raw_indices[i]
-                b = raw_indices[i+1]
-                c = raw_indices[i+2]
-                if (w_mask[a] not in masked_octants and
-                    w_mask[b] not in masked_octants and
-                    w_mask[c] not in masked_octants):
-                    filtered.extend([a, b, c])
-            if filtered:
-                raw_indices = np.array(filtered, dtype=np.uint32)
-            else:
-                raw_indices = np.array([], dtype=np.uint32)
 
         if len(raw_indices) == 0:
             continue

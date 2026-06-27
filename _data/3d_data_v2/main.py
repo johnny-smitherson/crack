@@ -176,8 +176,6 @@ def main():
     failed = 0
     skipped = 0
 
-    octant_paths_set = set(octant_paths)
-
     def process_tile(octant_path: str, index: int) -> dict | None:
         progress = f"[{index + 1}/{len(octant_paths)}]"
 
@@ -191,14 +189,8 @@ def main():
         logger.info(f"{progress} Downloading {octant_path}...")
         node_data = download_node(node_info)
 
-        # Decode meshes
-        masked_octants = set()
-        for o in range(8):
-            child_path = octant_path + str(o)
-            if child_path in octant_paths_set:
-                masked_octants.add(o)
-
-        decoded_meshes = decode_node(node_data, masked_octants)
+        # Decode meshes (no octant masking - tiles are kept whole for dynamic LOD)
+        decoded_meshes = decode_node(node_data)
         if not decoded_meshes:
             logger.warning(f"{progress} No meshes in {octant_path}")
             return None
@@ -231,7 +223,6 @@ def main():
             str(ref_point[0]),
             str(ref_point[1]),
             str(ref_point[2]),
-            ",".join(map(str, masked_octants))
         ]
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

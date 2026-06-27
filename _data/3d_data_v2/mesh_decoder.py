@@ -351,7 +351,7 @@ class DecodedMesh:
         self.texture_format: int = 1  # 1=JPG, 6=CRN_DXT1
 
 
-def decode_node(node_data: pb.NodeData, masked_octants: set[int] = None) -> list[DecodedMesh]:
+def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
     """
     Fully decode all meshes from a NodeData protobuf message.
     Returns a list of DecodedMesh objects.
@@ -395,23 +395,6 @@ def decode_node(node_data: pb.NodeData, masked_octants: set[int] = None) -> list
 
         # Triangulate the truncated triangle strip
         raw_indices = triangulate_strip(truncated_strip)
-
-        # Filter indices by masked child octants to avoid rendering black holes/Z-fighting
-        if masked_octants and len(layer_data) > 0 and len(raw_indices) > 0:
-            filtered = []
-            for i in range(0, len(raw_indices), 3):
-                a = raw_indices[i]
-                b = raw_indices[i+1]
-                c = raw_indices[i+2]
-                # Discard triangle if any of its vertices are in a masked child octant
-                if (w_mask[a] not in masked_octants and 
-                    w_mask[b] not in masked_octants and 
-                    w_mask[c] not in masked_octants):
-                    filtered.extend([a, b, c])
-            if filtered:
-                raw_indices = np.array(filtered, dtype=np.uint32)
-            else:
-                raw_indices = np.array([], dtype=np.uint32)
 
         if len(raw_indices) == 0:
             continue
