@@ -326,9 +326,7 @@ def main():
         )
 
         # 5. Triangulate (no masking - tiles are kept whole for dynamic LOD)
-        max_idx = min(layer_bounds[3], len(raw_strip))
-        truncated_strip = raw_strip[:max_idx]
-        raw_indices = triangulate_strip(truncated_strip)
+        raw_indices = triangulate_strip(raw_strip)
 
         if len(raw_indices) == 0:
             continue
@@ -342,16 +340,12 @@ def main():
         raw_normals = unpack_normals(normals_bytes, for_normals, vertex_count)
         transformed_normals = transform_normals(raw_normals, ma)
 
-        # Rotate positions and normals from ECEF to local ENU tangent plane at reference point
-        R = get_enu_rotation_matrix(ref_point)
-        transformed_verts = transformed_verts @ R.T
-        transformed_normals = transformed_normals @ R.T
-
         # 8. Compute UVs
         uv_offset_and_scale = mesh_json.get("uv_offset_and_scale", [])
         if len(uv_offset_and_scale) == 4:
-            uv_offset = (uv_offset_and_scale[0], uv_offset_and_scale[1])
-            uv_scale = (uv_offset_and_scale[2], uv_offset_and_scale[3])
+            # Replicate JS decoding logic for explicitly provided uv_offset_and_scale
+            uv_offset = (uv_offset_and_scale[0], uv_offset_and_scale[1] - 1.0 / uv_offset_and_scale[3])
+            uv_scale = (uv_offset_and_scale[2], -uv_offset_and_scale[3])
         else:
             uv_offset = (0.5, 0.5 - v_mod if v_mod > 0 else 0.5)
             uv_scale = (1.0 / u_mod if u_mod > 0 else 1.0, -1.0 / v_mod if v_mod > 0 else -1.0)
