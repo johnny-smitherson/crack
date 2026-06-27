@@ -73,7 +73,7 @@ def unpack_indices_to_strip(packed: bytes) -> np.ndarray:
 
     return strip.astype(np.uint32)
 
-def triangulate_strip(strip: np.ndarray) -> np.ndarray:
+def triangulate_strip(strip: np.ndarray, w_mask=None, masked_octants=None) -> np.ndarray:
     triangles = []
     for i in range(len(strip) - 2):
         a = strip[i]
@@ -81,6 +81,10 @@ def triangulate_strip(strip: np.ndarray) -> np.ndarray:
         c = strip[i + 2]
         if a == b or a == c or b == c:
             continue
+        if w_mask is not None and masked_octants:
+            if (w_mask[a] in masked_octants or w_mask[b] in masked_octants
+                    or w_mask[c] in masked_octants):
+                continue
         if i & 1:
             triangles.extend([a, c, b])
         else:
@@ -325,13 +329,12 @@ def main():
             layer_data_bytes, raw_strip, vertex_count
         )
 
-        # 5. Triangulate (with octant masking)
-        masked_octants = {int(x) for x in sys.argv[sys.argv.index("--") + 4].split(",")} if len(sys.argv) > sys.argv.index("--") + 4 and sys.argv[sys.argv.index("--") + 4] else set()
-        
-        # Keep only the triangles inside the renderable bounds (layer_bounds[3])
+        # 5. Triangulate (NO octant masking - tiles are kept whole so coarse LODs
+        # are not carved up by the octants that have their own finer tiles).
+        # Keep only the triangles inside the renderable bounds (layer_bounds[3]).
         max_idx = min(layer_bounds[3], len(raw_strip))
         truncated_strip = raw_strip[:max_idx]
-        raw_indices = triangulate_strip(truncated_strip, w_mask, masked_octants)
+        raw_indices = triangulate_strip(truncated_strip)
 
         if len(raw_indices) == 0:
             continue
@@ -443,12 +446,9 @@ def main():
         filepath=os.path.abspath(out_glb_path),
         export_format='GLB',
         use_selection=False,
-        export_materials='EXPORT',
-        export_colors=True,
-        export_normals=True,
-        export_yup=True
     )
-    
+    assert os.path.exists(out_glb_path), f"GLB export produced no file: {out_glb_path}"
+
     print(f"Successfully saved blend file to {out_blend_path} and exported to {out_glb_path}")
 
 if __name__ == "__main__":

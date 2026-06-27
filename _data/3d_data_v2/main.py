@@ -39,23 +39,36 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 
+def run_blender_script(script: str, script_args: list[str]):
+    """
+    Run a Blender -P script and fail loudly on script-level errors.
+
+    Blender returns exit code 0 even when the embedded Python script raises, so a
+    non-zero return code is not enough to detect failure. We capture the combined
+    output and treat any Python traceback / Blender error as a hard failure.
+    """
+    cmd = ["blender", "-b", "-P", script, "--", *script_args]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    output = (proc.stdout or "") + (proc.stderr or "")
+    if proc.returncode != 0 or "Traceback (most recent call last)" in output or "\nError: " in output:
+        raise RuntimeError(
+            f"Blender script {script} failed (returncode={proc.returncode}).\n"
+            f"---- blender output ----\n{output.strip()}\n------------------------"
+        )
+
+
 def render_tile_via_blender(blend_path: Path, jpg_path: Path, ref_point: np.ndarray):
     """Render a blend file using Blender script in Cycles CPU mode."""
-    cmd = [
-        "blender",
-        "-b",
-        "-P",
-        "render_tile.py",
-        "--",
-        str(blend_path),
-        str(jpg_path),
-        str(ref_point[0]),
-        str(ref_point[1]),
-        str(ref_point[2]),
-    ]
     try:
-        subprocess.run(
-            cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        run_blender_script(
+            "render_tile.py",
+            [
+                str(blend_path),
+                str(jpg_path),
+                str(ref_point[0]),
+                str(ref_point[1]),
+                str(ref_point[2]),
+            ],
         )
     except Exception as e:
         logger.warning(f"Blender rendering failed for {blend_path.name}: {e}")
@@ -176,8 +189,6 @@ def main():
     failed = 0
     skipped = 0
 
-    octant_paths_set = set(octant_paths)
-
     def process_tile(octant_path: str, index: int) -> dict | None:
         progress = f"[{index + 1}/{len(octant_paths)}]"
 
@@ -191,14 +202,9 @@ def main():
         logger.info(f"{progress} Downloading {octant_path}...")
         node_data = download_node(node_info)
 
-        # Decode meshes
-        masked_octants = set()
-        for o in range(8):
-            child_path = octant_path + str(o)
-            if child_path in octant_paths_set:
-                masked_octants.add(o)
-
-        decoded_meshes = decode_node(node_data, masked_octants=masked_octants)
+        # Decode meshes. No octant masking: tiles are kept whole so coarse LODs
+        # (e.g. levels 10/11) are not carved up by octants that have finer tiles.
+        decoded_meshes = decode_node(node_data)
         if not decoded_meshes:
             logger.warning(f"{progress} No meshes in {octant_path}")
             return None
@@ -219,24 +225,25 @@ def main():
         sha1 = hashlib.sha1(url_path.encode("utf-8")).hexdigest()
         json_path = Path("data_cache") / "json_decoded" / "NodeData" / sha1[:2] / f"{sha1}.json"
 
-        # Build Blend using Blender script
-        cmd = [
-            "blender",
-            "-b",
-            "-P",
+        # Build Blend (and GLB) using Blender script.
+        glb_path = blend_path.with_suffix(".glb")
+        build_start = time.time()
+        run_blender_script(
             "build_blend.py",
-            "--",
-            str(json_path),
-            str(blend_path),
-            str(ref_point[0]),
-            str(ref_point[1]),
-            str(ref_point[2]),
-        ]
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            [
+                str(json_path),
+                str(blend_path),
+                str(ref_point[0]),
+                str(ref_point[1]),
+                str(ref_point[2]),
+            ],
+        )
 
-        if not blend_path.exists():
-            logger.warning(f"{progress} blend was not generated for {octant_path}")
-            return None
+        # Require freshly written artifacts; a stale pre-existing file must not pass.
+        for artifact in (blend_path, glb_path):
+            if not artifact.exists() or artifact.stat().st_mtime < build_start:
+                logger.warning(f"{progress} {artifact.name} was not (re)generated for {octant_path}")
+                return None
 
         # Save tile and collect metadata
         tile_meta = save_tile(
