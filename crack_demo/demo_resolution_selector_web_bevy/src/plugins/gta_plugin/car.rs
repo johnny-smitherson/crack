@@ -58,9 +58,10 @@ pub fn spawn_car_system(
 pub fn drive_car_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut car_query: Query<(&Transform, &mut LinearVelocity, &mut AngularVelocity), With<Car>>,
+    spatial_query: SpatialQuery,
+    mut car_query: Query<(Entity, &mut Transform, &mut LinearVelocity, &mut AngularVelocity), With<Car>>,
 ) {
-    let Ok((transform, mut linear_velocity, mut angular_velocity)) = car_query.single_mut() else {
+    let Ok((car_entity, mut transform, mut linear_velocity, mut angular_velocity)) = car_query.single_mut() else {
         return;
     };
 
@@ -76,59 +77,104 @@ pub fn drive_car_system(
     let lateral_damping = 10.0;
     let stabilization_strength = 5.0;
 
-    let forward_dir = transform.forward();
-    let right_dir = transform.right();
-
-    let current_speed = linear_velocity.dot(*forward_dir);
-
-    // WASD driving keys
-    if keyboard.pressed(KeyCode::KeyW) {
-        if current_speed < max_speed {
-            linear_velocity.0 += *forward_dir * acceleration * delta;
-        }
-    }
-    if keyboard.pressed(KeyCode::KeyS) {
-        if current_speed > 0.1 {
-            // Apply braking
-            linear_velocity.0 -= *forward_dir * braking * delta;
-        } else if current_speed > -max_reverse_speed {
-            // Reversing
-            linear_velocity.0 -= *forward_dir * reverse_acceleration * delta;
-        }
-    }
-
-    // Steer factor (only steer when moving, steer in reverse if moving backward)
-    let speed = linear_velocity.length();
-    let turn_factor = (speed / 2.0).min(1.0);
-    let direction_sign = if current_speed < 0.0 { -1.0 } else { 1.0 };
-
-    let mut steer = 0.0;
-    if keyboard.pressed(KeyCode::KeyA) {
-        steer += 1.0;
-    }
-    if keyboard.pressed(KeyCode::KeyD) {
-        steer -= 1.0;
-    }
+    // Ground raycast check
+    let origin = transform.translation;
+    let direction = Dir3::NEG_Y;
+    let max_distance = 2.5; // distance from center of car downward
     
-    // Steering around local Y axis
-    angular_velocity.y = steer * steer_speed * turn_factor * direction_sign;
+    let filter = SpatialQueryFilter::from_excluded_entities([car_entity]);
+    
+    let mut grounded = false;
+    let mut ground_y = 0.0;
+    let mut ground_normal = Vec3::Y;
 
-    // Lateral grip (damp lateral sliding)
-    let lateral_speed = linear_velocity.dot(*right_dir);
-    let damped_lateral_speed = lateral_speed * (1.0 - lateral_damping * delta).max(0.0);
-    let vertical_speed = linear_velocity.y;
-    let new_forward_speed = linear_velocity.dot(*forward_dir);
+    if let Some(hit) = spatial_query.cast_ray(
+        origin,
+        direction,
+        max_distance,
+        true,
+        &filter,
+    ) {
+        grounded = true;
+        ground_y = origin.y - hit.distance;
+        ground_normal = hit.normal;
+    }
 
-    linear_velocity.0 = *forward_dir * new_forward_speed + *right_dir * damped_lateral_speed + Vec3::Y * vertical_speed;
+    if grounded {
+        // 1. Height snapping / hover lerp
+        let hover_height = 0.8;
+        let target_y = ground_y + hover_height;
+        transform.translation.y = transform.translation.y + (target_y - transform.translation.y) * 15.0 * delta;
 
-    // Stabilization torque (keeps the car upright)
-    let current_up = transform.up();
-    let torque = current_up.cross(Vec3::Y) * stabilization_strength;
-    angular_velocity.0 += torque * delta;
+        // 2. Project existing velocity to slope tangent plane
+        let velocity_on_slope = linear_velocity.0 - ground_normal * linear_velocity.0.dot(ground_normal);
+        linear_velocity.0 = velocity_on_slope;
 
-    // Damp angular pitch and roll to prevent tumbling
-    angular_velocity.x *= (1.0 - 5.0 * delta).max(0.0);
-    angular_velocity.z *= (1.0 - 5.0 * delta).max(0.0);
+        // 3. Acceleration / braking input
+        let forward_dir = transform.forward();
+        let right_dir = transform.right();
+        let current_speed = linear_velocity.dot(*forward_dir);
+
+        let mut target_accel = Vec3::ZERO;
+        if keyboard.pressed(KeyCode::KeyW) {
+            if current_speed < max_speed {
+                target_accel += *forward_dir * acceleration;
+            }
+        }
+        if keyboard.pressed(KeyCode::KeyS) {
+            if current_speed > 0.1 {
+                target_accel -= *forward_dir * braking;
+            } else if current_speed > -max_reverse_speed {
+                target_accel -= *forward_dir * reverse_acceleration;
+            }
+        }
+        linear_velocity.0 += target_accel * delta;
+
+        // 4. Steer input (modifies yaw, then aligns to terrain normal)
+        let mut steer_input = 0.0;
+        if keyboard.pressed(KeyCode::KeyA) {
+            steer_input += 1.0;
+        }
+        if keyboard.pressed(KeyCode::KeyD) {
+            steer_input -= 1.0;
+        }
+
+        let speed = linear_velocity.length();
+        let turn_factor = (speed / 2.0).min(1.0);
+        let direction_sign = if current_speed < 0.0 { -1.0 } else { 1.0 };
+        let yaw_change = steer_input * steer_speed * turn_factor * direction_sign * delta;
+
+        // Extract current yaw and adjust
+        let (_, mut yaw, _) = transform.rotation.to_euler(EulerRot::YXZ);
+        yaw += yaw_change;
+
+        // Construct slope-aligned orientation
+        let yaw_quat = Quat::from_rotation_y(yaw);
+        let align_quat = Quat::from_rotation_arc(Vec3::Y, ground_normal);
+        let target_rotation = align_quat * yaw_quat;
+        
+        transform.rotation = transform.rotation.slerp(target_rotation, 15.0 * delta);
+
+        // 5. Lateral grip damping
+        let lateral_speed = linear_velocity.dot(*right_dir);
+        let damped_lateral_speed = lateral_speed * (1.0 - lateral_damping * delta).max(0.0);
+        let forward_speed = linear_velocity.dot(*forward_dir);
+        let new_vel = *forward_dir * forward_speed + *right_dir * damped_lateral_speed;
+        
+        linear_velocity.0 = new_vel - ground_normal * new_vel.dot(ground_normal);
+
+        // Zero out physical angular velocity to avoid physics engine conflicts
+        angular_velocity.0 = Vec3::ZERO;
+    } else {
+        // Air stabilization
+        let current_up = transform.up();
+        let torque = current_up.cross(Vec3::Y) * stabilization_strength;
+        angular_velocity.0 += torque * delta;
+
+        // Damp pitch and roll
+        angular_velocity.x *= (1.0 - 5.0 * delta).max(0.0);
+        angular_velocity.z *= (1.0 - 5.0 * delta).max(0.0);
+    }
 }
 
 pub fn clamp_car_position_system(
