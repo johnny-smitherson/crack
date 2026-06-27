@@ -89,12 +89,13 @@ pub fn camera_follow_system(
 
     let desired_pos = target_point + offset;
 
-    // Smooth movement
-    camera_transform.translation = camera_transform.translation.lerp(desired_pos, 0.1);
+    // Smooth movement (frame-rate independent lerp)
+    let lerp_factor = 1.0 - (-8.0 * delta).exp();
+    camera_transform.translation = camera_transform.translation.lerp(desired_pos, lerp_factor);
     
     // Look at target point
     let target_rot = Transform::from_translation(camera_transform.translation)
         .looking_at(target_point, Vec3::Y)
         .rotation;
-    camera_transform.rotation = camera_transform.rotation.slerp(target_rot, 0.1);
+    camera_transform.rotation = camera_transform.rotation.slerp(target_rot, lerp_factor);
 }
