@@ -37,15 +37,15 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 
-def render_tile_via_blender(glb_path: Path, jpg_path: Path, ref_point: np.ndarray):
-    """Render a GLB file using Blender script in Cycles CPU mode."""
+def render_tile_via_blender(blend_path: Path, jpg_path: Path, ref_point: np.ndarray):
+    """Render a blend file using Blender script in Cycles CPU mode."""
     cmd = [
         "blender",
         "-b",
         "-P",
         "render_tile.py",
         "--",
-        str(glb_path),
+        str(blend_path),
         str(jpg_path),
         str(ref_point[0]),
         str(ref_point[1]),
@@ -56,7 +56,7 @@ def render_tile_via_blender(glb_path: Path, jpg_path: Path, ref_point: np.ndarra
             cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
     except Exception as e:
-        logger.warning(f"Blender rendering failed for {glb_path.name}: {e}")
+        logger.warning(f"Blender rendering failed for {blend_path.name}: {e}")
 
 
 # Configuration
@@ -76,7 +76,7 @@ def save_tile(
     """
     Return metadata for the manifest.
     """
-    filename = f"{octant_path}.glb"
+    filename = f"{octant_path}.blend"
     filepath = Path(output_dir) / filename
 
     # Compute stats
@@ -237,22 +237,24 @@ def main():
                 skipped += 1
                 continue
 
-            glb_path = Path(OUTPUT_DIR) / f"{octant_path}.glb"
-
             # Construct NodeData URL path for cache resolution
             url_path = f"NodeData/pb=!1m2!1s{node_info.path}!2u{node_info.epoch}!2e{node_info.texture_format}"
             if node_info.imagery_epoch is not None:
                 url_path += f"!3u{node_info.imagery_epoch}"
             url_path += "!4b0"
             sha1 = hashlib.sha1(url_path.encode("utf-8")).hexdigest()
-            bytes_path = Path("data_cache") / "raw_fetch" / "NodeData" / sha1[:2] / f"{sha1}.bytes"
+            json_path = Path("data_cache") / "json_decoded" / "NodeData" / sha1[:2] / f"{sha1}.json"
+            blend_path = Path(OUTPUT_DIR) / f"{octant_path}.blend"
 
-            # Build GLB using Node.js script
+            # Build Blend using Blender script
             cmd = [
-                "node",
-                "js_exporter/our-script.js",
-                str(bytes_path),
-                str(glb_path),
+                "blender",
+                "-b",
+                "-P",
+                "build_blend.py",
+                "--",
+                str(json_path),
+                str(blend_path),
                 str(ref_point[0]),
                 str(ref_point[1]),
                 str(ref_point[2]),
@@ -260,8 +262,8 @@ def main():
             ]
             subprocess.run(cmd, check=True)
 
-            if not glb_path.exists():
-                logger.warning(f"{progress} GLB was not generated for {octant_path}")
+            if not blend_path.exists():
+                logger.warning(f"{progress} blend was not generated for {octant_path}")
                 skipped += 1
                 continue
 
@@ -271,16 +273,15 @@ def main():
             )
             tiles_metadata.append(tile_meta)
 
-            # Render GLB tile using Blender for preview/diagnostics
-            glb_path = Path(OUTPUT_DIR) / f"{octant_path}.glb"
+            # Render Blend tile using Blender for preview/diagnostics
             jpg_path = Path(OUTPUT_DIR) / f"{octant_path}.jpg"
-            render_tile_via_blender(glb_path, jpg_path, ref_point)
+            render_tile_via_blender(blend_path, jpg_path, ref_point)
 
             total_verts = tile_meta["vertex_count"]
             total_tris = tile_meta["triangle_count"]
             size_kb = tile_meta["file_size_bytes"] / 1024
             logger.info(
-                f"{progress} Saved {octant_path}.glb and rendered preview "
+                f"{progress} Saved {octant_path}.blend and rendered preview "
                 f"({tile_meta['mesh_count']} meshes, {total_verts} verts, {total_tris} tris, {size_kb:.1f} KB)"
             )
 

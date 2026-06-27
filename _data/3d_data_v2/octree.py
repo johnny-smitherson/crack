@@ -64,12 +64,12 @@ def get_first_octant(lat: float, lon: float) -> tuple[str, BBox]:
     """
     if lat < 0:
         if lon < -90:
-            return ("02", BBox(n=0, s=-90, w=-180, e=-90))
+            return ("02", BBox(north=0, south=-90, west=-180, east=-90))
         if lon < 0:
-            return ("03", BBox(n=0, s=-90, w=-90, e=0))
+            return ("03", BBox(north=0, south=-90, west=-90, east=0))
         if lon < 90:
-            return ("12", BBox(n=0, s=-90, w=0, e=90))
-        return ("13", BBox(n=0, s=-90, w=90, e=180))
+            return ("12", BBox(north=0, south=-90, west=0, east=90))
+        return ("13", BBox(north=0, south=-90, west=90, east=180))
     else:
         if lon < -90:
             return ("20", BBox(north=90, south=0, west=-180, east=-90))

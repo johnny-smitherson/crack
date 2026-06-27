@@ -2,22 +2,20 @@ import bpy
 import sys
 import math
 import numpy as np
+import os
 
-def render_glb(glb_path, out_jpg_path, ref_point=None):
-    # Reset scene
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    
-    # Import GLB
+def render_blend(blend_path, out_jpg_path, ref_point=None):
+    # Load the blend file
     try:
-        bpy.ops.import_scene.gltf(filepath=glb_path)
+        bpy.ops.wm.open_mainfile(filepath=os.path.abspath(blend_path))
     except Exception as e:
-        print(f"Failed to import {glb_path}: {e}")
+        print(f"Failed to open blend file {blend_path}: {e}")
         return
     
     # Find all meshes
     meshes = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
     if not meshes:
-        print("No meshes found in GLB")
+        print("No meshes found in blend file")
         return
         
     # Calculate bounding box of all meshes
@@ -63,10 +61,8 @@ def render_glb(glb_path, out_jpg_path, ref_point=None):
     if ref_point is not None:
         ref_norm = np.linalg.norm(ref_point)
         if ref_norm > 0:
-            up_vec_raw = ref_point / ref_norm
-            # Convert up_vec from ECEF/GLTF space to Blender Z-up space
-            # GLTF to Blender rotation is -90 degrees around X: (x, y, z) -> (x, -z, y)
-            up_vec = np.array([up_vec_raw[0], -up_vec_raw[2], up_vec_raw[1]])
+            # Directly use ECEF normal since we build meshes in ECEF space in Blender
+            up_vec = ref_point / ref_norm
 
     # Place camera directly above the mesh along the Up unit vector
     cam_object.location = (
@@ -117,7 +113,7 @@ def render_glb(glb_path, out_jpg_path, ref_point=None):
     
     # Render
     bpy.ops.render.render(write_still=True)
-    print(f"Rendered {glb_path} to {out_jpg_path}")
+    print(f"Rendered {blend_path} to {out_jpg_path}")
 
 if __name__ == "__main__":
     try:
@@ -127,7 +123,7 @@ if __name__ == "__main__":
         args = []
         
     if len(args) < 2:
-        print("Usage: blender -b -P render_tile.py -- <glb_path> <out_jpg_path> [<ref_x> <ref_y> <ref_z>]")
+        print("Usage: blender -b -P render_tile.py -- <blend_path> <out_jpg_path> [<ref_x> <ref_y> <ref_z>]")
         sys.exit(1)
         
     ref_point = None
@@ -137,4 +133,4 @@ if __name__ == "__main__":
         except Exception:
             pass
 
-    render_glb(args[0], args[1], ref_point)
+    render_blend(args[0], args[1], ref_point)

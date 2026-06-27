@@ -9,12 +9,33 @@ from config import SOCKS_PROXY
 import time
 import logging
 import requests
+import hashlib
+from pathlib import Path
 from google.protobuf.message import DecodeError
+from google.protobuf.json_format import MessageToJson
 
 import rocktree_pb2 as pb
 import config
 
 logger = logging.getLogger(__name__)
+
+
+def _save_as_json(object_type: str, url_path: str, msg):
+    """
+    Save the parsed protobuf message as JSON in data_cache/json_decoded/...
+    using the same hash-based filename schema.
+    """
+    sha1 = hashlib.sha1(url_path.encode("utf-8")).hexdigest()
+    json_dir = Path("data_cache") / "json_decoded" / object_type / sha1[:2]
+    json_file = json_dir / f"{sha1}.json"
+    
+    if not json_file.exists():
+        json_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            json_str = MessageToJson(msg, preserving_proto_field_name=True)
+            json_file.write_text(json_str, encoding="utf-8")
+        except Exception as e:
+            logger.warning(f"Failed to save JSON for {url_path}: {e}")
 
 BASE_URL = "https://kh.google.com/rt/earth/"
 
@@ -87,6 +108,7 @@ def fetch_planetoid_metadata() -> pb.PlanetoidMetadata:
     raw = _fetch_raw("PlanetoidMetadata")
     msg = pb.PlanetoidMetadata()
     msg.ParseFromString(raw)
+    _save_as_json("PlanetoidMetadata", "PlanetoidMetadata", msg)
     return msg
 
 
@@ -99,6 +121,7 @@ def fetch_bulk_metadata(path: str, epoch: int) -> pb.BulkMetadata:
     raw = _fetch_raw(url_path)
     msg = pb.BulkMetadata()
     msg.ParseFromString(raw)
+    _save_as_json("BulkMetadata", url_path, msg)
     return msg
 
 
@@ -120,6 +143,7 @@ def fetch_node_data(
     raw = _fetch_raw(url_path)
     msg = pb.NodeData()
     msg.ParseFromString(raw)
+    _save_as_json("NodeData", url_path, msg)
     return msg
 
 
