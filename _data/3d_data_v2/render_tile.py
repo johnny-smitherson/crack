@@ -56,7 +56,7 @@ def render_blend(blend_path, out_jpg_path, ref_point=None):
     fov = cam_data.angle
     distance = max_dim / (2.0 * math.tan(fov / 2.0)) * 1.5
     
-    # Up vector is always Z-up since the mesh is in local ENU space
+    # Up vector is +Z since we mapped the mesh to Blender's ENU Z-up space
     up_vec = np.array([0.0, 0.0, 1.0])
 
     # Place camera directly above the mesh along the Up unit vector

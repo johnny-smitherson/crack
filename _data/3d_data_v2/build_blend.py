@@ -325,8 +325,13 @@ def main():
             layer_data_bytes, raw_strip, vertex_count
         )
 
-        # 5. Triangulate (no masking - tiles are kept whole for dynamic LOD)
-        raw_indices = triangulate_strip(raw_strip)
+        # 5. Triangulate (with octant masking)
+        masked_octants = {int(x) for x in sys.argv[sys.argv.index("--") + 4].split(",")} if len(sys.argv) > sys.argv.index("--") + 4 and sys.argv[sys.argv.index("--") + 4] else set()
+        
+        # Keep only the triangles inside the renderable bounds (layer_bounds[3])
+        max_idx = min(layer_bounds[3], len(raw_strip))
+        truncated_strip = raw_strip[:max_idx]
+        raw_indices = triangulate_strip(truncated_strip, w_mask, masked_octants)
 
         if len(raw_indices) == 0:
             continue
@@ -339,6 +344,15 @@ def main():
         normals_bytes = base64.b64decode(mesh_json.get("normals", ""))
         raw_normals = unpack_normals(normals_bytes, for_normals, vertex_count)
         transformed_normals = transform_normals(raw_normals, ma)
+
+        # Rotate positions and normals from ECEF to local ENU tangent plane at reference point
+        R = get_enu_rotation_matrix(ref_point)
+        # To match Blender's Z-up coordinate system where +Z is Up, +X is East, +Y is North
+        # Row 0: East, Row 1: North, Row 2: Up
+        R_blend = np.stack([R[0], R[1], R[2]], axis=0)
+        
+        transformed_verts = transformed_verts @ R_blend.T
+        transformed_normals = transformed_normals @ R_blend.T
 
         # 8. Compute UVs
         uv_offset_and_scale = mesh_json.get("uv_offset_and_scale", [])
@@ -422,7 +436,20 @@ def main():
     # Save to blend file
     os.makedirs(os.path.dirname(out_blend_path), exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(out_blend_path))
-    print(f"Successfully saved blend file to {out_blend_path}")
+    
+    # Export to GLB
+    out_glb_path = os.path.splitext(out_blend_path)[0] + ".glb"
+    bpy.ops.export_scene.gltf(
+        filepath=os.path.abspath(out_glb_path),
+        export_format='GLB',
+        use_selection=False,
+        export_materials='EXPORT',
+        export_colors=True,
+        export_normals=True,
+        export_yup=True
+    )
+    
+    print(f"Successfully saved blend file to {out_blend_path} and exported to {out_glb_path}")
 
 if __name__ == "__main__":
     main()

@@ -108,9 +108,10 @@ def unpack_indices_to_strip(packed: bytes) -> np.ndarray:
     return strip.astype(np.uint32)
 
 
-def triangulate_strip(strip: np.ndarray) -> np.ndarray:
+def triangulate_strip(strip: np.ndarray, w_mask: np.ndarray = None, masked_octants: set[int] = None) -> np.ndarray:
     """
     Convert a triangle strip to a list of triangle indices.
+    If w_mask and masked_octants are provided, triangles belonging to octants in masked_octants are excluded.
     """
     triangles = []
     for i in range(len(strip) - 2):
@@ -119,6 +120,15 @@ def triangulate_strip(strip: np.ndarray) -> np.ndarray:
         c = strip[i + 2]
         if a == b or a == c or b == c:
             continue  # degenerate triangle
+            
+        if w_mask is not None and masked_octants is not None:
+            # A triangle is excluded if ANY of its vertices belong to masked octants? Or ALL?
+            # Reference logic (rocktree_ex.h) uses ANY vertex:
+            # if (m.vertices[i0].w == octant_id || m.vertices[i1].w == octant_id || m.vertices[i2].w == octant_id) continue;
+            # Wait, actually it excludes if ANY vertex is in a masked octant. Let's use ANY:
+            if w_mask[a] in masked_octants or w_mask[b] in masked_octants or w_mask[c] in masked_octants:
+                continue
+
         if i & 1:
             triangles.extend([a, c, b])
         else:
@@ -351,7 +361,30 @@ class DecodedMesh:
         self.texture_format: int = 1  # 1=JPG, 6=CRN_DXT1
 
 
-def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
+def get_enu_rotation_matrix(ref_point: np.ndarray) -> np.ndarray:
+    """
+    Computes rotation matrix from ECEF space to local ENU tangent plane at ref_point.
+    (Row 0: East, Row 1: North, Row 2: Up)
+    """
+    rx, ry, rz = ref_point
+    L = math.sqrt(rx*rx + ry*ry + rz*rz)
+    if L == 0:
+        return np.eye(3)
+    u = np.array([rx/L, ry/L, rz/L])
+    
+    xy_len = math.sqrt(rx*rx + ry*ry)
+    if xy_len > 0:
+        e = np.array([-ry/xy_len, rx/xy_len, 0.0])
+    else:
+        e = np.array([1.0, 0.0, 0.0])
+        
+    n = np.cross(u, e)
+    
+    # Rows are e, n, u. This maps ECEF (relative to ref_point) to ENU.
+    R = np.stack([e, n, u], axis=0)
+    return R
+
+def decode_node(node_data: pb.NodeData, masked_octants: set[int] | None = None) -> list[DecodedMesh]:
     """
     Fully decode all meshes from a NodeData protobuf message.
     Returns a list of DecodedMesh objects.
@@ -390,11 +423,11 @@ def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
         )
 
         # Truncate indices in the triangle strip to renderable geometry (layer_bounds[3])
-        # max_idx = min(layer_bounds[3], len(raw_strip))
-        # truncated_strip = raw_strip[:max_idx]
+        max_idx = min(layer_bounds[3], len(raw_strip))
+        truncated_strip = raw_strip[:max_idx]
 
         # Triangulate the truncated triangle strip
-        raw_indices = triangulate_strip(raw_strip)
+        raw_indices = triangulate_strip(truncated_strip, w_mask, masked_octants)
 
         if len(raw_indices) == 0:
             continue
@@ -428,6 +461,11 @@ def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
         dm.positions = apply_matrix(raw_verts, matrix)
         dm.normals = transform_normals(normals, matrix)
         dm.indices = raw_indices
+
+        # Rotate positions and normals from ECEF to local ENU tangent plane at reference point
+        # R = get_enu_rotation_matrix(ref_point)
+        # transformed_verts = transformed_verts @ R.T
+        # transformed_normals = transformed_normals @ R.T
 
         # 8. Extract texture
         if len(mesh_pb.texture) > 0:
