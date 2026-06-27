@@ -27,7 +27,7 @@ from earth_client import (
     find_tiles_in_bbox,
 )
 from mesh_decoder import decode_node
-from glb_builder import build_glb
+import hashlib
 from manifest import write_manifest
 
 logging.basicConfig(
@@ -68,24 +68,25 @@ GET_ALL_COARSER_LEVELS = True  # If True, download all levels of detail smaller 
 
 
 def save_tile(
-    glb_bytes: bytes,
     octant_path: str,
     node_data,
     decoded_meshes,
     output_dir: str,
 ) -> dict:
     """
-    Save a GLB file and return metadata for the manifest.
+    Return metadata for the manifest.
     """
     filename = f"{octant_path}.glb"
     filepath = Path(output_dir) / filename
 
-    with open(filepath, "wb") as f:
-        f.write(glb_bytes)
-
     # Compute stats
     total_verts = sum(len(m.positions) for m in decoded_meshes)
     total_tris = sum(len(m.indices) // 3 for m in decoded_meshes)
+
+    # Read file size from disk
+    file_size_bytes = 0
+    if filepath.exists():
+        file_size_bytes = filepath.stat().st_size
 
     # Get tile bbox
     tile_bbox = octant_path_to_bbox(octant_path)
@@ -93,7 +94,7 @@ def save_tile(
     metadata = {
         "octant_path": octant_path,
         "filename": filename,
-        "file_size_bytes": len(glb_bytes),
+        "file_size_bytes": file_size_bytes,
         "mesh_count": len(decoded_meshes),
         "vertex_count": total_verts,
         "triangle_count": total_tris,
@@ -236,18 +237,37 @@ def main():
                 skipped += 1
                 continue
 
-            # Build GLB
-            glb_bytes = build_glb(
-                decoded_meshes, octant_path, reference_point=ref_point
-            )
-            if not glb_bytes:
-                logger.warning(f"{progress} Empty GLB for {octant_path}")
+            glb_path = Path(OUTPUT_DIR) / f"{octant_path}.glb"
+
+            # Construct NodeData URL path for cache resolution
+            url_path = f"NodeData/pb=!1m2!1s{node_info.path}!2u{node_info.epoch}!2e{node_info.texture_format}"
+            if node_info.imagery_epoch is not None:
+                url_path += f"!3u{node_info.imagery_epoch}"
+            url_path += "!4b0"
+            sha1 = hashlib.sha1(url_path.encode("utf-8")).hexdigest()
+            bytes_path = Path("data_cache") / "raw_fetch" / "NodeData" / sha1[:2] / f"{sha1}.bytes"
+
+            # Build GLB using Node.js script
+            cmd = [
+                "node",
+                "js_exporter/our-script.js",
+                str(bytes_path),
+                str(glb_path),
+                str(ref_point[0]),
+                str(ref_point[1]),
+                str(ref_point[2]),
+                ",".join(map(str, masked_octants))
+            ]
+            subprocess.run(cmd, check=True)
+
+            if not glb_path.exists():
+                logger.warning(f"{progress} GLB was not generated for {octant_path}")
                 skipped += 1
                 continue
 
             # Save tile and collect metadata
             tile_meta = save_tile(
-                glb_bytes, octant_path, node_data, decoded_meshes, OUTPUT_DIR
+                octant_path, node_data, decoded_meshes, OUTPUT_DIR
             )
             tiles_metadata.append(tile_meta)
 

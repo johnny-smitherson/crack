@@ -6,7 +6,7 @@
     "east": 26.1652789
   },
   "octree_level": 15,
-  "tile_count": 23,
+  "tile_count": 20,
   "reference_point_ecef": [
     4083643.4686142425,
     2002405.2600910526,
@@ -14,44 +14,12 @@
   ],
   "tiles": [
     {
-      "octant_path": "3043627270436",
-      "filename": "3043627270436.glb",
-      "file_size_bytes": 151456,
-      "mesh_count": 1,
-      "vertex_count": 608,
-      "triangle_count": 344,
-      "matrix_globe_from_mesh": [
-        12.688874794667122,
-        6.223216560169062,
-        13.864369890718411,
-        0.0,
-        -8.649914850357526,
-        17.636809752565753,
-        0.0,
-        0.0,
-        -12.408764233285623,
-        -6.085837264331088,
-        14.0883964073511,
-        0.0,
-        4084871.22556015,
-        2000632.6599626946,
-        4458581.680106499,
-        1.0
-      ],
-      "bbox_latlon": {
-        "n": 44.47265625,
-        "s": 44.4287109375,
-        "w": 26.103515625,
-        "e": 26.1474609375
-      }
-    },
-    {
       "octant_path": "3043627270437",
       "filename": "3043627270437.glb",
-      "file_size_bytes": 189932,
+      "file_size_bytes": 57656,
       "mesh_count": 1,
       "vertex_count": 1120,
-      "triangle_count": 626,
+      "triangle_count": 106,
       "matrix_globe_from_mesh": [
         12.684097915548145,
         6.232946973814887,
@@ -80,10 +48,10 @@
     {
       "octant_path": "30436272704360",
       "filename": "30436272704360.glb",
-      "file_size_bytes": 205684,
+      "file_size_bytes": 66180,
       "mesh_count": 1,
       "vertex_count": 1283,
-      "triangle_count": 681,
+      "triangle_count": 373,
       "matrix_globe_from_mesh": [
         6.342127570138694,
         3.1089669718577047,
@@ -110,44 +78,12 @@
       }
     },
     {
-      "octant_path": "30436272704361",
-      "filename": "30436272704361.glb",
-      "file_size_bytes": 228824,
-      "mesh_count": 1,
-      "vertex_count": 1436,
-      "triangle_count": 733,
-      "matrix_globe_from_mesh": [
-        6.3409348299088,
-        3.111398918647071,
-        6.92635241515044,
-        0.0,
-        -4.321769605025781,
-        8.807632878931921,
-        0.0,
-        0.0,
-        -6.1967926572676,
-        -3.040670577776594,
-        7.038942667024018,
-        0.0,
-        4083975.1215120787,
-        2002555.5703389836,
-        4458669.052520264,
-        1.0
-      ],
-      "bbox_latlon": {
-        "n": 44.45068359375,
-        "s": 44.4287109375,
-        "w": 26.12548828125,
-        "e": 26.1474609375
-      }
-    },
-    {
       "octant_path": "30436272704362",
       "filename": "30436272704362.glb",
-      "file_size_bytes": 186384,
+      "file_size_bytes": 56880,
       "mesh_count": 1,
       "vertex_count": 1005,
-      "triangle_count": 552,
+      "triangle_count": 378,
       "matrix_globe_from_mesh": [
         6.339741683030842,
         3.107797388916513,
@@ -176,10 +112,10 @@
     {
       "octant_path": "30436272704363",
       "filename": "30436272704363.glb",
-      "file_size_bytes": 207072,
+      "file_size_bytes": 62924,
       "mesh_count": 1,
       "vertex_count": 1195,
-      "triangle_count": 635,
+      "triangle_count": 294,
       "matrix_globe_from_mesh": [
         6.338549391505107,
         3.11022842081531,
@@ -206,44 +142,12 @@
       }
     },
     {
-      "octant_path": "30436272704370",
-      "filename": "30436272704370.glb",
-      "file_size_bytes": 287352,
-      "mesh_count": 1,
-      "vertex_count": 2794,
-      "triangle_count": 1573,
-      "matrix_globe_from_mesh": [
-        6.3397411571403826,
-        3.1138304078541807,
-        6.926352415171842,
-        0.0,
-        -4.325146972060893,
-        8.805974853444757,
-        0.0,
-        0.0,
-        -6.1956261190708934,
-        -3.043046794352167,
-        7.038942667039425,
-        0.0,
-        4083206.850775831,
-        2004121.607887755,
-        4458669.052520259,
-        1.0
-      ],
-      "bbox_latlon": {
-        "n": 44.45068359375,
-        "s": 44.4287109375,
-        "w": 26.1474609375,
-        "e": 26.16943359375
-      }
-    },
-    {
       "octant_path": "30436272704372",
       "filename": "30436272704372.glb",
-      "file_size_bytes": 148436,
+      "file_size_bytes": 29652,
       "mesh_count": 1,
       "vertex_count": 314,
-      "triangle_count": 222,
+      "triangle_count": 138,
       "matrix_globe_from_mesh": [
         6.33735616777286,
         3.1126589952947525,
@@ -272,7 +176,7 @@
     {
       "octant_path": "304362727043605",
       "filename": "304362727043605.glb",
-      "file_size_bytes": 256192,
+      "file_size_bytes": 85928,
       "mesh_count": 1,
       "vertex_count": 1572,
       "triangle_count": 928,
@@ -304,7 +208,7 @@
     {
       "octant_path": "304362727043607",
       "filename": "304362727043607.glb",
-      "file_size_bytes": 292984,
+      "file_size_bytes": 102004,
       "mesh_count": 1,
       "vertex_count": 1967,
       "triangle_count": 1107,
@@ -336,7 +240,7 @@
     {
       "octant_path": "304362727043614",
       "filename": "304362727043614.glb",
-      "file_size_bytes": 276376,
+      "file_size_bytes": 92500,
       "mesh_count": 1,
       "vertex_count": 1726,
       "triangle_count": 979,
@@ -368,7 +272,7 @@
     {
       "octant_path": "304362727043615",
       "filename": "304362727043615.glb",
-      "file_size_bytes": 298456,
+      "file_size_bytes": 103104,
       "mesh_count": 1,
       "vertex_count": 1999,
       "triangle_count": 1197,
@@ -400,7 +304,7 @@
     {
       "octant_path": "304362727043616",
       "filename": "304362727043616.glb",
-      "file_size_bytes": 321580,
+      "file_size_bytes": 109488,
       "mesh_count": 1,
       "vertex_count": 2113,
       "triangle_count": 1188,
@@ -432,7 +336,7 @@
     {
       "octant_path": "304362727043617",
       "filename": "304362727043617.glb",
-      "file_size_bytes": 270500,
+      "file_size_bytes": 89904,
       "mesh_count": 1,
       "vertex_count": 1684,
       "triangle_count": 949,
@@ -464,7 +368,7 @@
     {
       "octant_path": "304362727043625",
       "filename": "304362727043625.glb",
-      "file_size_bytes": 270252,
+      "file_size_bytes": 91192,
       "mesh_count": 1,
       "vertex_count": 1713,
       "triangle_count": 1075,
@@ -496,7 +400,7 @@
     {
       "octant_path": "304362727043634",
       "filename": "304362727043634.glb",
-      "file_size_bytes": 318136,
+      "file_size_bytes": 112944,
       "mesh_count": 1,
       "vertex_count": 2245,
       "triangle_count": 1305,
@@ -528,7 +432,7 @@
     {
       "octant_path": "304362727043635",
       "filename": "304362727043635.glb",
-      "file_size_bytes": 223420,
+      "file_size_bytes": 65356,
       "mesh_count": 1,
       "vertex_count": 1086,
       "triangle_count": 669,
@@ -560,7 +464,7 @@
     {
       "octant_path": "304362727043704",
       "filename": "304362727043704.glb",
-      "file_size_bytes": 513156,
+      "file_size_bytes": 245944,
       "mesh_count": 1,
       "vertex_count": 5722,
       "triangle_count": 3258,
@@ -592,7 +496,7 @@
     {
       "octant_path": "304362727043705",
       "filename": "304362727043705.glb",
-      "file_size_bytes": 337944,
+      "file_size_bytes": 122328,
       "mesh_count": 1,
       "vertex_count": 2452,
       "triangle_count": 1471,
@@ -624,7 +528,7 @@
     {
       "octant_path": "304362727043706",
       "filename": "304362727043706.glb",
-      "file_size_bytes": 263936,
+      "file_size_bytes": 86100,
       "mesh_count": 1,
       "vertex_count": 1593,
       "triangle_count": 905,
@@ -656,7 +560,7 @@
     {
       "octant_path": "304362727043707",
       "filename": "304362727043707.glb",
-      "file_size_bytes": 236132,
+      "file_size_bytes": 78508,
       "mesh_count": 1,
       "vertex_count": 1469,
       "triangle_count": 847,
@@ -688,7 +592,7 @@
     {
       "octant_path": "304362727043724",
       "filename": "304362727043724.glb",
-      "file_size_bytes": 162576,
+      "file_size_bytes": 46708,
       "mesh_count": 1,
       "vertex_count": 787,
       "triangle_count": 533,
@@ -720,7 +624,7 @@
     {
       "octant_path": "304362727043725",
       "filename": "304362727043725.glb",
-      "file_size_bytes": 159760,
+      "file_size_bytes": 37096,
       "mesh_count": 1,
       "vertex_count": 487,
       "triangle_count": 338,
