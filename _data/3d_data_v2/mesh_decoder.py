@@ -351,7 +351,7 @@ class DecodedMesh:
         self.texture_format: int = 1  # 1=JPG, 6=CRN_DXT1
 
 
-def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
+def decode_node(node_data: pb.NodeData, masked_octants: set[int] = None) -> list[DecodedMesh]:
     """
     Fully decode all meshes from a NodeData protobuf message.
     Returns a list of DecodedMesh objects.
@@ -385,7 +385,7 @@ def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
 
         # 4. Unpack octant mask and layer bounds using the triangle strip
         layer_data = mesh_pb.layer_and_octant_counts if mesh_pb.HasField("layer_and_octant_counts") else b""
-        _, layer_bounds = unpack_octant_mask_and_layer_bounds(
+        w_mask, layer_bounds = unpack_octant_mask_and_layer_bounds(
             layer_data, raw_strip, vertex_count
         )
 
@@ -395,6 +395,23 @@ def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
 
         # Triangulate the truncated triangle strip
         raw_indices = triangulate_strip(truncated_strip)
+
+        # Filter indices by masked child octants to avoid rendering black holes/Z-fighting
+        if masked_octants and len(layer_data) > 0 and len(raw_indices) > 0:
+            filtered = []
+            for i in range(0, len(raw_indices), 3):
+                a = raw_indices[i]
+                b = raw_indices[i+1]
+                c = raw_indices[i+2]
+                # Discard triangle if any of its vertices are in a masked child octant
+                if (w_mask[a] not in masked_octants and 
+                    w_mask[b] not in masked_octants and 
+                    w_mask[c] not in masked_octants):
+                    filtered.extend([a, b, c])
+            if filtered:
+                raw_indices = np.array(filtered, dtype=np.uint32)
+            else:
+                raw_indices = np.array([], dtype=np.uint32)
 
         if len(raw_indices) == 0:
             continue
@@ -410,6 +427,14 @@ def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
         uvs_float = np.zeros((vertex_count, 2), dtype=np.float32)
         uvs_float[:, 0] = (raw_uvs[:, 0].astype(np.float32) + uv_offset[0]) * uv_scale[0]
         uvs_float[:, 1] = (raw_uvs[:, 1].astype(np.float32) + uv_offset[1]) * uv_scale[1]
+        
+        # If CRN-DXT1 (format 6), invert V texture coordinate to match the layout
+        tex_format = 1
+        if len(mesh_pb.texture) > 0 and mesh_pb.texture[0].HasField("format"):
+            tex_format = mesh_pb.texture[0].format
+        if tex_format == 6:
+            uvs_float[:, 1] = 1.0 - uvs_float[:, 1]
+            
         dm.uvs = uvs_float
 
         # 6. Unpack normals

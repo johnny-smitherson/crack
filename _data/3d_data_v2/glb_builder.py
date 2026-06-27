@@ -7,11 +7,26 @@ Handles vertex positions, normals, UVs, indices, and JPG textures.
 
 import io
 import struct
+import ctypes
+from pathlib import Path
 import numpy as np
 from PIL import Image
 import pygltflib
 
 from mesh_decoder import DecodedMesh
+
+# Load libcrn for Crunch texture decompression
+_libcrn = None
+try:
+    _libcrn_path = Path(__file__).parent / "libcrn.so"
+    if _libcrn_path.exists():
+        _libcrn = ctypes.CDLL(str(_libcrn_path))
+        _libcrn.crn_get_decompressed_size.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint]
+        _libcrn.crn_get_decompressed_size.restype = ctypes.c_uint
+        _libcrn.crn_decompress.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint, ctypes.c_uint]
+        _libcrn.crn_decompress.restype = None
+except Exception as e:
+    print(f"Warning: Failed to load libcrn.so: {e}")
 
 
 def build_glb(
@@ -293,7 +308,7 @@ def _pad_to_4(data: bytearray):
 def _prepare_texture(dm: DecodedMesh) -> bytes | None:
     """
     Prepare texture data for GLB embedding.
-    Converts JPG to PNG. Returns PNG bytes or None.
+    Converts JPG and CRN-DXT1 to PNG. Returns PNG bytes or None.
     """
     if not dm.texture_data:
         return None
@@ -304,10 +319,100 @@ def _prepare_texture(dm: DecodedMesh) -> bytes | None:
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             return buf.getvalue()
+        elif dm.texture_format == 6:  # CRN-DXT1 (Crunch compressed DXT1)
+            if _libcrn is None:
+                print("Warning: libcrn not available, skipping CRN texture")
+                return None
+
+            # 1. Decompress CRN to DXT1
+            src_buf = ctypes.create_string_buffer(dm.texture_data)
+            dst_size = _libcrn.crn_get_decompressed_size(src_buf, len(dm.texture_data), 0)
+            dst_buf = ctypes.create_string_buffer(dst_size)
+            _libcrn.crn_decompress(src_buf, len(dm.texture_data), dst_buf, dst_size, 0)
+            
+            dxt1_data = dst_buf.raw
+
+            # 2. Decode DXT1 to raw RGBA
+            rgba_data = _decode_dxt1(dxt1_data, dm.texture_width, dm.texture_height)
+
+            # 3. Save as PNG
+            img = Image.frombytes("RGBA", (dm.texture_width, dm.texture_height), rgba_data)
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
         else:
-            # For CRN-DXT1 or other formats, we'd need decompression
-            # For now, skip unsupported formats
             return None
     except Exception as e:
         print(f"Warning: Failed to decode texture: {e}")
         return None
+
+
+def _decode_dxt1(dxt_data: bytes, width: int, height: int) -> bytes:
+    """
+    Decode raw DXT1 texture bytes to 32-bit RGBA pixels.
+    """
+    rgba = bytearray(width * height * 4)
+    blocks_x = (width + 3) // 4
+    blocks_y = (height + 3) // 4
+
+    offset = 0
+    for by in range(blocks_y):
+        for bx in range(blocks_x):
+            if offset >= len(dxt_data):
+                break
+
+            color0, color1, code = struct.unpack_from("<HHI", dxt_data, offset)
+            offset += 8
+
+            # Unpack color0 (RGB 565)
+            r0_5 = (color0 >> 11) & 31
+            g0_6 = (color0 >> 5) & 63
+            b0_5 = color0 & 31
+            r0 = (r0_5 << 3) | (r0_5 >> 2)
+            g0 = (g0_6 << 2) | (g0_6 >> 4)
+            b0 = (b0_5 << 3) | (b0_5 >> 2)
+
+            # Unpack color1 (RGB 565)
+            r1_5 = (color1 >> 11) & 31
+            g1_6 = (color1 >> 5) & 63
+            b1_5 = color1 & 31
+            r1 = (r1_5 << 3) | (r1_5 >> 2)
+            g1 = (g1_6 << 2) | (g1_6 >> 4)
+            b1 = (b1_5 << 3) | (b1_5 >> 2)
+
+            # Build color palette
+            if color0 > color1:
+                colors = [
+                    (r0, g0, b0, 255),
+                    (r1, g1, b1, 255),
+                    ((2*r0 + r1) // 3, (2*g0 + g1) // 3, (2*b0 + b1) // 3, 255),
+                    ((r0 + 2*r1) // 3, (g0 + 2*g1) // 3, (b0 + 2*b1) // 3, 255)
+                ]
+            else:
+                colors = [
+                    (r0, g0, b0, 255),
+                    (r1, g1, b1, 255),
+                    ((r0 + r1) // 2, (g0 + g1) // 2, (b0 + b1) // 2, 255),
+                    (0, 0, 0, 0)
+                ]
+
+            for py in range(4):
+                y = by * 4 + py
+                if y >= height:
+                    continue
+                for px in range(4):
+                    x = bx * 4 + px
+                    if x >= width:
+                        continue
+
+                    pixel_idx = py * 4 + px
+                    color_idx = (code >> (2 * pixel_idx)) & 3
+
+                    rgba_offset = (y * width + x) * 4
+                    r, g, b, a = colors[color_idx]
+                    rgba[rgba_offset] = r
+                    rgba[rgba_offset+1] = g
+                    rgba[rgba_offset+2] = b
+                    rgba[rgba_offset+3] = a
+
+    return bytes(rgba)

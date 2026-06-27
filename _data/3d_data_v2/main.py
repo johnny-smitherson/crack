@@ -224,7 +224,13 @@ def main():
             node_data = download_node(node_info)
 
             # Decode meshes
-            decoded_meshes = decode_node(node_data)
+            masked_octants = set()
+            for o in range(8):
+                child_path = octant_path + str(o)
+                if child_path in octant_paths:
+                    masked_octants.add(o)
+
+            decoded_meshes = decode_node(node_data, masked_octants)
             if not decoded_meshes:
                 logger.warning(f"{progress} No meshes in {octant_path}")
                 skipped += 1
