@@ -8,6 +8,7 @@ lat/lon bounding box and exports them as .glb files with a JSON manifest.
 import os
 import sys
 import time
+import math
 import logging
 import numpy as np
 from pathlib import Path
@@ -63,7 +64,7 @@ def render_tile_via_blender(blend_path: Path, jpg_path: Path, ref_point: np.ndar
 # Configuration
 BBOX_FILE = "data_in/zone-bbox.txt"
 OUTPUT_DIR = "data_out"
-TARGET_GRID = 32  # aim for roughly 3x3 tiles
+TARGET_GRID = 5  # aim for roughly 3x3 tiles
 REQUEST_DELAY = 0.1  # seconds between node downloads
 GET_ALL_COARSER_LEVELS = True  # If True, download all levels of detail smaller than (coarser than or equal to) the 3x3 optimal level
 
@@ -112,28 +113,24 @@ def save_tile(
     return metadata
 
 
-def compute_reference_point(octant_paths: list[str], root_epoch: int) -> np.ndarray:
+def compute_reference_point(bbox) -> np.ndarray:
     """
-    Compute ECEF reference point from the first available tile's center.
-    This will be subtracted from all tile positions to keep them near-origin.
+    Compute ECEF reference point from the bounding box center.
+    This ensures the reference point is constant and congruent for all runs and levels.
     """
-    for path in octant_paths[:5]:  # try up to 5 paths
-        node_info = resolve_node(path, root_epoch)
-        if node_info is None:
-            continue
-        try:
-            node_data = download_node(node_info)
-            meshes = decode_node(node_data)
-            if meshes and len(meshes[0].positions) > 0:
-                # Use the centroid of the first mesh
-                return meshes[0].positions.mean(axis=0)
-        except Exception as e:
-            logger.warning(f"Failed to get reference point from {path}: {e}")
-            continue
-
-    # Fallback: compute from lat/lon
-    logger.warning("Could not compute reference point from tiles, using bbox center")
-    return np.array([0.0, 0.0, 0.0])
+    lat_deg = (bbox.north + bbox.south) / 2.0
+    lon_deg = (bbox.east + bbox.west) / 2.0
+    
+    # Convert to ECEF (WGS84 ellipsoid)
+    lat = math.radians(lat_deg)
+    lon = math.radians(lon_deg)
+    a = 6378137.0
+    e2 = 0.00669437999014
+    N = a / math.sqrt(1.0 - e2 * math.sin(lat)**2)
+    x = N * math.cos(lat) * math.cos(lon)
+    y = N * math.cos(lat) * math.sin(lon)
+    z = N * (1.0 - e2) * math.sin(lat)
+    return np.array([x, y, z])
 
 
 def main():
@@ -197,8 +194,8 @@ def main():
         logger.info(f"Selected optimal level: {level} with {len(octant_paths)} tiles")
 
     # 3. Compute reference point (ECEF offset)
-    logger.info("Computing reference point from first tile...")
-    ref_point = compute_reference_point(octant_paths, root_epoch)
+    logger.info("Computing reference point from bounding box center...")
+    ref_point = compute_reference_point(bbox)
     logger.info(
         f"Reference point (ECEF): [{ref_point[0]:.1f}, {ref_point[1]:.1f}, {ref_point[2]:.1f}]"
     )
