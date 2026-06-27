@@ -56,13 +56,8 @@ def render_blend(blend_path, out_jpg_path, ref_point=None):
     fov = cam_data.angle
     distance = max_dim / (2.0 * math.tan(fov / 2.0)) * 1.5
     
-    # Compute camera positioning unit vector (default to [0, 0, 1] if ref_point is not set)
+    # Up vector is always Z-up since the mesh is in local ENU space
     up_vec = np.array([0.0, 0.0, 1.0])
-    if ref_point is not None:
-        ref_norm = np.linalg.norm(ref_point)
-        if ref_norm > 0:
-            # Directly use ECEF normal since we build meshes in ECEF space in Blender
-            up_vec = ref_point / ref_norm
 
     # Place camera directly above the mesh along the Up unit vector
     cam_object.location = (

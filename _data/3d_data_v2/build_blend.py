@@ -253,6 +253,28 @@ def transform_normals(normals: np.ndarray, matrix: list[float]) -> np.ndarray:
     norms = np.where(norms > 0, norms, 1.0)
     return (result / norms).astype(np.float32)
 
+def get_enu_rotation_matrix(ref_point: np.ndarray) -> np.ndarray:
+    """
+    Computes rotation matrix from ECEF space to local ENU tangent plane at ref_point.
+    """
+    rx, ry, rz = ref_point
+    L = math.sqrt(rx*rx + ry*ry + rz*rz)
+    if L == 0:
+        return np.eye(3)
+    u = np.array([rx/L, ry/L, rz/L])
+    
+    xy_len = math.sqrt(rx*rx + ry*ry)
+    if xy_len > 0:
+        e = np.array([-ry/xy_len, rx/xy_len, 0.0])
+    else:
+        e = np.array([1.0, 0.0, 0.0])
+        
+    n = np.cross(u, e)
+    
+    # Rows are e, n, u. This maps ECEF (relative to ref_point) to ENU.
+    R = np.stack([e, n, u], axis=0)
+    return R
+
 def main():
     try:
         args_idx = sys.argv.index("--")
@@ -336,6 +358,11 @@ def main():
         normals_bytes = base64.b64decode(mesh_json.get("normals", ""))
         raw_normals = unpack_normals(normals_bytes, for_normals, vertex_count)
         transformed_normals = transform_normals(raw_normals, ma)
+
+        # Rotate positions and normals from ECEF to local ENU tangent plane at reference point
+        R = get_enu_rotation_matrix(ref_point)
+        transformed_verts = transformed_verts @ R.T
+        transformed_normals = transformed_normals @ R.T
 
         # 8. Compute UVs
         uv_offset_and_scale = mesh_json.get("uv_offset_and_scale", [])
