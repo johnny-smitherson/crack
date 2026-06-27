@@ -5,12 +5,14 @@ Handles fetching PlanetoidMetadata, BulkMetadata, and NodeData
 via HTTP from kh.google.com, with retry logic and protobuf parsing.
 """
 
+from config import SOCKS_PROXY
 import time
 import logging
 import requests
 from google.protobuf.message import DecodeError
 
 import rocktree_pb2 as pb
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +35,16 @@ def _fetch_raw(url_path: str, max_retries: int = 5, base_delay: float = 1.0) -> 
     Fetch raw bytes from the Google Earth endpoint with retry logic.
     """
     url = BASE_URL + url_path
+    headers = {
+        "User-Agent": config.USER_AGENT,
+        "Referer": config.REFERER,
+    }
     for attempt in range(1, max_retries + 1):
         try:
-            resp = requests.get(url, timeout=30)
+            resp = requests.get(
+                url, headers=headers, timeout=30,
+                proxies=dict(http=SOCKS_PROXY, https=SOCKS_PROXY,),
+            )
             if resp.status_code == 200:
                 return resp.content
             logger.warning(f"HTTP {resp.status_code} for {url} (attempt {attempt}/{max_retries})")

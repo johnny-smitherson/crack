@@ -9,5 +9,5 @@ dependencies = [
     "pillow>=12.2.0",
     "protobuf>=7.35.1",
     "pygltflib>=1.16.5",
-    "requests>=2.34.2",
+    "requests[socks]>=2.34.2",
 ]

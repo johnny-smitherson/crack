@@ -11,6 +11,7 @@ import time
 import logging
 import numpy as np
 from pathlib import Path
+import subprocess
 
 from octree import parse_bbox, compute_best_level, enumerate_octants_in_bbox, tile_grid_dimensions, octant_path_to_bbox
 from earth_client import fetch_planetoid_metadata, resolve_node, download_node, find_tiles_in_bbox
@@ -23,6 +24,24 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("main")
+
+
+def render_tile_via_blender(glb_path: Path, jpg_path: Path):
+    """Render a GLB file using Blender script in Cycles CPU mode."""
+    cmd = [
+        "blender",
+        "-b",
+        "-P",
+        "render_tile.py",
+        "--",
+        str(glb_path),
+        str(jpg_path)
+    ]
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        logger.warning(f"Blender rendering failed for {glb_path.name}: {e}")
+
 
 # Configuration
 BBOX_FILE = "data_in/zone-bbox.txt"
@@ -177,11 +196,16 @@ def main():
             tile_meta = save_tile(glb_bytes, octant_path, node_data, decoded_meshes, OUTPUT_DIR)
             tiles_metadata.append(tile_meta)
 
+            # Render GLB tile using Blender for preview/diagnostics
+            glb_path = Path(OUTPUT_DIR) / f"{octant_path}.glb"
+            jpg_path = Path(OUTPUT_DIR) / f"{octant_path}.jpg"
+            render_tile_via_blender(glb_path, jpg_path)
+
             total_verts = tile_meta["vertex_count"]
             total_tris = tile_meta["triangle_count"]
             size_kb = tile_meta["file_size_bytes"] / 1024
             logger.info(
-                f"{progress} Saved {octant_path}.glb "
+                f"{progress} Saved {octant_path}.glb and rendered preview "
                 f"({tile_meta['mesh_count']} meshes, {total_verts} verts, {total_tris} tris, {size_kb:.1f} KB)"
             )
 

@@ -84,12 +84,9 @@ def unpack_tex_coords(packed: bytes, vertex_count: int) -> tuple[np.ndarray, flo
     return uvs.astype(np.uint16), u_mod, v_mod
 
 
-def unpack_indices(packed: bytes) -> np.ndarray:
+def unpack_indices_to_strip(packed: bytes) -> np.ndarray:
     """
-    Unpack triangle indices from Mesh.indices field.
-    Decodes varint-encoded triangle strip, then converts to individual triangles.
-
-    Returns array of shape (n_triangles * 3,) dtype uint32.
+    Unpack triangle indices from Mesh.indices field as a raw triangle strip.
     """
     offset = 0
     strip_len, offset = _read_varint(packed, offset)
@@ -108,18 +105,24 @@ def unpack_indices(packed: bytes) -> np.ndarray:
         if val == 0:
             zeros += 1
 
-    # Convert triangle strip to individual triangles
+    return strip.astype(np.uint32)
+
+
+def triangulate_strip(strip: np.ndarray) -> np.ndarray:
+    """
+    Convert a triangle strip to a list of triangle indices.
+    """
     triangles = []
-    for i in range(strip_len - 2):
+    for i in range(len(strip) - 2):
         a = strip[i]
-        b_val = strip[i + 1]
-        c_val = strip[i + 2]
-        if a == b_val or a == c_val or b_val == c_val:
+        b = strip[i + 1]
+        c = strip[i + 2]
+        if a == b or a == c or b == c:
             continue  # degenerate triangle
         if i & 1:
-            triangles.extend([a, c_val, b_val])
+            triangles.extend([a, c, b])
         else:
-            triangles.extend([a, b_val, c_val])
+            triangles.extend([a, b, c])
 
     if not triangles:
         return np.array([], dtype=np.uint32)
@@ -377,18 +380,21 @@ def decode_node(node_data: pb.NodeData) -> list[DecodedMesh]:
         tex_coords_raw = mesh_pb.texture_coordinates if mesh_pb.HasField("texture_coordinates") else b""
         raw_uvs, u_mod, v_mod = unpack_tex_coords(tex_coords_raw, vertex_count)
 
-        # 3. Unpack indices
-        raw_indices = unpack_indices(mesh_pb.indices)
+        # 3. Unpack indices to raw triangle strip
+        raw_strip = unpack_indices_to_strip(mesh_pb.indices)
 
-        # 4. Unpack octant mask and layer bounds
+        # 4. Unpack octant mask and layer bounds using the triangle strip
         layer_data = mesh_pb.layer_and_octant_counts if mesh_pb.HasField("layer_and_octant_counts") else b""
         _, layer_bounds = unpack_octant_mask_and_layer_bounds(
-            layer_data, raw_indices, vertex_count
+            layer_data, raw_strip, vertex_count
         )
 
-        # Truncate indices to renderable geometry (layer_bounds[3])
-        max_idx = min(layer_bounds[3], len(raw_indices))
-        raw_indices = raw_indices[:max_idx]
+        # Truncate indices in the triangle strip to renderable geometry (layer_bounds[3])
+        max_idx = min(layer_bounds[3], len(raw_strip))
+        truncated_strip = raw_strip[:max_idx]
+
+        # Triangulate the truncated triangle strip
+        raw_indices = triangulate_strip(truncated_strip)
 
         if len(raw_indices) == 0:
             continue

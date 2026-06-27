@@ -1,2 +1,4 @@
 /target
 /_docs
+__pycache__
+*.pyc
