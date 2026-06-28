@@ -7,6 +7,7 @@ pub struct GtaCameraState {
     pub yaw: f32,
     pub pitch: f32,
     pub distance: f32,
+    pub smoothed_target: Option<Vec3>,
 }
 
 impl Default for GtaCameraState {
@@ -15,6 +16,7 @@ impl Default for GtaCameraState {
             yaw: 0.0,
             pitch: 15.0f32.to_radians(),
             distance: 12.0,
+            smoothed_target: None,
         }
     }
 }
@@ -63,39 +65,55 @@ pub fn camera_follow_system(
         None
     };
 
-    let Some(target_point) = target_point else {
+    let Some(actual_target) = target_point else {
         return;
+    };
+
+    // Smoothly update the camera follow target (filters out trimesh bumps & snap jitter)
+    let smoothed_target = match camera_state.smoothed_target {
+        Some(curr) => {
+            let next = curr.lerp(actual_target, 1.0 - (-15.0 * delta).exp());
+            camera_state.smoothed_target = Some(next);
+            next
+        }
+        None => {
+            camera_state.smoothed_target = Some(actual_target);
+            actual_target
+        }
     };
 
     // Auto-align camera behind the car if moving and arrow keys are not pressed
     if !arrow_pressed && spawn_state.timer.is_none() {
         if let Ok(car_transform) = car_query.single() {
-            let (_, car_yaw, _) = car_transform.rotation.to_euler(EulerRot::YXZ);
+            let forward = car_transform.forward();
+            let forward_xz = Vec3::new(forward.x, 0.0, forward.z).normalize_or_zero();
+            let car_yaw = if forward_xz.length_squared() > 0.001 {
+                forward_xz.x.atan2(forward_xz.z)
+            } else {
+                0.0
+            };
             let target_yaw = car_yaw + std::f32::consts::PI;
             
             let diff = (target_yaw - camera_state.yaw + std::f32::consts::PI).rem_euclid(2.0 * std::f32::consts::PI) - std::f32::consts::PI;
             
-            let follow_speed = 1.5;
+            let follow_speed = 4.0;
             camera_state.yaw += diff * follow_speed * delta;
         }
     }
 
-    // Position camera relative to car/spawn point
+    // Position camera relative to smoothed target
     let offset = Vec3::new(
         camera_state.distance * camera_state.pitch.cos() * camera_state.yaw.sin(),
         camera_state.distance * camera_state.pitch.sin(),
         camera_state.distance * camera_state.pitch.cos() * camera_state.yaw.cos(),
     );
 
-    let desired_pos = target_point + offset;
-
-    // Smooth movement (frame-rate independent lerp)
-    let lerp_factor = 1.0 - (-8.0 * delta).exp();
-    camera_transform.translation = camera_transform.translation.lerp(desired_pos, lerp_factor);
+    let desired_pos = smoothed_target + offset;
+    camera_transform.translation = desired_pos;
     
-    // Look at target point
+    // Look at smoothed target point
     let target_rot = Transform::from_translation(camera_transform.translation)
-        .looking_at(target_point, Vec3::Y)
+        .looking_at(smoothed_target, Vec3::Y)
         .rotation;
-    camera_transform.rotation = camera_transform.rotation.slerp(target_rot, lerp_factor);
+    camera_transform.rotation = target_rot;
 }

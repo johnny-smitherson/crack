@@ -11,6 +11,7 @@ pub fn teleport_car_system(
     spatial_query: SpatialQuery,
     mut lod_state: ResMut<MapLODState>,
     mut spawn_state: ResMut<GtaSpawnState>,
+    mut camera_state: ResMut<super::camera::GtaCameraState>,
     car_query: Query<Entity, With<Car>>,
 ) {
     if !data_res.parsed {
@@ -80,6 +81,10 @@ pub fn teleport_car_system(
         spawn_state.spawn_point = Some(spawn_point);
         spawn_state.timer = Some(Timer::from_seconds(3.0, TimerMode::Once));
         spawn_state.initialized = true;
+
+        // Reset camera state so it snaps directly to the back of the car on spawn
+        camera_state.smoothed_target = None;
+        camera_state.yaw = 0.0;
 
         info!("Spawn timer initiated. Waiting 3.0 seconds for map LOD to load at {:?}", spawn_point);
     }

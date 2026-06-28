@@ -1,6 +1,10 @@
 #!/bin/bash
 set -ex
 
+if command -v sccache &> /dev/null; then
+    export RUSTC_WRAPPER=sccache
+fi
+
 export RUST_LOG=info
 export WGPU_BACKEND=gl
 
