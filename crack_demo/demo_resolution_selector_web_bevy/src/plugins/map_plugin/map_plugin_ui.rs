@@ -65,7 +65,15 @@ pub fn tree_navigator_ui(
     data_res: Res<MapTree>,
     mut lod_state: ResMut<MapLODState>,
     tiles_query: Query<&TreeMapTile>,
+    ui_state: Option<ResMut<crate::ui_egui::UiState>>,
 ) {
+    let Some(mut state) = ui_state else {
+        return;
+    };
+    if !state.show_lod_configurator {
+        return;
+    }
+
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
@@ -92,7 +100,9 @@ pub fn tree_navigator_ui(
         }
     }
 
-    egui::Window::new("LOD Configuration & Tree Navigator").show(ctx, |ui| {
+    egui::Window::new("LOD Configuration & Tree Navigator")
+        .open(&mut state.show_lod_configurator)
+        .show(ctx, |ui| {
         // Slider for budget: roots.len() to 1000
         let min_budget = data_res.roots.len() as u32;
         let mut budget = lod_state.lod_budget;

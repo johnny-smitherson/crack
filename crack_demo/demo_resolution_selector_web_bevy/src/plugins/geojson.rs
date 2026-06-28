@@ -833,12 +833,22 @@ fn geojson_ui_system(
     mut selection: ResMut<GeoJsonSelection>,
     mut commands: Commands,
     camera_query: Query<&Transform, With<Camera>>,
+    ui_state: Option<ResMut<crate::ui_egui::UiState>>,
 ) {
+    let Some(mut state) = ui_state else {
+        return;
+    };
+    if !state.show_geojson_database {
+        return;
+    }
+
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
 
-    egui::Window::new("GeoJSON Database").show(ctx, |ui| {
+    egui::Window::new("GeoJSON Database")
+        .open(&mut state.show_geojson_database)
+        .show(ctx, |ui| {
         if !database.parsed {
             ui.horizontal(|ui| {
                 ui.spinner();

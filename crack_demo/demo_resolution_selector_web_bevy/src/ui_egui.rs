@@ -24,6 +24,8 @@ pub struct UiState {
     pub smooth: bool,
     pub show_settings: bool,
     pub draw_map_bboxes: bool,
+    pub show_lod_configurator: bool,
+    pub show_geojson_database: bool,
 }
 impl Default for UiState {
     fn default() -> Self {
@@ -33,6 +35,8 @@ impl Default for UiState {
             smooth: true,
             show_settings: false,
             draw_map_bboxes: false,
+            show_lod_configurator: false,
+            show_geojson_database: false,
         }
     }
 }
@@ -181,6 +185,18 @@ fn ui_example_system(
             egui::menu::menu_button(ui, "Options", |ui| {
                 if ui.button("Graphics").clicked() {
                     ui_state.show_settings = !ui_state.show_settings;
+                    ui.close();
+                }
+            });
+            egui::menu::menu_button(ui, "GeoJson Database", |ui| {
+                if ui.button("View").clicked() {
+                    ui_state.show_geojson_database = !ui_state.show_geojson_database;
+                    ui.close();
+                }
+            });
+            egui::menu::menu_button(ui, "Debug", |ui| {
+                if ui.button("Lod Configurator & Tree Navigator").clicked() {
+                    ui_state.show_lod_configurator = !ui_state.show_lod_configurator;
                     ui.close();
                 }
             });

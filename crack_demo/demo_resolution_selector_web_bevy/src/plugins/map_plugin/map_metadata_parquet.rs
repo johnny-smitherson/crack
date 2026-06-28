@@ -310,13 +310,12 @@ pub fn check_and_parse_parquet(
         info!("Computed entire scene bbox: {:?}", bbox);
 
         let middle = (bbox.min + bbox.max) / 2.0;
-        let size = bbox.max - bbox.min;
-        let offset_y = size.y.max(10.0) * 1.2;
-        let camera_pos = Vec3::new(bbox.max.x, bbox.max.y + offset_y, bbox.max.z);
+        let camera_pos = Vec3::new(middle.x, middle.y + 100.0, middle.z);
+        let target = camera_pos + Vec3::new(1.0, -0.2, 1.0);
 
-        info!("Placing camera at {:?} looking at {:?}", camera_pos, middle);
+        info!("Placing camera at center {:?} looking south-east at {:?}", camera_pos, target);
         for mut cam_transform in &mut camera_query {
-            *cam_transform = Transform::from_translation(camera_pos).looking_at(middle, Vec3::Y);
+            *cam_transform = Transform::from_translation(camera_pos).looking_at(target, Vec3::Y);
         }
 
         data_res.bbox = bbox;
