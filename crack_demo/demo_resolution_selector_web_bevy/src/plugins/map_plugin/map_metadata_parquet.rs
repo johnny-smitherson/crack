@@ -176,8 +176,8 @@ fn parse_tree_nodes(bytes: &[u8]) -> Vec<MapTreeAssetInfo> {
             vertex_count,
             mesh_count,
             bbox: BBox {
-                min: Vec3::new(x_min, z_min, -y_max),
-                max: Vec3::new(x_max, z_max, -y_min),
+                min: Vec3::new(x_min, y_min, z_min),
+                max: Vec3::new(x_max, y_max, z_max),
             },
         });
     }

@@ -28,15 +28,15 @@ pub fn load_missions_config(mut commands: Commands) {
             // Apply coordinate transformation to all missions to match the 3d_data_v2 map offset
             for m in &mut missions {
                 // X (East) shift: -797.55
-                // Y (Height) shift: -20637.90
-                // Z (North) shift: negated and shifted by -3310.80 to map to Bevy -Z coordinate
+                // Y (Height) shift: +2843.976
+                // Z (North) shift: -21532.59
                 m.start_coords[0] -= 797.55;
-                m.start_coords[1] -= 20637.90;
-                m.start_coords[2] = -m.start_coords[2] - 3310.80;
+                m.start_coords[1] += 2843.976;
+                m.start_coords[2] -= 21532.59;
 
                 m.end_coords[0] -= 797.55;
-                m.end_coords[1] -= 20637.90;
-                m.end_coords[2] = -m.end_coords[2] - 3310.80;
+                m.end_coords[1] += 2843.976;
+                m.end_coords[2] -= 21532.59;
             }
             info!("Loaded {} missions into game engine.", missions.len());
             commands.insert_resource(MissionList { missions });

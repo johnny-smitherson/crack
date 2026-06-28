@@ -64,7 +64,7 @@ pub fn teleport_car_system(
             Some(pt) => pt,
             None => {
                 // Safe street fallback: Cora Pantelimon main starting street (translated)
-                Vec3::new(-1060.515, -20120.376, -4723.09)
+                Vec3::new(-1060.515, 3361.5, -20120.3)
             }
         };
 
