@@ -284,8 +284,8 @@ def clear_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
-def build_one(json_path: str, out_blend_path: str, ref_point: np.ndarray):
-    """Build a single node's .blend + .glb from its decoded NodeData JSON cache."""
+def build_one(json_path: str, out_glb_path: str, ref_point: np.ndarray):
+    """Build a single node's .glb from its decoded NodeData JSON cache."""
     # Load JSON data
     with open(json_path, "r", encoding="utf-8") as f:
         node_data = json.load(f)
@@ -363,7 +363,7 @@ def build_one(json_path: str, out_blend_path: str, ref_point: np.ndarray):
         # 9. Create Blender Mesh
         mesh_name = f"mesh_{mesh_idx}"
         mesh_data = bpy.data.meshes.new(name=mesh_name)
-        file_id = os.path.splitext(os.path.basename(out_blend_path))[0]
+        file_id = os.path.splitext(os.path.basename(out_glb_path))[0]
         obj = bpy.data.objects.new(name=file_id, object_data=mesh_data)
         bpy.context.collection.objects.link(obj)
 
@@ -425,12 +425,8 @@ def build_one(json_path: str, out_blend_path: str, ref_point: np.ndarray):
 
                     mesh_data.materials.append(material)
 
-    # Save to blend file
-    os.makedirs(os.path.dirname(out_blend_path), exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(out_blend_path))
-
     # Export to GLB
-    out_glb_path = os.path.splitext(out_blend_path)[0] + ".glb"
+    os.makedirs(os.path.dirname(out_glb_path), exist_ok=True)
     bpy.ops.export_scene.gltf(
         filepath=os.path.abspath(out_glb_path),
         export_format='GLB',
@@ -465,7 +461,7 @@ def main():
         # Delete everything from the scene before building the next node.
         clear_scene()
         try:
-            build_one(node["json_path"], node["blend_path"], ref_point)
+            build_one(node["json_path"], node["glb_path"], ref_point)
             built += 1
             print(f"BUILD_OK {octant}")
         except Exception as e:

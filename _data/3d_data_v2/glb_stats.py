@@ -65,8 +65,14 @@ if __name__ == "__main__":
         args = []
 
     if len(args) < 1:
-        print("Usage: blender -b -P glb_stats.py -- <glb_path>")
+        print("Usage: blender -b -P glb_stats.py -- <glb_path1> [<glb_path2> ...]")
         sys.exit(1)
 
-    stats = glb_stats(args[0])
-    print("GLB_STATS:" + json.dumps(stats))
+    results = {}
+    for path in args:
+        try:
+            results[path] = glb_stats(path)
+        except Exception as e:
+            results[path] = {"error": str(e)}
+
+    print("GLB_STATS:" + json.dumps(results))

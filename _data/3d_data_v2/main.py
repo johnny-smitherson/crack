@@ -154,12 +154,13 @@ def main():
         """Network stage: resolve → download (cached) → decode-validate a single node."""
         progress = f"[{index + 1}/{total}]"
         depth = len(octant_path)
-        glb_path = Path(OUTPUT_DIR) / str(depth) / f"{octant_path}.glb"
+        last_three = octant_path[-3:] if len(octant_path) >= 3 else octant_path
+        glb_path = Path(OUTPUT_DIR) / str(depth) / last_three / f"{octant_path}.glb"
         # jpg_path = Path(OUTPUT_DIR) / str(depth) / f"{octant_path}.jpg"
 
-        # Reentrancy: if this entry already has both its GLB and JPG, skip it.
+        # Reentrancy: if this entry already has its GLB, skip it.
         if glb_path.exists():
-            logger.info(f"{progress} Skipping {octant_path} (glb + jpg already present)")
+            logger.info(f"{progress} Skipping {octant_path} (glb already present)")
             bump("skipped")
             return None
 
@@ -182,10 +183,8 @@ def main():
             bump("skipped")
             return None
 
-        blend_path = Path(OUTPUT_DIR) / str(depth) / f"{octant_path}.blend"
-
         # Ensure parent directories exist
-        blend_path.parent.mkdir(parents=True, exist_ok=True)
+        glb_path.parent.mkdir(parents=True, exist_ok=True)
         # jpg_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Construct NodeData URL path for cache resolution (consumed by build_blend.py)
@@ -200,7 +199,6 @@ def main():
             "progress": progress,
             "octant_path": octant_path,
             "json_path": json_path,
-            "blend_path": blend_path,
             "glb_path": glb_path,
             # "jpg_path": jpg_path,
             "mesh_count": len(decoded_meshes),
@@ -210,8 +208,8 @@ def main():
 
     def process_batch(batch: list[dict]):
         """
-        Blender stage for a whole batch of nodes in two single Blender runs:
-        one build_blend.py run (→ .blend + .glb) and one render_tile.py run (→ .jpg).
+        Blender stage for a whole batch of nodes in a single Blender run:
+        one build_blend.py run (→ .glb).
         The batch spec is handed to Blender through a single temp JSON file.
         """
         ref_list = [float(ref_point[0]), float(ref_point[1]), float(ref_point[2])]
@@ -221,7 +219,6 @@ def main():
                 {
                     "octant_path": it["octant_path"],
                     "json_path": str(it["json_path"]),
-                    "blend_path": str(it["blend_path"]),
                     "glb_path": str(it["glb_path"]),
                     # "jpg_path": str(it["jpg_path"]),
                 }
@@ -236,7 +233,7 @@ def main():
             json.dump(spec, tf)
             tf.flush()
 
-            # 1. Build .blend + .glb for the whole batch in one Blender process.
+            # 1. Build .glb for the whole batch in one Blender process.
             try:
                 run_blender_batch("build_blend.py", tf.name)
             except Exception as e:
@@ -245,18 +242,18 @@ def main():
                     bump("failed")
                 return
 
-            # 2. Verify each node produced fresh artifacts.
+            # 2. Verify each node produced fresh GLB.
             built = []
             for it in batch:
-                fresh = all(
-                    p.exists() and p.stat().st_mtime >= build_start
-                    for p in (it["blend_path"], it["glb_path"])
+                fresh = (
+                    it["glb_path"].exists()
+                    and it["glb_path"].stat().st_mtime >= build_start
                 )
                 if fresh:
                     built.append(it)
                     bump("exported")
                     logger.info(
-                        f"{it['progress']} Saved {it['octant_path']}.blend/.glb "
+                        f"{it['progress']} Saved {it['octant_path']}.glb "
                         f"({it['mesh_count']} meshes, {it['vertex_count']} verts, "
                         f"{it['triangle_count']} tris)"
                     )
