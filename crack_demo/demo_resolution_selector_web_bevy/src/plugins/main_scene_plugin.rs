@@ -17,7 +17,7 @@ impl Plugin for MainScenePlugin {
     }
 }
 
-fn setup_camera_and_load(mut commands: Commands) {
+fn setup_camera_and_load(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Keep only default camera spawning
     commands.spawn((
         Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -36,5 +36,52 @@ fn setup_camera_and_load(mut commands: Commands) {
             ..default()
         },
         Transform::from_xyz(10.0, 20.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    // Load and spawn custom assets next to each other
+    let base_url = crate::config::DATA_BASE_URL;
+
+    // 1. Kebab Shop
+    let handle_kebab = asset_server.load(bevy::gltf::GltfAssetLabel::Scene(0).from_asset(format!("{}/blender_generated/kebab_shop/kebab_shop.glb", base_url)));
+    commands.spawn((
+        bevy::world_serialization::WorldAssetRoot(handle_kebab),
+        Transform::from_translation(Vec3::new(-1050.0, 3360.5, -20110.0)),
+        avian3d::prelude::RigidBody::Static,
+        avian3d::prelude::ColliderConstructorHierarchy::new(
+            avian3d::prelude::ColliderConstructor::TrimeshFromMesh,
+        ),
+    ));
+
+    // 2. Superbet Shop
+    let handle_superbet = asset_server.load(bevy::gltf::GltfAssetLabel::Scene(0).from_asset(format!("{}/blender_generated/superbet_shop/superbet_shop.glb", base_url)));
+    commands.spawn((
+        bevy::world_serialization::WorldAssetRoot(handle_superbet),
+        Transform::from_translation(Vec3::new(-1050.0, 3360.5, -20130.0)),
+        avian3d::prelude::RigidBody::Static,
+        avian3d::prelude::ColliderConstructorHierarchy::new(
+            avian3d::prelude::ColliderConstructor::TrimeshFromMesh,
+        ),
+    ));
+
+    // 3. Terasa Obor
+    let handle_obor = asset_server.load(bevy::gltf::GltfAssetLabel::Scene(0).from_asset(format!("{}/blender_generated/terasa_obor/terasa_obor.glb", base_url)));
+    commands.spawn((
+        bevy::world_serialization::WorldAssetRoot(handle_obor),
+        Transform::from_translation(Vec3::new(-1070.0, 3360.5, -20110.0)),
+        avian3d::prelude::RigidBody::Static,
+        avian3d::prelude::ColliderConstructorHierarchy::new(
+            avian3d::prelude::ColliderConstructor::TrimeshFromMesh,
+        ),
+    ));
+
+    // 4. Bus 335
+    let handle_bus = asset_server.load(bevy::gltf::GltfAssetLabel::Scene(0).from_asset(format!("{}/blender_generated/bus_335/bus_335.glb", base_url)));
+    commands.spawn((
+        bevy::world_serialization::WorldAssetRoot(handle_bus),
+        Transform::from_translation(Vec3::new(-1070.0, 3360.5, -20130.0)),
+        avian3d::prelude::RigidBody::Static,
+        avian3d::prelude::ColliderConstructorHierarchy::new(
+            avian3d::prelude::ColliderConstructor::TrimeshFromMesh,
+        ),
     ));
 }
