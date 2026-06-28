@@ -101,11 +101,13 @@ def generate_bus(texture_path, output_dir):
     bpy.ops.object.join()
     bus_body.name = "Bus_335"
 
-    # 6. Export GLB
+    # 6. Export GLB and save .blend file
     os.makedirs(output_dir, exist_ok=True)
-    export_path = os.path.join(output_dir, "bus_335.glb")
-    bpy.ops.export_scene.gltf(filepath=export_path, export_format='GLB')
-    print(f"[ASSET GENERATOR] 335 Bus exported successfully to {export_path}")
+    export_path_glb = os.path.join(output_dir, "bus_335.glb")
+    export_path_blend = os.path.join(output_dir, "bus_335.blend")
+    bpy.ops.export_scene.gltf(filepath=export_path_glb, export_format='GLB')
+    bpy.ops.wm.save_as_mainfile(filepath=export_path_blend)
+    print(f"[ASSET GENERATOR] 335 Bus exported successfully to {export_path_glb} and saved to {export_path_blend}")
 
 
 def generate_kebab_shop(texture_path, output_dir):
@@ -243,11 +245,13 @@ def generate_kebab_shop(texture_path, output_dir):
     bpy.ops.object.join()
     main_obj.name = "Kebab_Shop"
 
-    # 12. Export GLB
+    # 12. Export GLB and save .blend file
     os.makedirs(output_dir, exist_ok=True)
-    export_path = os.path.join(output_dir, "kebab_shop.glb")
-    bpy.ops.export_scene.gltf(filepath=export_path, export_format='GLB')
-    print(f"[ASSET GENERATOR] Kebab Shop exported successfully to {export_path}")
+    export_path_glb = os.path.join(output_dir, "kebab_shop.glb")
+    export_path_blend = os.path.join(output_dir, "kebab_shop.blend")
+    bpy.ops.export_scene.gltf(filepath=export_path_glb, export_format='GLB')
+    bpy.ops.wm.save_as_mainfile(filepath=export_path_blend)
+    print(f"[ASSET GENERATOR] Kebab Shop exported successfully to {export_path_glb} and saved to {export_path_blend}")
 
 
 def main():
