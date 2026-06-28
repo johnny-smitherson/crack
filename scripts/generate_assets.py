@@ -42,7 +42,9 @@ def run_generator(asset):
     # Map asset names to their script-specific texture argument flags
     texture_flags = {
         "bus_335": "--bus-texture",
-        "kebab_shop": "--kebab-texture"
+        "kebab_shop": "--kebab-texture",
+        "superbet_shop": "--superbet-texture",
+        "terasa_obor": "--obor-texture"
     }
     texture_flag = texture_flags.get(name, "--texture")
     

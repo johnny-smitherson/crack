@@ -17,6 +17,24 @@
       "glb_path": "_data/blender_generated/kebab_shop/kebab_shop.glb",
       "version": "1.0.0",
       "description": "Socului Kebab shop interior room with 3D text and furniture"
+    },
+    {
+      "name": "superbet_shop",
+      "input_image": "images/superbet-interior.jpg",
+      "script": "scripts/models/superbet_shop.py",
+      "blend_path": "_data/blender_generated/superbet_shop/superbet_shop.blend",
+      "glb_path": "_data/blender_generated/superbet_shop/superbet_shop.glb",
+      "version": "1.0.0",
+      "description": "Superbet sports betting shop retail interior with counters, TVs, and seating"
+    },
+    {
+      "name": "terasa_obor",
+      "input_image": "images/terasa-obor-1-scaled.webp",
+      "script": "scripts/models/terasa_obor.py",
+      "blend_path": "_data/blender_generated/terasa_obor/terasa_obor.blend",
+      "glb_path": "_data/blender_generated/terasa_obor/terasa_obor.glb",
+      "version": "1.0.0",
+      "description": "Terasa Obor open-air Romanian market restaurant canopy, tables, and grill cart"
     }
   ]
 }
