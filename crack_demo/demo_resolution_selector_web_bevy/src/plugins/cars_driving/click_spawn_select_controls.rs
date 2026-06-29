@@ -1,4 +1,10 @@
-use crate::plugins::{cars_driving::car_info::{get_car_asset, get_random_car_type}, states::GameControlState};
+use crate::plugins::{
+    cars_driving::{
+        car_info::{get_car_asset, get_random_car_type},
+        driving_plugin::{CarDriveState, GamePhysicsLayer},
+    },
+    states::GameControlState,
+};
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 
@@ -85,6 +91,12 @@ pub fn spawn_car_request_event_observer(
         ),
         avian3d::prelude::Restitution::ZERO
             .with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
+        avian3d::prelude::Mass(1200.0),
+        avian3d::prelude::CollisionLayers::new(
+            [GamePhysicsLayer::Car],
+            [GamePhysicsLayer::Map],
+        ),
+        CarDriveState::default(),
     ));
     next_state.set(GameControlState::DrivingCar);
 }

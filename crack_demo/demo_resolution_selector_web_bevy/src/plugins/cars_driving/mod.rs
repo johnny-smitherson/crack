@@ -5,7 +5,10 @@ pub mod driving_plugin;
 use bevy::{app::App, prelude::*};
 
 use crate::plugins::{
-    cars_driving::click_spawn_select_controls::spawn_car_request_event_observer,
+    cars_driving::{
+        click_spawn_select_controls::spawn_car_request_event_observer,
+        driving_plugin::{car_drive_observer, DrivingPlugin},
+    },
     states::GameControlState,
 };
 
@@ -19,6 +22,9 @@ impl Plugin for CarsAndDrivingPlugin {
                 .run_if(in_state(GameControlState::MapFreecam)),
         );
         app.add_observer(spawn_car_request_event_observer);
-        app.add_plugins(DrivingPlugin::<GameControlState> { state: GameControlState::DrivingCar });
+        app.add_observer(car_drive_observer);
+        app.add_plugins(DrivingPlugin::<GameControlState> {
+            state: GameControlState::DrivingCar,
+        });
     }
 }

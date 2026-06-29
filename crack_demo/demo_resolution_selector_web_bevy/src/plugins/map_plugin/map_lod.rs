@@ -6,6 +6,8 @@ use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 use bevy_egui::egui::emath::OrderedFloat;
 use std::collections::BTreeMap;
 use std::collections::{BTreeSet, BinaryHeap};
+use crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer;
+use avian3d::prelude::CollisionLayers;
 
 #[derive(Component)]
 pub struct TreeMapTile {
@@ -62,6 +64,10 @@ fn spawn_node_tiles(
             ),
             avian3d::prelude::Restitution::ZERO
                 .with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
+            CollisionLayers::new(
+                [GamePhysicsLayer::Map],
+                [GamePhysicsLayer::Map, GamePhysicsLayer::Car, GamePhysicsLayer::Wheel],
+            ),
         ));
     }
 }
@@ -160,12 +166,12 @@ pub fn recompute_lod_mark_changes(
     }
     *last = Some((nodes.clone(), refs.clone(), budget));
 
-    tracing::info!(
-        "recompute_lod_mark_changes(nodes: {} , refs: {}, budget: {} ) .... ",
-        nodes.len(),
-        refs.len(),
-        budget
-    );
+    // tracing::info!(
+    //     "recompute_lod_mark_changes(nodes: {} , refs: {}, budget: {} ) .... ",
+    //     nodes.len(),
+    //     refs.len(),
+    //     budget
+    // );
 
     let tile_bbox = |node_path: &MapTreeNodePath| {
         let Some(node) = data_res.all_nodes.get(node_path) else {
@@ -201,7 +207,7 @@ pub fn recompute_lod_mark_changes(
     //         parents.insert(_path.clone());
     //     }
     // }
-    tracing::info!("restarting tree from {} parents", parents.len());
+    // tracing::info!("restarting tree from {} parents", parents.len());
 
     // put all parents into the max-heap
     let mut heap = BinaryHeap::new();
@@ -217,11 +223,11 @@ pub fn recompute_lod_mark_changes(
     for p in parents.iter() {
         heap.push((OrderedFloat(tile_score(&p)), p.clone()));
     }
-    tracing::info!(
-        "starting with {} items in heap, current budget: {}",
-        heap.len(),
-        current_budget
-    );
+    // tracing::info!(
+    //     "starting with {} items in heap, current budget: {}",
+    //     heap.len(),
+    //     current_budget
+    // );
     let mut proposed_splits = BTreeSet::new();
     while let Some((_score, node_path)) = heap.pop() {
         let children = data_res.children.get(&node_path);
@@ -257,12 +263,12 @@ pub fn recompute_lod_mark_changes(
         }
     }
 
-    tracing::info!(
-        "After iterating heap, there are {} proposed nodes (budget used: {}) and {} proposed splits",
-        proposed_nodes.len(),
-        current_budget,
-        proposed_splits.len()
-    );
+    // tracing::info!(
+    //     "After iterating heap, there are {} proposed nodes (budget used: {}) and {} proposed splits",
+    //     proposed_nodes.len(),
+    //     current_budget,
+    //     proposed_splits.len()
+    // );
 
     // intersection of nodes and proposed_splits is the list of split requests we make.
     let mut split_requests = vec![];
@@ -297,17 +303,18 @@ pub fn recompute_lod_mark_changes(
     for b in _rem {
         merge_requests.remove(&b);
     }
-    tracing::info!(
-        "{} split requests / {} merge reuqests.",
-        split_requests.len(),
-        merge_requests.len()
-    );
+
+        let t1 = _crack_utils::get_timestamp_now_ms();
+    let dt = t1 - t0;
+    if dt > 12 {
+
+    tracing::info!("{} split requests / {} merge reuqests. recompute_lod_mark_changes took {} ms",        split_requests.len(),
+        merge_requests.len(), dt);
+    }
 
     res_tiles.split_requests = split_requests.into_iter().collect();
     res_tiles.merge_requests = merge_requests.into_iter().collect();
-    let t1 = _crack_utils::get_timestamp_now_ms();
-    let dt = t1 - t0;
-    tracing::info!("recompute_lod_mark_changes took {} ms", dt);
+
 }
 
 pub fn start_tile_swap_requests(
