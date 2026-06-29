@@ -43,6 +43,8 @@ pub struct AxleJoint {
     pub is_left: bool,
 }
 
+
+
 #[derive(EntityEvent, Clone, Debug)]
 pub struct Drive {
     pub entity: Entity,
@@ -249,6 +251,7 @@ pub fn keybinds_control_car(
                 s_ang_vel.0 = Vec3::ZERO;
             }
 
+
             // Reset all wheels
             for (mut w_transform, mut w_lin_vel, mut w_ang_vel, wheel) in q_wheels.iter_mut() {
                 let x = if wheel.is_left { -half_width } else { half_width };
@@ -391,6 +394,7 @@ pub fn update_vehicle_physics(
                 // mass per wheel is about 300.0kg
                 let frequency = (drive_state.suspension_stiffness / 300.0).sqrt() / 6.283185;
                 
+                joint.frame1.basis = avian3d::prelude::JointBasis::Local(Quat::IDENTITY);
                 // Update limits
                 joint.limits = Some(DistanceLimit::new(0.0, height));
                 
@@ -428,20 +432,20 @@ pub fn update_vehicle_physics(
     }
 }
 
-/// Directly rotates front wheel transforms to achieve steering.
-/// No physics joint needed — we just set the Y-axis rotation on front wheel entities.
+/// Steers the front wheels by rotating front strut transforms relative to the car's current orientation.
+/// This preserves the car's freedom to tilt/topple while applying steering.
 pub fn steer_front_wheels(
-    q_car: Query<(Entity, &CarDriveState), With<Car>>,
-    mut q_wheels: Query<(&mut Transform, &Wheel)>,
+    q_car: Query<(&Transform, &CarDriveState), (With<Car>, Without<Strut>)>,
+    mut q_struts: Query<(&mut Transform, &Strut), Without<Car>>,
 ) {
-    for (_car_entity, drive_state) in q_car.iter() {
-        let steer_angle = drive_state.current_steer_integrated * 30.0f32.to_radians();
-        
-        for (mut transform, wheel) in q_wheels.iter_mut() {
-            if wheel.is_front {
-                // Apply steering rotation around Y axis
-                // Preserve the wheel's existing translation, only change rotation
-                transform.rotation = Quat::from_rotation_y(steer_angle);
+    for (car_transform, drive_state) in q_car.iter() {
+        // Negate so D/Right produces a right turn (clockwise around local Y = negative angle)
+        let steer_angle = -drive_state.current_steer_integrated * 30.0f32.to_radians();
+
+        for (mut strut_transform, strut) in q_struts.iter_mut() {
+            if strut.is_front {
+                // Compose: car's current rotation + steering rotation around car-local Y
+                strut_transform.rotation = car_transform.rotation * Quat::from_rotation_y(steer_angle);
             }
         }
     }
