@@ -103,112 +103,71 @@ pub fn tree_navigator_ui(
     egui::Window::new("LOD Configuration & Tree Navigator")
         .open(&mut state.show_lod_configurator)
         .show(ctx, |ui| {
-        // Slider for budget: roots.len() to 1000
-        let min_budget = data_res.roots.len() as u32;
-        let mut budget = lod_state.lod_budget;
-        ui.horizontal(|ui| {
-            ui.label("Budget:");
-            ui.add(egui::Slider::new(&mut budget, min_budget..=1000).text(""));
-        });
-        if budget != lod_state.lod_budget {
-            lod_state.lod_budget = budget;
-        }
-
-        ui.separator();
-
-        ui.heading("Reference Points");
-        let mut to_remove = None;
-        for (i, pt) in lod_state.reference_points.iter().enumerate() {
+            // Slider for budget: roots.len() to 1000
+            let min_budget = data_res.roots.len() as u32;
+            let mut budget = lod_state.lod_budget;
             ui.horizontal(|ui| {
-                ui.label(format!("Pt {}: ({:.1}, {:.1}, {:.1})", i, pt.x, pt.y, pt.z));
-                if ui.button("Remove").clicked() {
-                    to_remove = Some(i);
+                ui.label("Budget:");
+                ui.add(egui::Slider::new(&mut budget, min_budget..=1000).text(""));
+            });
+            if budget != lod_state.lod_budget {
+                lod_state.lod_budget = budget;
+            }
+
+            ui.separator();
+
+            ui.heading("Reference Points");
+            let mut to_remove = None;
+            for (i, pt) in lod_state.reference_points.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    ui.label(format!("Pt {}: ({:.1}, {:.1}, {:.1})", i, pt.x, pt.y, pt.z));
+                    if ui.button("Remove").clicked() {
+                        to_remove = Some(i);
+                    }
+                });
+            }
+            if let Some(idx) = to_remove {
+                lod_state.reference_points.remove(idx);
+            }
+
+            ui.separator();
+            ui.label(format!("Spawned Nodes: {}", num_nodes));
+            ui.label(format!("Spawned Assets: {}", num_assets));
+            ui.label(format!("Spawned Vertices: {}", total_vertices));
+
+            ui.separator();
+            ui.heading("Tree Navigator");
+
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for node_path in rendered_paths {
+                    if let Some(node) = data_res.all_nodes.get(&node_path) {
+                        let is_selected = lod_state.selected_node.as_ref() == Some(&node_path.0);
+                        let label_text = format!(
+                            "Path: {} | Assets: {} | BBox: {:?}",
+                            node.path.0,
+                            node.assets.len(),
+                            node.bbox
+                        );
+
+                        ui.horizontal(|ui| {
+                            let resp = ui.selectable_label(is_selected, label_text);
+                            if resp.clicked() {
+                                if is_selected {
+                                    node_to_deselect = true;
+                                } else {
+                                    node_to_select = Some(node_path.0.clone());
+                                }
+                            }
+                        });
+                    }
                 }
             });
-        }
-        if let Some(idx) = to_remove {
-            lod_state.reference_points.remove(idx);
-        }
-
-        ui.separator();
-        ui.label(format!("Spawned Nodes: {}", num_nodes));
-        ui.label(format!("Spawned Assets: {}", num_assets));
-        ui.label(format!("Spawned Vertices: {}", total_vertices));
-
-        ui.separator();
-        ui.heading("Tree Navigator");
-
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            for node_path in rendered_paths {
-                if let Some(node) = data_res.all_nodes.get(&node_path) {
-                    let is_selected = lod_state.selected_node.as_ref() == Some(&node_path.0);
-                    let label_text = format!(
-                        "Path: {} | Assets: {} | BBox: {:?}",
-                        node.path.0,
-                        node.assets.len(),
-                        node.bbox
-                    );
-
-                    ui.horizontal(|ui| {
-                        let resp = ui.selectable_label(is_selected, label_text);
-                        if resp.clicked() {
-                            if is_selected {
-                                node_to_deselect = true;
-                            } else {
-                                node_to_select = Some(node_path.0.clone());
-                            }
-                        }
-                    });
-                }
-            }
         });
-    });
 
     if node_to_deselect {
         lod_state.selected_node = None;
     } else if let Some(name) = node_to_select {
         lod_state.selected_node = Some(name);
-    }
-}
-
-pub fn handle_click_raycast(
-    mut lod_state: ResMut<MapLODState>,
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    window_query: Query<&Window>,
-    camera_query: Query<(&Camera, &GlobalTransform)>,
-    spatial_query: avian3d::prelude::SpatialQuery,
-    mut contexts: EguiContexts,
-) {
-    let Ok(ctx) = contexts.ctx_mut() else {
-        return;
-    };
-    if ctx.egui_wants_pointer_input() || ctx.is_pointer_over_egui() {
-        return;
-    }
-
-    if mouse_button.just_pressed(MouseButton::Right) {
-        let Ok(window) = window_query.single() else {
-            return;
-        };
-        if let Some(cursor_pos) = window.cursor_position() {
-            let Ok((camera, camera_transform)) = camera_query.single() else {
-                return;
-            };
-
-            if let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_pos) {
-                if let Some(hit) = spatial_query.cast_ray(
-                    ray.origin,
-                    ray.direction,
-                    10000.0,
-                    true,
-                    &avian3d::prelude::SpatialQueryFilter::default(),
-                ) {
-                    let hit_point = ray.origin + *ray.direction * hit.distance;
-                    lod_state.reference_points.push(hit_point);
-                    info!("Added reference point at {:?}", hit_point);
-                }
-            }
-        }
     }
 }
 

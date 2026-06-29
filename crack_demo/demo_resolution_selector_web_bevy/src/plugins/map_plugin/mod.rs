@@ -1,21 +1,21 @@
 mod map_lod;
+pub mod map_material_edit;
 mod map_metadata_parquet;
 mod map_plugin_ui;
-pub mod map_material_edit;
 
 use bevy::prelude::*;
 use bevy_egui::EguiPrimaryContextPass;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::plugins::map_plugin::map_lod::{
-    TileSwapRequests, do_merge_requests, do_split_requests, recompute_lod_mark_changes,
-    spawn_root_map_tiles, start_tile_swap_requests, check_map_loaded_status,
+    TileSwapRequests, check_map_loaded_status, do_merge_requests, do_split_requests,
+    recompute_lod_mark_changes, spawn_root_map_tiles, start_tile_swap_requests,
 };
 use crate::plugins::map_plugin::map_metadata_parquet::{
     ParquetAsset, ParquetAssetLoader, check_and_parse_parquet, init_parquet_handles,
 };
 use crate::plugins::map_plugin::map_plugin_ui::{
-    draw_reference_points_gizmos, draw_tree_bboxes, handle_click_raycast, tree_navigator_ui,
+    draw_reference_points_gizmos, draw_tree_bboxes, tree_navigator_ui,
 };
 
 pub struct MapPlugin;
@@ -37,7 +37,7 @@ impl Plugin for MapPlugin {
                 (
                     check_and_parse_parquet,
                     draw_tree_bboxes,
-                    handle_click_raycast,
+                    // handle_click_raycast,
                     draw_reference_points_gizmos,
                     spawn_root_map_tiles,
                     recompute_lod_mark_changes,

@@ -1,7 +1,7 @@
-use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::core_pipeline::Skybox;
-use bevy::render::render_resource::{TextureViewDescriptor, TextureViewDimension};
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::prelude::*;
+use bevy::render::render_resource::{TextureViewDescriptor, TextureViewDimension};
 
 pub struct MainScenePlugin;
 
@@ -29,7 +29,7 @@ pub struct SkyboxState {
 fn setup_camera_and_load(mut commands: Commands, asset_server: Res<AssetServer>) {
     let skybox_texture_url = format!("{}skybox_clouds.png", crate::config::DATA_BASE_URL);
     let skybox_handle = asset_server.load(skybox_texture_url);
-    
+
     commands.insert_resource(SkyboxState {
         handle: skybox_handle,
         loaded: false,
@@ -77,11 +77,11 @@ fn convert_and_apply_skybox(
     let Some(mut state) = state else {
         return;
     };
-    
+
     if state.loaded {
         return;
     }
-    
+
     if let Some(load_state) = asset_server.get_load_state(&state.handle) {
         if matches!(load_state, bevy::asset::LoadState::Loaded) {
             if let Some(mut image) = images.get_mut(&state.handle) {
@@ -94,11 +94,11 @@ fn convert_and_apply_skybox(
                             dimension: Some(TextureViewDimension::Cube),
                             ..default()
                         });
-                        
+
                         info!("Skybox cubemap configured successfully! Applying to camera...");
                         for (entity, mut skybox) in &mut q_camera {
                             skybox.image = Some(state.handle.clone());
-                            
+
                             // Insert EnvironmentMapLight so that the skybox influences the lighting
                             commands.entity(entity).insert(EnvironmentMapLight {
                                 diffuse_map: state.handle.clone(),

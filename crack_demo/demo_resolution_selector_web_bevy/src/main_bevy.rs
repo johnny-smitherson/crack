@@ -23,7 +23,7 @@ pub fn main_bevy() {
                 .build()
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "SECONDARY PROLETARIAN ROUTINE".into(),
+                        title: "Crack! - Pantelimon".into(),
                         canvas: Some("#the-canvas".into()),
                         // resizable: true,
                         fit_canvas_to_parent: true,
@@ -63,6 +63,7 @@ pub fn main_bevy() {
         .add_plugins(crate::plugins::physics_plugin::PhysicsPlugin)
         .add_plugins(crate::plugins::map_plugin::MapPlugin)
         .add_plugins(crate::plugins::geojson::GeoJsonPlugin)
+        .add_plugins(crate::plugins::cars_driving::CarsAndDrivingPlugin)
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Update, log_dt)
         .run();

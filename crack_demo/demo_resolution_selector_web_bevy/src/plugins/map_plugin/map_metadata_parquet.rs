@@ -313,7 +313,10 @@ pub fn check_and_parse_parquet(
         let camera_pos = Vec3::new(middle.x, middle.y + 100.0, middle.z);
         let target = camera_pos + Vec3::new(1.0, -0.2, 1.0);
 
-        info!("Placing camera at center {:?} looking south-east at {:?}", camera_pos, target);
+        info!(
+            "Placing camera at center {:?} looking south-east at {:?}",
+            camera_pos, target
+        );
         for mut cam_transform in &mut camera_query {
             *cam_transform = Transform::from_translation(camera_pos).looking_at(target, Vec3::Y);
         }

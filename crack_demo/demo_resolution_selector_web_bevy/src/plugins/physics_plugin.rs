@@ -9,4 +9,3 @@ impl Plugin for PhysicsPlugin {
             .insert_resource(Time::<Fixed>::from_hz(40.0));
     }
 }
-

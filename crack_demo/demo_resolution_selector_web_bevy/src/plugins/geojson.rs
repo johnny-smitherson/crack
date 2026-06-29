@@ -1,8 +1,8 @@
-use bevy::prelude::*;
 use bevy::asset::{Asset, AssetLoader, LoadContext, io::Reader};
+use bevy::prelude::*;
 use bevy::reflect::TypePath;
-use bevy_egui::{EguiContexts, egui};
 use bevy_egui::EguiPrimaryContextPass;
+use bevy_egui::{EguiContexts, egui};
 use std::collections::BTreeMap;
 
 use crate::plugins::camera_controls::ActiveCameraAnimation;
@@ -20,7 +20,10 @@ impl Plugin for GeoJsonPlugin {
             .init_resource::<GeoJsonLoaderState>()
             .init_resource::<GameLoadingStatus>()
             .init_resource::<TooltipNotificationState>()
-            .add_systems(EguiPrimaryContextPass, (geojson_ui_system, geojson_text_labels_system))
+            .add_systems(
+                EguiPrimaryContextPass,
+                (geojson_ui_system, geojson_text_labels_system),
+            )
             .add_systems(
                 Update,
                 (
@@ -531,10 +534,7 @@ fn update_geojson_loading_finished(
     }
 }
 
-fn update_tooltip_timers(
-    time: Res<Time>,
-    mut tooltip_state: ResMut<TooltipNotificationState>,
-) {
+fn update_tooltip_timers(time: Res<Time>, mut tooltip_state: ResMut<TooltipNotificationState>) {
     let dt = time.delta_secs();
     if tooltip_state.map_loaded_timer > 0.0 {
         tooltip_state.map_loaded_timer = (tooltip_state.map_loaded_timer - dt).max(0.0);
@@ -899,118 +899,118 @@ fn geojson_ui_system(
     egui::Window::new("GeoJSON Database")
         .open(&mut state.show_geojson_database)
         .show(ctx, |ui| {
-        if !database.parsed {
+            if !database.parsed {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label("Staging & projecting coordinates from MapTree...");
+                });
+                return;
+            }
+
             ui.horizontal(|ui| {
-                ui.spinner();
-                ui.label("Staging & projecting coordinates from MapTree...");
+                ui.label("Search:");
+                ui.text_edit_singleline(&mut search_state.query);
             });
-            return;
-        }
+            ui.separator();
 
-        ui.horizontal(|ui| {
-            ui.label("Search:");
-            ui.text_edit_singleline(&mut search_state.query);
-        });
-        ui.separator();
+            let query_trimmed = search_state.query.trim();
 
-        let query_trimmed = search_state.query.trim();
+            egui::ScrollArea::vertical()
+                .max_height(300.0)
+                .show(ui, |ui| {
+                    if query_trimmed.len() <= 3 {
+                        // Display first 10 items of each type
+                        for (cat_name, features) in &database.categories {
+                            ui.collapsing(format!("{} ({})", cat_name, features.len()), |ui| {
+                                let display_count = features.len().min(10);
+                                for idx in 0..display_count {
+                                    let feature = &features[idx];
+                                    let display_name = feature.name.clone().unwrap_or_else(|| {
+                                        format!(
+                                            "{} #{}",
+                                            feature.osm_type,
+                                            feature.id.unwrap_or(idx as i64)
+                                        )
+                                    });
 
-        egui::ScrollArea::vertical()
-            .max_height(300.0)
-            .show(ui, |ui| {
-                if query_trimmed.len() <= 3 {
-                    // Display first 10 items of each type
-                    for (cat_name, features) in &database.categories {
-                        ui.collapsing(format!("{} ({})", cat_name, features.len()), |ui| {
-                            let display_count = features.len().min(10);
-                            for idx in 0..display_count {
-                                let feature = &features[idx];
-                                let display_name = feature.name.clone().unwrap_or_else(|| {
-                                    format!(
-                                        "{} #{}",
-                                        feature.osm_type,
-                                        feature.id.unwrap_or(idx as i64)
-                                    )
-                                });
-
-                                let is_selected =
-                                    selection.selected.as_ref() == Some(&(cat_name.clone(), idx));
-                                if ui.selectable_label(is_selected, &display_name).clicked() {
-                                    select_and_animate(
-                                        cat_name.clone(),
-                                        idx,
-                                        feature,
-                                        &mut commands,
-                                        &camera_query,
-                                    );
-                                    selection.selected = Some((cat_name.clone(), idx));
+                                    let is_selected = selection.selected.as_ref()
+                                        == Some(&(cat_name.clone(), idx));
+                                    if ui.selectable_label(is_selected, &display_name).clicked() {
+                                        select_and_animate(
+                                            cat_name.clone(),
+                                            idx,
+                                            feature,
+                                            &mut commands,
+                                            &camera_query,
+                                        );
+                                        selection.selected = Some((cat_name.clone(), idx));
+                                    }
                                 }
-                            }
-                        });
-                    }
-                } else {
-                    // Text search (case-insensitive) across names
-                    let mut matches = Vec::new();
-                    let query_lower = query_trimmed.to_lowercase();
+                            });
+                        }
+                    } else {
+                        // Text search (case-insensitive) across names
+                        let mut matches = Vec::new();
+                        let query_lower = query_trimmed.to_lowercase();
 
-                    'outer: for (cat_name, features) in &database.categories {
-                        for (idx, feature) in features.iter().enumerate() {
-                            if let Some(name) = &feature.name {
-                                if name.to_lowercase().contains(&query_lower) {
-                                    matches.push((cat_name.clone(), idx, feature));
-                                    if matches.len() >= 200 {
-                                        break 'outer;
+                        'outer: for (cat_name, features) in &database.categories {
+                            for (idx, feature) in features.iter().enumerate() {
+                                if let Some(name) = &feature.name {
+                                    if name.to_lowercase().contains(&query_lower) {
+                                        matches.push((cat_name.clone(), idx, feature));
+                                        if matches.len() >= 200 {
+                                            break 'outer;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    ui.label(format!("Found {} matches (max 200)", matches.len()));
-                    for (cat_name, idx, feature) in matches {
-                        let display_name = format!(
-                            "[{}] {}",
-                            cat_name,
-                            feature.name.clone().unwrap_or_default()
-                        );
-                        let is_selected =
-                            selection.selected.as_ref() == Some(&(cat_name.clone(), idx));
-                        if ui.selectable_label(is_selected, &display_name).clicked() {
-                            select_and_animate(
-                                cat_name.clone(),
-                                idx,
-                                feature,
-                                &mut commands,
-                                &camera_query,
+                        ui.label(format!("Found {} matches (max 200)", matches.len()));
+                        for (cat_name, idx, feature) in matches {
+                            let display_name = format!(
+                                "[{}] {}",
+                                cat_name,
+                                feature.name.clone().unwrap_or_default()
                             );
-                            selection.selected = Some((cat_name.clone(), idx));
+                            let is_selected =
+                                selection.selected.as_ref() == Some(&(cat_name.clone(), idx));
+                            if ui.selectable_label(is_selected, &display_name).clicked() {
+                                select_and_animate(
+                                    cat_name.clone(),
+                                    idx,
+                                    feature,
+                                    &mut commands,
+                                    &camera_query,
+                                );
+                                selection.selected = Some((cat_name.clone(), idx));
+                            }
                         }
                     }
-                }
-            });
+                });
 
-        // Detail panel for selected element
-        if let Some((cat_name, idx)) = &selection.selected {
-            if let Some(features) = database.categories.get(cat_name) {
-                if let Some(feature) = features.get(*idx) {
-                    ui.separator();
-                    ui.heading("Selected Feature Info");
-                    ui.label(format!("Category: {}", cat_name));
-                    ui.label(format!("OSM Type: {}", feature.osm_type));
-                    ui.label(format!("ID: {}", feature.id.unwrap_or(0)));
-                    if let Some(name) = &feature.name {
-                        ui.label(format!("Name: {}", name));
-                    }
-
-                    ui.collapsing("All Tags", |ui| {
-                        for (k, v) in &feature.tags {
-                            ui.label(format!("{}: {}", k, v));
+            // Detail panel for selected element
+            if let Some((cat_name, idx)) = &selection.selected {
+                if let Some(features) = database.categories.get(cat_name) {
+                    if let Some(feature) = features.get(*idx) {
+                        ui.separator();
+                        ui.heading("Selected Feature Info");
+                        ui.label(format!("Category: {}", cat_name));
+                        ui.label(format!("OSM Type: {}", feature.osm_type));
+                        ui.label(format!("ID: {}", feature.id.unwrap_or(0)));
+                        if let Some(name) = &feature.name {
+                            ui.label(format!("Name: {}", name));
                         }
-                    });
+
+                        ui.collapsing("All Tags", |ui| {
+                            for (k, v) in &feature.tags {
+                                ui.label(format!("{}: {}", k, v));
+                            }
+                        });
+                    }
                 }
             }
-        }
-    });
+        });
 }
 
 fn select_and_animate(
@@ -1096,9 +1096,10 @@ fn geojson_text_labels_system(
         return;
     };
 
-    let raw_name = feature.name.clone().unwrap_or_else(|| {
-        format!("ID: {}", feature.id.unwrap_or(0))
-    });
+    let raw_name = feature
+        .name
+        .clone()
+        .unwrap_or_else(|| format!("ID: {}", feature.id.unwrap_or(0)));
     let mut name_15 = raw_name.chars().take(15).collect::<String>();
     if raw_name.chars().count() > 15 {
         name_15.push_str("...");
@@ -1132,7 +1133,9 @@ fn geojson_text_labels_system(
         if let Ok(p_center) = camera.world_to_viewport(camera_transform, pos) {
             let camera_right = camera_transform.right();
             let sphere_radius = 3.0;
-            if let Ok(p_edge) = camera.world_to_viewport(camera_transform, pos + camera_right * sphere_radius) {
+            if let Ok(p_edge) =
+                camera.world_to_viewport(camera_transform, pos + camera_right * sphere_radius)
+            {
                 let r_screen = p_center.distance(p_edge);
                 let font_size = (r_screen * 3.0).clamp(11.0, 36.0);
 
@@ -1144,7 +1147,9 @@ fn geojson_text_labels_system(
                                 .color(egui::Color32::from_rgb(255, 60, 60))
                                 .size(font_size)
                                 .strong()
-                                .background_color(egui::Color32::from_rgba_premultiplied(0, 0, 0, 180))
+                                .background_color(egui::Color32::from_rgba_premultiplied(
+                                    0, 0, 0, 180,
+                                )),
                         );
                     });
             }
@@ -1264,7 +1269,11 @@ fn geojson_gizmos_system(
                             let mut current_dist = 0.0;
                             while current_dist <= dist {
                                 let tie_center = p1 + dir * current_dist;
-                                gizmos.line(tie_center - perp * 2.0, tie_center + perp * 2.0, Color::srgb(0.5, 0.25, 0.1));
+                                gizmos.line(
+                                    tie_center - perp * 2.0,
+                                    tie_center + perp * 2.0,
+                                    Color::srgb(0.5, 0.25, 0.1),
+                                );
                                 current_dist += 10.0;
                             }
                         }
@@ -1290,8 +1299,16 @@ fn geojson_gizmos_system(
                             let dir = (p2 - p1).normalize_or_zero();
                             let perp = Vec3::new(-dir.z, 0.0, dir.x).normalize_or_zero();
 
-                            gizmos.line(p1 - perp * 2.0, p2 - perp * 2.0, Color::srgb(0.0, 0.0, 1.0));
-                            gizmos.line(p1 + perp * 2.0, p2 + perp * 2.0, Color::srgb(0.0, 0.0, 1.0));
+                            gizmos.line(
+                                p1 - perp * 2.0,
+                                p2 - perp * 2.0,
+                                Color::srgb(0.0, 0.0, 1.0),
+                            );
+                            gizmos.line(
+                                p1 + perp * 2.0,
+                                p2 + perp * 2.0,
+                                Color::srgb(0.0, 0.0, 1.0),
+                            );
                         }
 
                         if max_y <= min_y {
@@ -1385,9 +1402,17 @@ fn geojson_gizmos_system(
                     for idx in 0..count {
                         let next_idx = (idx + 1) % count;
                         // Bottom base
-                        gizmos.line(ground_pts[idx], ground_pts[next_idx], Color::srgb(1.0, 0.4, 0.0));
+                        gizmos.line(
+                            ground_pts[idx],
+                            ground_pts[next_idx],
+                            Color::srgb(1.0, 0.4, 0.0),
+                        );
                         // Top roof
-                        gizmos.line(roof_pts[idx], roof_pts[next_idx], Color::srgb(1.0, 0.7, 0.0));
+                        gizmos.line(
+                            roof_pts[idx],
+                            roof_pts[next_idx],
+                            Color::srgb(1.0, 0.7, 0.0),
+                        );
                         // Vertical pillars
                         gizmos.line(ground_pts[idx], roof_pts[idx], Color::srgb(1.0, 0.5, 0.0));
                     }

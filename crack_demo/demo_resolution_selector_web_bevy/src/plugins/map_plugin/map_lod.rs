@@ -59,7 +59,8 @@ fn spawn_node_tiles(
             avian3d::prelude::ColliderConstructorHierarchy::new(
                 avian3d::prelude::ColliderConstructor::TrimeshFromMesh,
             ),
-            avian3d::prelude::Restitution::ZERO.with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
+            avian3d::prelude::Restitution::ZERO
+                .with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
         ));
     }
 }
@@ -272,7 +273,7 @@ pub fn recompute_lod_mark_changes(
 
     // A merge is needed for any proposed node that is not currently spawned,
     // but has descendants that are currently spawned.
-    let mut merge_requests =  BTreeSet::new();
+    let mut merge_requests = BTreeSet::new();
     for proposed in &proposed_nodes {
         if !nodes.contains(proposed) {
             let has_spawned_descendants = nodes
@@ -295,7 +296,11 @@ pub fn recompute_lod_mark_changes(
     for b in _rem {
         merge_requests.remove(&b);
     }
-    tracing::info!("{} split requests / {} merge reuqests.", split_requests.len(), merge_requests.len());
+    tracing::info!(
+        "{} split requests / {} merge reuqests.",
+        split_requests.len(),
+        merge_requests.len()
+    );
 
     res_tiles.split_requests = split_requests.into_iter().collect();
     res_tiles.merge_requests = merge_requests.into_iter().collect();
@@ -521,7 +526,7 @@ pub fn do_merge_requests(
     for merge_req in merge_finished {
         for child_path in merge_req.drop_children.iter() {
             drop_children_1.insert(child_path);
-            
+
             // let descendant_paths = q_nodes.iter().map(|x| x.0.clone());
             // if let Some(child_entities) = entity_map.get(child_path) {
             //     for entity in child_entities {
@@ -548,7 +553,6 @@ pub fn do_merge_requests(
     let mut drop_children2 = BTreeSet::new();
     for drop in drop_children_1 {
         for (node, node_ent) in q_nodes.iter() {
-            
             if node.node_path.0.starts_with(&drop.0) {
                 drop_children2.insert(node_ent);
             }
@@ -571,15 +575,18 @@ pub fn check_map_loaded_status(
     if loading_status.map_loaded {
         return;
     }
-    
+
     let loaded_count = tiles_query.iter().count();
     let target = (lod_state.lod_budget / 2) as usize;
-    
+
     if loaded_count >= target && target > 0 {
         loading_status.map_loaded = true;
         if let Some(mut tooltip_state) = tooltip_state {
             tooltip_state.map_loaded_timer = 3.0;
         }
-        info!("Initial map load complete: {} / {} tiles loaded.", loaded_count, target);
+        info!(
+            "Initial map load complete: {} / {} tiles loaded.",
+            loaded_count, target
+        );
     }
 }

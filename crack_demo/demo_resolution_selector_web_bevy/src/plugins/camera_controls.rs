@@ -1,8 +1,8 @@
 use crate::plugins::map_plugin::MapTree;
-use bevy::prelude::*;
-use bevy::input::mouse::{MouseMotion, MouseWheel};
-use bevy_egui::EguiContexts;
 use avian3d::prelude::{SpatialQuery, SpatialQueryFilter};
+use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 
 pub struct CameraControlsPlugin;
 
@@ -34,25 +34,20 @@ fn animate_camera_system(
     let Some(mut transform) = camera_query.iter_mut().next() else {
         return;
     };
-    
+
     anim.elapsed += time.delta_secs();
     let t = (anim.elapsed / anim.duration).clamp(0.0, 1.0);
     let t_smooth = t * t * (3.0 - 2.0 * t);
-    
+
     transform.translation = anim.start_pos.lerp(anim.target_pos, t_smooth);
     transform.rotation = anim.start_rot.slerp(anim.target_rot, t_smooth);
-    
+
     if t >= 1.0 {
         commands.remove_resource::<ActiveCameraAnimation>();
     }
 }
 
-fn query_ground_y(
-    x: f32,
-    z: f32,
-    data_res: &MapTree,
-    spatial_query: &SpatialQuery,
-) -> f32 {
+fn query_ground_y(x: f32, z: f32, data_res: &MapTree, spatial_query: &SpatialQuery) -> f32 {
     let start_y = data_res.bbox.max.y + 1.0;
     let ray_origin = Vec3::new(x, start_y, z);
     let ray_dir = Dir3::NEG_Y;
@@ -120,7 +115,12 @@ fn camera_movement_system(
     }
 
     // 2. Height Above Ground
-    let ground_y = query_ground_y(transform.translation.x, transform.translation.z, &data_res, &spatial_query);
+    let ground_y = query_ground_y(
+        transform.translation.x,
+        transform.translation.z,
+        &data_res,
+        &spatial_query,
+    );
     let height = (transform.translation.y - ground_y).max(0.1);
 
     // 3. Speed proportional to height
@@ -157,7 +157,8 @@ fn camera_movement_system(
         if keyboard.pressed(KeyCode::Space) {
             transform.translation.y += speed * time.delta_secs();
         }
-        let is_ctrl = keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
+        let is_ctrl =
+            keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight);
         if is_ctrl {
             transform.translation.y -= speed * time.delta_secs();
         }
@@ -182,7 +183,12 @@ fn camera_movement_system(
     }
 
     // 6. Update position based on new ground_y (prevent going under terrain)
-    let new_ground_y = query_ground_y(transform.translation.x, transform.translation.z, &data_res, &spatial_query);
+    let new_ground_y = query_ground_y(
+        transform.translation.x,
+        transform.translation.z,
+        &data_res,
+        &spatial_query,
+    );
     if transform.translation.y < new_ground_y + 1.0 {
         transform.translation.y = new_ground_y + 1.0;
     }

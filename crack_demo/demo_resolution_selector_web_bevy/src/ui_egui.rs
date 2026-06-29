@@ -55,7 +55,9 @@ fn ui_example_system(
     mut initialized: Local<bool>,
     time: Res<Time>,
     mut fps: Local<f32>,
-    mut edit_state: Option<ResMut<crate::plugins::map_plugin::map_material_edit::MapMaterialEditState>>,
+    mut edit_state: Option<
+        ResMut<crate::plugins::map_plugin::map_material_edit::MapMaterialEditState>,
+    >,
     loading_status: Option<Res<crate::plugins::geojson::GameLoadingStatus>>,
     tooltip_state: Option<Res<crate::plugins::geojson::TooltipNotificationState>>,
 ) {
@@ -196,7 +198,10 @@ fn ui_example_system(
                     ui_state.show_lod_configurator = !ui_state.show_lod_configurator;
                     ui.close();
                 }
-                let geojson_loaded = loading_status.as_ref().map(|s| s.geojson_loaded).unwrap_or(false);
+                let geojson_loaded = loading_status
+                    .as_ref()
+                    .map(|s| s.geojson_loaded)
+                    .unwrap_or(false);
                 if geojson_loaded {
                     if ui.button("GeoJson Database").clicked() {
                         ui_state.show_geojson_database = !ui_state.show_geojson_database;
@@ -226,7 +231,7 @@ fn ui_example_system(
     if let Some(ref tooltips) = tooltip_state {
         let show_map_tip = tooltips.map_loaded_timer > 0.0;
         let show_geo_tip = tooltips.geojson_loaded_timer > 0.0;
-        
+
         if show_map_tip || show_geo_tip {
             egui::Area::new(egui::Id::new("loading_tooltips"))
                 .fixed_pos(egui::pos2(16.0, screen_rect.max.y - 80.0))
@@ -236,13 +241,16 @@ fn ui_example_system(
                         if show_map_tip {
                             egui::Frame::window(ui.style())
                                 .fill(egui::Color32::from_black_alpha(200))
-                                .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(0, 180, 240)))
+                                .stroke(egui::Stroke::new(
+                                    1.0,
+                                    egui::Color32::from_rgb(0, 180, 240),
+                                ))
                                 .show(ui, |ui| {
                                     ui.label(
                                         egui::RichText::new("map loaded.")
                                             .color(egui::Color32::WHITE)
                                             .size(16.0)
-                                            .strong()
+                                            .strong(),
                                     );
                                 });
                         }
@@ -256,7 +264,7 @@ fn ui_example_system(
                                         egui::RichText::new("geojson loaded.")
                                             .color(egui::Color32::WHITE)
                                             .size(16.0)
-                                            .strong()
+                                            .strong(),
                                     );
                                 });
                         }
@@ -273,7 +281,23 @@ fn ui_example_system(
             ui.label(
                 egui::RichText::new(format!("FPS: {:.0}", *fps))
                     .color(egui::Color32::from_rgb(0, 220, 80))
-                    .size(28.0)
+                    .size(18.0)
+                    .strong(),
+            );
+        });
+
+    // --- Text Overlay ---
+    egui::Area::new(egui::Id::new("text_overlay"))
+        .fixed_pos(egui::pos2(
+            screen_rect.max.x - 160.0,
+            screen_rect.max.y - 16.0,
+        ))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            ui.label(
+                egui::RichText::new(format!("Right Click = Spawn Car!"))
+                    .color(egui::Color32::from_rgb(0, 220, 80))
+                    .size(10.0)
                     .strong(),
             );
         });
