@@ -216,12 +216,12 @@ fn setup_scene(
 const SUSPENSION_MIN: f32 = 0.1;
 const SUSPENSION_MAX: f32 = 0.5;
 const SUSPENSION_REST: f32 = 0.3;
-const SUSPENSION_STIFFNESS: f32 = 400.0;
-const SUSPENSION_DAMPING: f32 = 2.0;
+const SUSPENSION_STIFFNESS: f32 = 8.0;
+const SUSPENSION_DAMPING: f32 = 0.8;
 
-const CAR_MASS: f32 = 700.0;
-const WHEEL_MASS: f32 = 150.0;
-const HUB_MASS: f32 = 10.0;
+const CAR_MASS: f32 = 1200.0;
+const WHEEL_MASS: f32 = 25.0;
+const HUB_MASS: f32 = 1.0;
 
 const CAR_HALF_WIDTH: f32 = 0.9;
 const CAR_HALF_LENGTH: f32 = 2.2;
@@ -232,7 +232,7 @@ const WHEEL_WIDTH: f32 = 0.25;
 
 const MAX_STEER_ANGLE: f32 = 0.5;
 const MAX_WHEEL_SPEED: f32 = 50.0;
-const MAX_WHEEL_TORQUE: f32 = 500000.0;
+const MAX_WHEEL_TORQUE: f32 = 3000.0;
 
 const WHEEL_MOTOR_STIFFNESS: f32 = 0.0;
 const WHEEL_MOTOR_DAMPING: f32 = 1.0;
@@ -383,7 +383,7 @@ fn spawn_funny_car(
         // FixedJoint for steering: we change frame2.basis at runtime to steer.
         // The initial basis on body2 accounts for the Z rotation offset between
         // suspension_hub (car_rot) and steering_hub (car_rot * rot_z(PI/2)).
-        let initial_steer_basis = Quat::from_rotation_z(std::f32::consts::FRAC_PI_2);
+        let initial_steer_basis = Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2);
         let mut steering_joint = commands.spawn(
             FixedJoint::new(suspension_hub, steering_hub)
                 .with_local_basis2(initial_steer_basis),
@@ -463,7 +463,7 @@ fn apply_physics_for_funny_controls(
     mut wheels: Query<&mut RevoluteJoint, With<WheelMotorJoint>>,
 ) {
     // The base Z rotation that aligns suspension_hub frame with the steering_hub frame.
-    let base_rot = Quat::from_rotation_z(std::f32::consts::FRAC_PI_2);
+    let base_rot = Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2);
 
     // Front wheels: steer normally
     for mut joint in &mut front_steer {
