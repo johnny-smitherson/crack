@@ -9,7 +9,7 @@ use bevy::{
     window::WindowResolution,
     world_serialization::WorldAssetRoot,
 };
-use avian3d::prelude::{CollisionLayers, Restitution, RigidBody};
+use avian3d::prelude::{CollisionLayers, Restitution, RigidBody, Mass, Collider, LinearVelocity, AngularVelocity};
 
 use demo_resolution_selector_web_bevy::{
     plugins::{
@@ -165,7 +165,7 @@ fn setup_scene(
         Transform::from_xyz(200.0, 400.0, 200.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    // 4. Load & Spawn Pedestrian
+    // 4. Load & Spawn Pedestrian with Physics
     let base_url = demo_resolution_selector_web_bevy::config::DATA_BASE_URL.trim_end_matches('/');
     let pedestrian_url = format!(
         "{}/3d_data/3d_slop_models_clean/pedestrian/armin-1b.glb",
@@ -175,35 +175,30 @@ fn setup_scene(
 
     commands.spawn((
         WorldAssetRoot(pedestrian_handle),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform::from_xyz(0.0, 2.0, 0.0),
         Pedestrian,
+        RigidBody::Dynamic,
+        Collider::cuboid(0.6, 1.8, 0.6),
+        Mass(100.0),
+        CollisionLayers::new(
+            [GamePhysicsLayer::Car],
+            [GamePhysicsLayer::Map],
+        ),
     ));
 }
 
 fn move_pedestrian(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<&mut Transform, With<Pedestrian>>,
+    mut query: Query<(&Transform, &mut LinearVelocity, &mut AngularVelocity), With<Pedestrian>>,
 ) {
-    let Ok(mut transform) = query.single_mut() else {
+    let Ok((transform, mut lin_vel, mut ang_vel)) = query.single_mut() else {
         return;
     };
 
     let dt = time.delta_secs();
 
-    // 1. Rotation (A/D or ArrowLeft/ArrowRight)
-    let mut rotation_amount = 0.0;
-    if keyboard.pressed(KeyCode::KeyA) || keyboard.pressed(KeyCode::ArrowLeft) {
-        rotation_amount += 2.0; // radians per second
-    }
-    if keyboard.pressed(KeyCode::KeyD) || keyboard.pressed(KeyCode::ArrowRight) {
-        rotation_amount -= 2.0; // radians per second
-    }
-    if rotation_amount != 0.0 {
-        transform.rotate_y(rotation_amount * dt);
-    }
-
-    // 2. Translation (W/S or ArrowUp/ArrowDown)
+    // 1. Translation forces via WASD/arrows (moving at 1m/s targets, let's accelerate with 10.0 m/s^2 force)
     let mut move_direction = Vec3::ZERO;
     if keyboard.pressed(KeyCode::KeyW) || keyboard.pressed(KeyCode::ArrowUp) {
         move_direction += *transform.forward();
@@ -211,10 +206,28 @@ fn move_pedestrian(
     if keyboard.pressed(KeyCode::KeyS) || keyboard.pressed(KeyCode::ArrowDown) {
         move_direction += *transform.back();
     }
+    if keyboard.pressed(KeyCode::KeyA) || keyboard.pressed(KeyCode::ArrowLeft) {
+        move_direction += *transform.left();
+    }
+    if keyboard.pressed(KeyCode::KeyD) || keyboard.pressed(KeyCode::ArrowRight) {
+        move_direction += *transform.right();
+    }
 
     if move_direction != Vec3::ZERO {
         let direction = move_direction.normalize();
-        transform.translation += direction * 1.0 * dt; // 1m/s
+        lin_vel.0 += direction * 8.0 * dt; // Apply acceleration force
+    }
+
+    // 2. Rotation torque via Q/E
+    let mut torque = 0.0;
+    if keyboard.pressed(KeyCode::KeyQ) {
+        torque += 15.0; // spin left
+    }
+    if keyboard.pressed(KeyCode::KeyE) {
+        torque -= 15.0; // spin right
+    }
+    if torque != 0.0 {
+        ang_vel.0.y += torque * dt; // Apply angular acceleration
     }
 }
 
@@ -230,7 +243,6 @@ fn camera_follows_pedestrian(
     };
 
     // Position camera slightly behind and above the pedestrian
-    // Pedestrian moves forward along their local forward direction, so we put the camera behind them relative to their rotation
     let back_dir = *pedestrian_transform.back();
     let target_position = pedestrian_transform.translation + back_dir * 6.0 + Vec3::Y * 3.0;
 
