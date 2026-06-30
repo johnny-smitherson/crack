@@ -527,7 +527,7 @@ fn update_geojson_loading_finished(
     database: Res<GeoJsonDatabase>,
     mut loading_status: ResMut<GameLoadingStatus>,
     mut tooltip_state: ResMut<TooltipNotificationState>,
-    mut next_state: ResMut<NextState<OsmDatabaseLoadFinished>>
+    mut next_state: ResMut<NextState<OsmDatabaseLoadFinished>>,
 ) {
     if database.parsed && !loading_status.geojson_loaded {
         loading_status.geojson_loaded = true;

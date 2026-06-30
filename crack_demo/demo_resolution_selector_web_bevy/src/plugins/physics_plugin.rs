@@ -1,6 +1,6 @@
+use crate::ui_egui::UiState;
 use avian3d::prelude::*;
 use bevy::prelude::*;
-use crate::ui_egui::UiState;
 
 pub struct PhysicsPlugin;
 

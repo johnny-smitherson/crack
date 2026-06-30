@@ -42,9 +42,9 @@ impl Default for UiState {
         }
     }
 }
-impl  UiState {
+impl UiState {
     pub fn with_physics_debug() -> Self {
-                Self {
+        Self {
             resolution: 75,
             ui_scale: 125,
             smooth: true,

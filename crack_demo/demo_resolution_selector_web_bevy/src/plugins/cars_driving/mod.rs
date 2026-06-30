@@ -6,7 +6,7 @@ use bevy::{app::App, prelude::*};
 use crate::plugins::{
     cars_driving::{
         driving_plugin::spawn_car::spawn_car_request_event_observer,
-        driving_plugin::{car_drive_observer, DrivingPlugin},
+        driving_plugin::{DrivingPlugin, car_drive_observer},
     },
     states::GameControlState,
 };

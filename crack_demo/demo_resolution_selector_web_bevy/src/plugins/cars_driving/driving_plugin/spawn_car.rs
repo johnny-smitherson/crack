@@ -1,17 +1,21 @@
+use crate::plugins::cars_driving::car_info::{get_car_asset, get_random_car_type};
 use crate::plugins::{
     cars_driving::driving_plugin::{
-        CarDriveState, GamePhysicsLayer, Wheel,
-        SuspensionPrismaticJoint, SuspensionDistanceJoint,
+        CarDriveState, GamePhysicsLayer, SuspensionDistanceJoint, SuspensionPrismaticJoint, Wheel,
     },
     states::GameControlState,
 };
-use avian3d::{dynamics::ccd::SweptCcd, prelude::{
-    Collider, ColliderConstructor, ColliderConstructorHierarchy, CollisionLayers, DistanceJoint, Friction, LinearMotor, MassPropertiesBundle, MotorModel, PrismaticJoint, RigidBody, SleepingDisabled,
-}};
 use avian3d::math::{Scalar, Vector};
+use avian3d::{
+    dynamics::ccd::SweptCcd,
+    prelude::{
+        Collider, ColliderConstructor, ColliderConstructorHierarchy, CollisionLayers,
+        DistanceJoint, Friction, LinearMotor, MassPropertiesBundle, MotorModel, PrismaticJoint,
+        RigidBody, SleepingDisabled,
+    },
+};
 use bevy::prelude::*;
 use bevy::world_serialization::WorldAssetRoot;
-use crate::plugins::cars_driving::car_info::{get_car_asset, get_random_car_type};
 
 #[derive(Event)]
 pub struct SpawnCarRequestEvent {
@@ -80,7 +84,8 @@ pub fn spawn_car_request_event_observer(
     let suspension_damping = default_drive_state.suspension_damping;
     let wheel_y_offset = default_drive_state.wheel_y_offset;
 
-    let car_body_volume = (car_half_width * 2.0) * (car_half_height * 2.0) * (car_half_length * 2.0);
+    let car_body_volume =
+        (car_half_width * 2.0) * (car_half_height * 2.0) * (car_half_length * 2.0);
 
     let mut physics_children = Vec::new();
 
@@ -99,7 +104,6 @@ pub fn spawn_car_request_event_observer(
                 ),
                 car_mass / car_body_volume,
             ),
-
             WorldAssetRoot(car_asset_handle),
             ColliderConstructorHierarchy::new(ColliderConstructor::ConvexDecompositionFromMesh)
                 .with_default_layers(CollisionLayers::new(
@@ -177,8 +181,7 @@ pub fn spawn_car_request_event_observer(
                 ),
                 Collider::cylinder(wheel_radius, wheel_width),
                 CollisionLayers::new([GamePhysicsLayer::Wheel], [GamePhysicsLayer::Map]),
-            SweptCcd::default(),
-
+                SweptCcd::default(),
                 Friction::new(0.05).with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
                 SleepingDisabled,
                 Wheel { is_front, is_left },
@@ -189,31 +192,35 @@ pub fn spawn_car_request_event_observer(
         let anchor_y = offset.y + wheel_y_offset;
 
         // Prismatic suspension joint connecting wheel directly to body
-        let prismatic_joint = commands.spawn((
-            PrismaticJoint::new(car_entity, wheel)
-                .with_local_anchor1(Vector::new(offset.x, anchor_y, offset.z))
-                .with_slider_axis(Vector::NEG_Y)
-                .with_local_basis2(Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2))
-                .with_limits(suspension_min, suspension_max)
-                .with_motor(
-                    LinearMotor::new(MotorModel::SpringDamper {
-                        frequency: suspension_stiffness,
-                        damping_ratio: suspension_damping,
-                    })
-                    .with_target_position(suspension_rest)
-                    .with_max_force(Scalar::MAX),
-                ),
-            SuspensionPrismaticJoint { is_front, is_left },
-        )).id();
+        let prismatic_joint = commands
+            .spawn((
+                PrismaticJoint::new(car_entity, wheel)
+                    .with_local_anchor1(Vector::new(offset.x, anchor_y, offset.z))
+                    .with_slider_axis(Vector::NEG_Y)
+                    .with_local_basis2(Quat::from_rotation_z(-std::f32::consts::FRAC_PI_2))
+                    .with_limits(suspension_min, suspension_max)
+                    .with_motor(
+                        LinearMotor::new(MotorModel::SpringDamper {
+                            frequency: suspension_stiffness,
+                            damping_ratio: suspension_damping,
+                        })
+                        .with_target_position(suspension_rest)
+                        .with_max_force(Scalar::MAX),
+                    ),
+                SuspensionPrismaticJoint { is_front, is_left },
+            ))
+            .id();
         physics_children.push(prismatic_joint);
 
         // Distance joint
-        let distance_joint = commands.spawn((
-            DistanceJoint::new(car_entity, wheel)
-                .with_local_anchor1(Vector::new(offset.x, anchor_y, offset.z))
-                .with_limits(suspension_min, suspension_max),
-            SuspensionDistanceJoint { is_front, is_left },
-        )).id();
+        let distance_joint = commands
+            .spawn((
+                DistanceJoint::new(car_entity, wheel)
+                    .with_local_anchor1(Vector::new(offset.x, anchor_y, offset.z))
+                    .with_limits(suspension_min, suspension_max),
+                SuspensionDistanceJoint { is_front, is_left },
+            ))
+            .id();
         physics_children.push(distance_joint);
     }
 

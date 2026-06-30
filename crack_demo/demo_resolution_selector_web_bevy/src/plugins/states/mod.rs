@@ -22,9 +22,6 @@ pub enum GameControlState {
     // todo: walking, spectating, cutscene, etc.
 }
 
-
-
-
 pub struct GameStatesPlugin;
 
 impl Plugin for GameStatesPlugin {

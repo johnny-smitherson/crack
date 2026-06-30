@@ -1,10 +1,6 @@
-use crate::plugins::
-    cars_driving::{
-        car_info::get_random_car_type, driving_plugin::
-            spawn_car::SpawnCarRequestEvent
-        ,
-    }
-;
+use crate::plugins::cars_driving::{
+    car_info::get_random_car_type, driving_plugin::spawn_car::SpawnCarRequestEvent,
+};
 
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;

@@ -1,13 +1,7 @@
-
+use crate::plugins::cars_driving::driving_plugin::spawn_car::Car;
+use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
-use avian3d::prelude::LinearVelocity;
-use crate::plugins::cars_driving::{driving_plugin::spawn_car::Car};
-
-
-
-
-
 
 pub fn camera_follows_car(
     time: Res<Time>,
@@ -64,7 +58,8 @@ pub fn camera_follows_car(
     // Auto-centering when speed > 1.0 m/s
     let speed = linear_velocity.0.length();
     if speed > 1.0 {
-        let yaw_diff = (default_yaw - yaw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI;
+        let yaw_diff = (default_yaw - yaw + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+            - std::f32::consts::PI;
         let pitch_diff = default_pitch - pitch;
 
         let reset_speed = 2.0;

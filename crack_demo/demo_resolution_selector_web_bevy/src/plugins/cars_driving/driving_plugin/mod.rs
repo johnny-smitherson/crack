@@ -1,21 +1,19 @@
-
-pub mod speedometer_ui;
+pub mod camera_follow;
 pub mod keybinds_control;
 pub mod spawn_car;
-pub mod camera_follow;
+pub mod speedometer_ui;
 
-use bevy::prelude::*;
-use bevy_egui::EguiPrimaryContextPass;
-use avian3d::prelude::{
-    PhysicsLayer, LinearVelocity, AngularVelocity,
-    PrismaticJoint, MotorModel,
-    DistanceJoint, LinearMotor,
-    Collider, Friction, Forces, WriteRigidBodyForces, ReadRigidBodyForces,
-    Mass, AngularInertia, CenterOfMass,
-    ComputeMassProperties3d, MassPropertiesExt
+use crate::plugins::cars_driving::driving_plugin::{
+    camera_follow::camera_follows_car, spawn_car::Car,
 };
 use avian3d::math::Scalar;
-use crate::plugins::cars_driving::driving_plugin::{camera_follow::camera_follows_car, spawn_car::Car};
+use avian3d::prelude::{
+    AngularInertia, AngularVelocity, CenterOfMass, Collider, ComputeMassProperties3d,
+    DistanceJoint, Forces, Friction, LinearMotor, LinearVelocity, Mass, MassPropertiesExt,
+    MotorModel, PhysicsLayer, PrismaticJoint, ReadRigidBodyForces, WriteRigidBodyForces,
+};
+use bevy::prelude::*;
+use bevy_egui::EguiPrimaryContextPass;
 use {keybinds_control::keybinds_control_car, speedometer_ui::speedometer_ui};
 
 pub struct DrivingPlugin<S: States> {
@@ -33,7 +31,8 @@ impl<S: States> Plugin for DrivingPlugin<S> {
                 cap_car_velocities,
                 update_vehicle_physics_from_tuning,
                 apply_car_steering_and_drive,
-            ).run_if(in_state(self.state.clone())),
+            )
+                .run_if(in_state(self.state.clone())),
         );
         app.add_systems(
             EguiPrimaryContextPass,
@@ -84,7 +83,7 @@ pub struct CarDriveState {
     pub avg_brake: f32,
     pub avg_steer: f32,
     pub is_reverse: bool,
-    
+
     // Spawn position for reset functionality
     pub spawn_position: Option<Vec3>,
 
@@ -224,51 +223,93 @@ pub fn update_vehicle_physics_from_tuning(
     q_car: Query<(Entity, &CarDriveState), Changed<CarDriveState>>,
     mut q_prismatic: Query<(&mut PrismaticJoint, &SuspensionPrismaticJoint)>,
     mut q_distance: Query<(&mut DistanceJoint, &SuspensionDistanceJoint)>,
-    mut q_body: Query<(&mut Mass, &mut AngularInertia, &mut CenterOfMass), (With<Car>, Without<Wheel>)>,
-    mut q_wheel: Query<(&mut Collider, &mut Mass, &mut AngularInertia, &mut CenterOfMass, &mut Mesh3d), (With<Wheel>, Without<Car>)>,
+    mut q_body: Query<
+        (&mut Mass, &mut AngularInertia, &mut CenterOfMass),
+        (With<Car>, Without<Wheel>),
+    >,
+    mut q_wheel: Query<
+        (
+            &mut Collider,
+            &mut Mass,
+            &mut AngularInertia,
+            &mut CenterOfMass,
+            &mut Mesh3d,
+        ),
+        (With<Wheel>, Without<Car>),
+    >,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (car_entity, drive_state) in q_car.iter() {
         // 1. Update body mass, inertia, and center of mass
         if let Ok((mut body_mass, mut body_inertia, mut body_center)) = q_body.get_mut(car_entity) {
-            let volume = (drive_state.car_half_width * 2.0) * (drive_state.car_half_height * 2.0) * (drive_state.car_half_length * 2.0);
+            let volume = (drive_state.car_half_width * 2.0)
+                * (drive_state.car_half_height * 2.0)
+                * (drive_state.car_half_length * 2.0);
             let shape = Cuboid::new(
                 drive_state.car_half_width * 2.0,
                 drive_state.car_half_height * 2.0,
                 drive_state.car_half_length * 2.0,
             );
-            
-            let mprops = shape.mass_properties(drive_state.car_mass / volume).to_bundle();
+
+            let mprops = shape
+                .mass_properties(drive_state.car_mass / volume)
+                .to_bundle();
             *body_mass = mprops.mass;
             *body_inertia = mprops.angular_inertia;
             *body_center = mprops.center_of_mass;
         }
 
         // 2. Update wheel colliders, masses, and meshes
-        for (mut wheel_collider, mut wheel_mass, mut wheel_inertia, mut wheel_center, mut wheel_mesh) in q_wheel.iter_mut() {
-            let volume = std::f32::consts::PI * drive_state.wheel_radius * drive_state.wheel_radius * drive_state.wheel_width;
+        for (
+            mut wheel_collider,
+            mut wheel_mass,
+            mut wheel_inertia,
+            mut wheel_center,
+            mut wheel_mesh,
+        ) in q_wheel.iter_mut()
+        {
+            let volume = std::f32::consts::PI
+                * drive_state.wheel_radius
+                * drive_state.wheel_radius
+                * drive_state.wheel_width;
             let shape = Cylinder::new(drive_state.wheel_radius, drive_state.wheel_width);
             *wheel_collider = Collider::cylinder(drive_state.wheel_radius, drive_state.wheel_width);
-            
-            let mprops = shape.mass_properties(drive_state.wheel_mass / volume).to_bundle();
+
+            let mprops = shape
+                .mass_properties(drive_state.wheel_mass / volume)
+                .to_bundle();
             *wheel_mass = mprops.mass;
             *wheel_inertia = mprops.angular_inertia;
             *wheel_center = mprops.center_of_mass;
 
-            *wheel_mesh = Mesh3d(meshes.add(Cylinder::new(drive_state.wheel_radius, drive_state.wheel_width)));
+            *wheel_mesh = Mesh3d(meshes.add(Cylinder::new(
+                drive_state.wheel_radius,
+                drive_state.wheel_width,
+            )));
         }
 
         // 3. Update Prismatic and Distance joints (anchors & limits & motor)
         for (mut joint, prism) in q_prismatic.iter_mut() {
             let is_front = prism.is_front;
             let is_left = prism.is_left;
-            let x_offset = if is_left { -drive_state.car_half_width } else { drive_state.car_half_width + if is_front { 0.1 } else { 0.0 } };
+            let x_offset = if is_left {
+                -drive_state.car_half_width
+            } else {
+                drive_state.car_half_width + if is_front { 0.1 } else { 0.0 }
+            };
             let y_offset = -drive_state.car_half_height + drive_state.wheel_y_offset;
-            let z_offset = if is_front { -drive_state.car_half_length } else { drive_state.car_half_length };
+            let z_offset = if is_front {
+                -drive_state.car_half_length
+            } else {
+                drive_state.car_half_length
+            };
             let anchor1 = Vec3::new(x_offset, y_offset, z_offset);
 
             joint.frame1.anchor = avian3d::prelude::JointAnchor::Local(anchor1);
-            joint.limits = Some(avian3d::prelude::DistanceLimit::new(drive_state.suspension_min, drive_state.suspension_max));
+            joint.limits = Some(avian3d::prelude::DistanceLimit::new(
+                drive_state.suspension_min,
+                drive_state.suspension_max,
+            ));
             joint.motor = LinearMotor::new(MotorModel::SpringDamper {
                 frequency: drive_state.suspension_stiffness,
                 damping_ratio: drive_state.suspension_damping,
@@ -280,13 +321,24 @@ pub fn update_vehicle_physics_from_tuning(
         for (mut joint, dist) in q_distance.iter_mut() {
             let is_front = dist.is_front;
             let is_left = dist.is_left;
-            let x_offset = if is_left { -drive_state.car_half_width } else { drive_state.car_half_width + if is_front { 0.1 } else { 0.0 } };
+            let x_offset = if is_left {
+                -drive_state.car_half_width
+            } else {
+                drive_state.car_half_width + if is_front { 0.1 } else { 0.0 }
+            };
             let y_offset = -drive_state.car_half_height + drive_state.wheel_y_offset;
-            let z_offset = if is_front { -drive_state.car_half_length } else { drive_state.car_half_length };
+            let z_offset = if is_front {
+                -drive_state.car_half_length
+            } else {
+                drive_state.car_half_length
+            };
             let anchor1 = Vec3::new(x_offset, y_offset, z_offset);
 
             joint.anchor1 = avian3d::prelude::JointAnchor::Local(anchor1);
-            joint.limits = avian3d::prelude::DistanceLimit::new(drive_state.suspension_min, drive_state.suspension_max);
+            joint.limits = avian3d::prelude::DistanceLimit::new(
+                drive_state.suspension_min,
+                drive_state.suspension_max,
+            );
         }
     }
 }
@@ -303,10 +355,11 @@ pub fn apply_car_steering_and_drive(
 
     let speed = car_velocity.length();
     let max_steer = 1.2 / (1.0 + 0.3 * speed);
-    
+
     // Use integrated steering
     let steer_angle = drive_state.current_steer_integrated * max_steer;
-    let steer_dir_world = car_transform.rotation * Vec3::new(steer_angle.sin(), 0.0, -steer_angle.cos());
+    let steer_dir_world =
+        car_transform.rotation * Vec3::new(steer_angle.sin(), 0.0, -steer_angle.cos());
 
     // Drive target velocity / throttle
     let throttle = drive_state.avg_accelerate - drive_state.avg_brake;
@@ -337,7 +390,8 @@ pub fn apply_car_steering_and_drive(
             let drive_xz = Vec3::new(drive_dir.x, 0.0, drive_dir.z).normalize_or_zero();
             let dt = time.delta_secs().min(0.1);
             let correction_factor = 4.5;
-            let new_dir_xz = Vec3::lerp(vel_dir_xz, drive_xz, correction_factor * dt).normalize_or_zero();
+            let new_dir_xz =
+                Vec3::lerp(vel_dir_xz, drive_xz, correction_factor * dt).normalize_or_zero();
             let new_vel_xz = new_dir_xz * speed_xz;
             car_velocity.0.x = new_vel_xz.x;
             car_velocity.0.z = new_vel_xz.z;
@@ -365,10 +419,12 @@ pub fn apply_car_steering_and_drive(
 
             // Determine wheel steer angle: front wheels steer, rear wheels are straight
             let wheel_steer_angle = if wheel.is_front { steer_angle } else { 0.0 };
-            
+
             // Calculate wheel direction and its lateral axis
-            let wheel_dir_world = car_transform.rotation * Vec3::new(wheel_steer_angle.sin(), 0.0, -wheel_steer_angle.cos());
-            let wheel_side_world = Vec3::new(-wheel_dir_world.z, 0.0, wheel_dir_world.x).normalize_or_zero();
+            let wheel_dir_world = car_transform.rotation
+                * Vec3::new(wheel_steer_angle.sin(), 0.0, -wheel_steer_angle.cos());
+            let wheel_side_world =
+                Vec3::new(-wheel_dir_world.z, 0.0, wheel_dir_world.x).normalize_or_zero();
 
             // Compute lateral velocity of the wheel and counter it individually
             let wheel_slide_speed = wheel_velocity.dot(wheel_side_world);
@@ -397,7 +453,8 @@ pub fn draw_car_gizmos(
     let speed = car_velocity.length();
     let max_steer = 1.2 / (1.0 + 0.3 * speed);
     let steer_angle = drive_state.current_steer_integrated * max_steer;
-    let steer_dir_world = car_transform.rotation * Vec3::new(steer_angle.sin(), 0.0, -steer_angle.cos());
+    let steer_dir_world =
+        car_transform.rotation * Vec3::new(steer_angle.sin(), 0.0, -steer_angle.cos());
 
     for (wheel, wheel_transform) in &q_wheels {
         if wheel.is_front {
@@ -407,4 +464,3 @@ pub fn draw_car_gizmos(
         }
     }
 }
-

@@ -1,14 +1,14 @@
+use crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer;
 use crate::plugins::map_plugin::{BBox, MapLODState, MapTileAssetId, MapTree, MapTreeNodePath};
 use crate::plugins::states::InitialMapLoadFinished;
 use _crack_utils::get_timestamp_now_ms;
 use avian3d::collision::collider::CollisionMargin;
+use avian3d::prelude::CollisionLayers;
 use bevy::prelude::*;
 use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 use bevy_egui::egui::emath::OrderedFloat;
 use std::collections::BTreeMap;
 use std::collections::{BTreeSet, BinaryHeap};
-use crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer;
-use avian3d::prelude::CollisionLayers;
 
 #[derive(Component)]
 pub struct TreeMapTile {
@@ -61,12 +61,16 @@ fn spawn_node_tiles(
             },
             avian3d::prelude::RigidBody::Static,
             avian3d::prelude::ColliderConstructorHierarchy::new(
-                avian3d::prelude::ColliderConstructor::TrimeshFromMesh, 
-                // avian3d::prelude::ColliderConstructor::ConvexDecompositionFromMesh, 
+                avian3d::prelude::ColliderConstructor::TrimeshFromMesh,
+                // avian3d::prelude::ColliderConstructor::ConvexDecompositionFromMesh,
             )
             .with_default_layers(CollisionLayers::new(
                 [GamePhysicsLayer::Map],
-                [GamePhysicsLayer::Map, GamePhysicsLayer::Car, GamePhysicsLayer::Wheel],
+                [
+                    GamePhysicsLayer::Map,
+                    GamePhysicsLayer::Car,
+                    GamePhysicsLayer::Wheel,
+                ],
             )),
             CollisionMargin(0.1),
             avian3d::prelude::Restitution::ZERO
@@ -74,7 +78,11 @@ fn spawn_node_tiles(
             avian3d::prelude::Friction::new(0.9),
             CollisionLayers::new(
                 [GamePhysicsLayer::Map],
-                [GamePhysicsLayer::Map, GamePhysicsLayer::Car, GamePhysicsLayer::Wheel],
+                [
+                    GamePhysicsLayer::Map,
+                    GamePhysicsLayer::Car,
+                    GamePhysicsLayer::Wheel,
+                ],
             ),
         ));
     }
@@ -312,17 +320,19 @@ pub fn recompute_lod_mark_changes(
         merge_requests.remove(&b);
     }
 
-        let t1 = _crack_utils::get_timestamp_now_ms();
+    let t1 = _crack_utils::get_timestamp_now_ms();
     let dt = t1 - t0;
     if dt > 12 {
-
-    tracing::info!("{} split requests / {} merge reuqests. recompute_lod_mark_changes took {} ms",        split_requests.len(),
-        merge_requests.len(), dt);
+        tracing::info!(
+            "{} split requests / {} merge reuqests. recompute_lod_mark_changes took {} ms",
+            split_requests.len(),
+            merge_requests.len(),
+            dt
+        );
     }
 
     res_tiles.split_requests = split_requests.into_iter().collect();
     res_tiles.merge_requests = merge_requests.into_iter().collect();
-
 }
 
 pub fn start_tile_swap_requests(

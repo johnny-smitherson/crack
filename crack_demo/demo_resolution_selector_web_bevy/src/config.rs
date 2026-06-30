@@ -1,4 +1,3 @@
-
 #[cfg(feature = "web")]
 pub const DATA_BASE_URL: &str = "https://pantelimon.alt-f4.ro/";
 #[cfg(not(feature = "web"))]

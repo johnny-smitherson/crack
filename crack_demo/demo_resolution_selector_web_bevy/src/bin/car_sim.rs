@@ -1,8 +1,8 @@
 use avian3d::math::*;
 use avian3d::prelude::{
-    Collider, CollisionLayers, DistanceJoint, LinearMotor, MassPropertiesBundle, MotorModel,
-    PrismaticJoint, Restitution, RigidBody, SleepingDisabled, SubstepCount, Friction,
-    Forces, LinearVelocity, WriteRigidBodyForces,
+    Collider, CollisionLayers, DistanceJoint, Forces, Friction, LinearMotor, LinearVelocity,
+    MassPropertiesBundle, MotorModel, PrismaticJoint, Restitution, RigidBody, SleepingDisabled,
+    SubstepCount, WriteRigidBodyForces,
 };
 use bevy::{
     asset::RenderAssetUsages,
@@ -235,7 +235,6 @@ const CAR_HALF_HEIGHT: f32 = 0.6;
 const WHEEL_RADIUS: f32 = 0.45;
 const WHEEL_WIDTH: f32 = 0.35;
 
-
 #[derive(Component)]
 struct CarBody;
 
@@ -378,7 +377,8 @@ fn apply_physics_for_funny_controls(
     let max_steer = 1.2 / (1.0 + 0.3 * speed);
     let steer_angle = controls.steer * max_steer;
 
-    let steer_dir_world = car_transform.rotation * Vec3::new(steer_angle.sin(), 0.0, -steer_angle.cos());
+    let steer_dir_world =
+        car_transform.rotation * Vec3::new(steer_angle.sin(), 0.0, -steer_angle.cos());
 
     // Friction control
     let target_friction = if controls.accelerate < 0.0 { 0.9 } else { 0.05 };
@@ -391,7 +391,8 @@ fn apply_physics_for_funny_controls(
     let total_mass = CAR_MASS + 4.0 * WHEEL_MASS;
 
     // Lateral friction to prevent sliding/spinning
-    let steer_side_world = Vec3::new(-steer_dir_world.z, 0.0, steer_dir_world.x).normalize_or_zero();
+    let steer_side_world =
+        Vec3::new(-steer_dir_world.z, 0.0, steer_dir_world.x).normalize_or_zero();
     let slide_speed = car_velocity.dot(steer_side_world);
     let total_lateral_force = -steer_side_world * (slide_speed * total_mass * 5.0);
     let lateral_force_per_wheel = total_lateral_force / 4.0;

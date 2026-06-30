@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 
-use crate::plugins::cars_driving::driving_plugin::spawn_car::Car;
 use crate::plugins::cars_driving::driving_plugin::CarDriveState;
+use crate::plugins::cars_driving::driving_plugin::spawn_car::Car;
 
 pub fn speedometer_ui(
     mut contexts: EguiContexts,
@@ -52,69 +52,174 @@ pub fn speedometer_ui(
                                     .strong(),
                             );
 
-                            ui.collapsing(egui::RichText::new("Dimensions").size(9.0).color(egui::Color32::LIGHT_GRAY), |ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Width:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.car_half_width, 0.3..=2.7).text("2x m").step_by(0.05));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Length:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.car_half_length, 0.73..=6.6).text("2x m").step_by(0.05));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Height:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.car_half_height, 0.2..=1.8).text("2x m").step_by(0.05));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Wheel R:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.wheel_radius, 0.15..=1.35).text("m").step_by(0.02));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Wheel W:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.wheel_width, 0.116..=1.05).text("m").step_by(0.02));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Wheel Y Off:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.wheel_y_offset, -1.0..=2.0).text("m").step_by(0.05));
-                                });
-                            });
+                            ui.collapsing(
+                                egui::RichText::new("Dimensions")
+                                    .size(9.0)
+                                    .color(egui::Color32::LIGHT_GRAY),
+                                |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Width:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.car_half_width,
+                                                0.3..=2.7,
+                                            )
+                                            .text("2x m")
+                                            .step_by(0.05),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Length:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.car_half_length,
+                                                0.73..=6.6,
+                                            )
+                                            .text("2x m")
+                                            .step_by(0.05),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Height:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.car_half_height,
+                                                0.2..=1.8,
+                                            )
+                                            .text("2x m")
+                                            .step_by(0.05),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Wheel R:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.wheel_radius,
+                                                0.15..=1.35,
+                                            )
+                                            .text("m")
+                                            .step_by(0.02),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Wheel W:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.wheel_width,
+                                                0.116..=1.05,
+                                            )
+                                            .text("m")
+                                            .step_by(0.02),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Wheel Y Off:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.wheel_y_offset,
+                                                -1.0..=2.0,
+                                            )
+                                            .text("m")
+                                            .step_by(0.05),
+                                        );
+                                    });
+                                },
+                            );
 
-                            ui.collapsing(egui::RichText::new("Masses").size(9.0).color(egui::Color32::LIGHT_GRAY), |ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Car:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.car_mass, 400.0..=3600.0).text("kg").step_by(50.0));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Wheel:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.wheel_mass, 8.33..=75.0).text("kg").step_by(1.0));
-                                });
-                            });
+                            ui.collapsing(
+                                egui::RichText::new("Masses")
+                                    .size(9.0)
+                                    .color(egui::Color32::LIGHT_GRAY),
+                                |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Car:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.car_mass,
+                                                400.0..=3600.0,
+                                            )
+                                            .text("kg")
+                                            .step_by(50.0),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Wheel:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.wheel_mass,
+                                                8.33..=75.0,
+                                            )
+                                            .text("kg")
+                                            .step_by(1.0),
+                                        );
+                                    });
+                                },
+                            );
 
-                            ui.collapsing(egui::RichText::new("Suspension").size(9.0).color(egui::Color32::LIGHT_GRAY), |ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Min:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.suspension_min, 0.033..=0.3).text("m").step_by(0.01));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Max:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.suspension_max, 0.166..=1.5).text("m").step_by(0.05));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Rest:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.suspension_rest, 0.133..=1.2).text("m").step_by(0.05));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Stiffness:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.suspension_stiffness, 4.0..=36.0).text("Hz").step_by(0.5));
-                                });
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Damping:").size(9.0));
-                                    ui.add(egui::Slider::new(&mut drive_state.suspension_damping, 0.266..=2.4).text("ratio").step_by(0.05));
-                                });
-                            });
-
+                            ui.collapsing(
+                                egui::RichText::new("Suspension")
+                                    .size(9.0)
+                                    .color(egui::Color32::LIGHT_GRAY),
+                                |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Min:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.suspension_min,
+                                                0.033..=0.3,
+                                            )
+                                            .text("m")
+                                            .step_by(0.01),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Max:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.suspension_max,
+                                                0.166..=1.5,
+                                            )
+                                            .text("m")
+                                            .step_by(0.05),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Rest:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.suspension_rest,
+                                                0.133..=1.2,
+                                            )
+                                            .text("m")
+                                            .step_by(0.05),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Stiffness:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.suspension_stiffness,
+                                                4.0..=36.0,
+                                            )
+                                            .text("Hz")
+                                            .step_by(0.5),
+                                        );
+                                    });
+                                    ui.horizontal(|ui| {
+                                        ui.label(egui::RichText::new("Damping:").size(9.0));
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut drive_state.suspension_damping,
+                                                0.266..=2.4,
+                                            )
+                                            .text("ratio")
+                                            .step_by(0.05),
+                                        );
+                                    });
+                                },
+                            );
                         });
-                        
+
                         ui.allocate_space(egui::Vec2::new(1.0, 5.0));
 
                         // Speedometer and input meters sharing the same row!
