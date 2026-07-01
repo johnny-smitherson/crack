@@ -2,6 +2,7 @@ use crate::plugins::cars_driving::car_info::{get_car_asset, get_random_car_type}
 use crate::plugins::{
     cars_driving::driving_plugin::{
         CarDriveState, GamePhysicsLayer, SuspensionDistanceJoint, SuspensionPrismaticJoint, Wheel,
+        WheelContactData,
     },
     states::GameControlState,
 };
@@ -185,6 +186,7 @@ pub fn spawn_car_request_event_observer(
                 Friction::new(0.05).with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
                 SleepingDisabled,
                 Wheel { is_front, is_left },
+                WheelContactData::default(),
             ))
             .id();
         physics_children.push(wheel);

@@ -11,6 +11,7 @@ use avian3d::prelude::{
     AngularInertia, AngularVelocity, CenterOfMass, Collider, ComputeMassProperties3d,
     DistanceJoint, Forces, Friction, LinearMotor, LinearVelocity, Mass, MassPropertiesExt,
     MotorModel, PhysicsLayer, PrismaticJoint, ReadRigidBodyForces, WriteRigidBodyForces,
+    SpatialQuery, SpatialQueryFilter,
 };
 use bevy::prelude::*;
 use bevy_egui::EguiPrimaryContextPass;
@@ -22,16 +23,19 @@ pub struct DrivingPlugin<S: States> {
 
 impl<S: States> Plugin for DrivingPlugin<S> {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, configure_gizmo_depth);
         app.add_systems(
             Update,
             (
                 camera_follows_car,
                 keybinds_control_car,
+                update_wheel_contact_normals,
+                apply_car_steering_and_drive,
                 draw_car_gizmos,
                 cap_car_velocities,
                 update_vehicle_physics_from_tuning,
-                apply_car_steering_and_drive,
             )
+                .chain()
                 .run_if(in_state(self.state.clone())),
         );
         app.add_systems(
@@ -39,6 +43,11 @@ impl<S: States> Plugin for DrivingPlugin<S> {
             (speedometer_ui,).run_if(in_state(self.state.clone())),
         );
     }
+}
+
+pub fn configure_gizmo_depth(mut gizmo_store: ResMut<GizmoConfigStore>) {
+    let (config, _) = gizmo_store.config_mut::<DefaultGizmoConfigGroup>();
+    config.depth_bias = -1.0;
 }
 
 #[derive(PhysicsLayer, Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -53,6 +62,27 @@ pub enum GamePhysicsLayer {
 pub struct Wheel {
     pub is_front: bool,
     pub is_left: bool,
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct WheelContactData {
+    pub ray_distances: [f32; 4],
+    pub hit_points: [Vec3; 4],
+    pub ray_origins: [Vec3; 4],
+    pub contact_normal: Vec3,
+    pub hits_count: u8,
+}
+
+impl Default for WheelContactData {
+    fn default() -> Self {
+        Self {
+            ray_distances: [f32::MAX; 4],
+            hit_points: [Vec3::ZERO; 4],
+            ray_origins: [Vec3::ZERO; 4],
+            contact_normal: Vec3::Y,
+            hits_count: 0,
+        }
+    }
 }
 
 #[derive(Component, Clone, Copy)]
@@ -345,7 +375,7 @@ pub fn update_vehicle_physics_from_tuning(
 
 pub fn apply_car_steering_and_drive(
     mut q_car: Query<(&Transform, &mut LinearVelocity, &CarDriveState), With<Car>>,
-    mut q_wheels: Query<(Entity, &Wheel, &mut Friction), Without<Car>>,
+    mut q_wheels: Query<(Entity, &Wheel, &mut Friction, &WheelContactData), Without<Car>>,
     mut forces: Query<Forces, Without<Car>>,
     time: Res<Time>,
 ) {
@@ -366,7 +396,7 @@ pub fn apply_car_steering_and_drive(
 
     // Friction control
     let target_friction = if throttle < 0.0 { 0.9 } else { 0.05 };
-    for (_, _, mut friction) in &mut q_wheels {
+    for (_, _, mut friction, _) in &mut q_wheels {
         friction.dynamic_coefficient = target_friction;
         friction.static_coefficient = target_friction;
     }
@@ -398,8 +428,8 @@ pub fn apply_car_steering_and_drive(
         }
     }
 
-    // Forward/reverse drive force per wheel
-    let mut drive_force_per_wheel = Vec3::ZERO;
+    // Forward/reverse drive force magnitude per wheel
+    let mut drive_force_magnitude = 0.0;
     if throttle > 0.0 {
         let target_speed = if drive_state.is_reverse {
             40.0f32 / 3.6f32 // Max speed: 40 km/h in reverse
@@ -408,11 +438,11 @@ pub fn apply_car_steering_and_drive(
         };
         let current_speed = car_velocity.0.dot(drive_dir);
         let acc = ((target_speed - current_speed) / 4.0f32).max(0.0f32);
-        drive_force_per_wheel = drive_dir * (total_mass * acc / 2.0f32) * throttle;
+        drive_force_magnitude = (total_mass * acc / 2.0f32) * throttle;
     }
 
     // Apply anti-skid forces individually per wheel and drive forces to front wheels
-    for (wheel_entity, wheel, _) in &q_wheels {
+    for (wheel_entity, wheel, _, wheel_contact) in &q_wheels {
         if let Ok(mut wheel_forces) = forces.get_mut(wheel_entity) {
             // Retrieve the wheel's linear velocity directly from wheel_forces (implementing ReadRigidBodyForces)
             let wheel_velocity = wheel_forces.linear_velocity();
@@ -426,16 +456,141 @@ pub fn apply_car_steering_and_drive(
             let wheel_side_world =
                 Vec3::new(-wheel_dir_world.z, 0.0, wheel_dir_world.x).normalize_or_zero();
 
-            // Compute lateral velocity of the wheel and counter it individually
-            let wheel_slide_speed = wheel_velocity.dot(wheel_side_world);
-            let wheel_mass_val = drive_state.wheel_mass + (drive_state.car_mass / 4.0);
-            let mut wheel_force = -wheel_side_world * (wheel_slide_speed * wheel_mass_val * 6.5);
+            // Project forces onto the plane defined by the wheel's contact normal
+            let contact_normal = wheel_contact.contact_normal;
+            let project_on_plane = |v: Vec3, normal: Vec3| -> Vec3 {
+                v - normal * v.dot(normal)
+            };
 
-            // Add drive force to front wheels
+            let wheel_dir_plane = project_on_plane(wheel_dir_world, contact_normal).normalize_or_zero();
+            let wheel_side_plane = project_on_plane(wheel_side_world, contact_normal).normalize_or_zero();
+
+            // Compute lateral velocity of the wheel and counter it individually in the plane of contact
+            let wheel_slide_speed = wheel_velocity.dot(wheel_side_plane);
+            let wheel_mass_val = drive_state.wheel_mass + (drive_state.car_mass / 4.0);
+            let mut wheel_force = -wheel_side_plane * (wheel_slide_speed * wheel_mass_val * 6.5);
+
+            // Add drive force to front wheels in the plane of contact
             if wheel.is_front {
-                wheel_force += drive_force_per_wheel;
+                let wheel_drive_dir = if drive_state.is_reverse {
+                    -wheel_dir_plane
+                } else {
+                    wheel_dir_plane
+                };
+                wheel_force += wheel_drive_dir * drive_force_magnitude;
             }
             wheel_forces.apply_force(wheel_force);
+        }
+    }
+}
+
+pub fn update_wheel_contact_normals(
+    spatial_query: SpatialQuery,
+    q_cars: Query<(Entity, &Transform, &CarDriveState, &Car)>,
+    mut q_wheels: Query<(Entity, &Wheel, &mut WheelContactData), Without<Car>>,
+) {
+    for (wheel_entity, wheel, mut contact_data) in q_wheels.iter_mut() {
+        // Find parent car
+        let mut parent_car = None;
+        for (car_entity, car_transform, drive_state, car) in q_cars.iter() {
+            if car.physics_children.contains(&wheel_entity) {
+                parent_car = Some((car_transform, drive_state, car_entity));
+                break;
+            }
+        }
+
+        let Some((car_transform, drive_state, car_entity)) = parent_car else {
+            continue;
+        };
+
+        // Compute local suspension base center for this wheel
+        let is_front = wheel.is_front;
+        let is_left = wheel.is_left;
+        let x_offset = if is_left {
+            -drive_state.car_half_width
+        } else {
+            drive_state.car_half_width + if is_front { 0.1 } else { 0.0 }
+        };
+        let y_offset = -drive_state.car_half_height + drive_state.wheel_y_offset;
+        let z_offset = if is_front {
+            -drive_state.car_half_length
+        } else {
+            drive_state.car_half_length
+        };
+        let base_center_local = Vec3::new(x_offset, y_offset, z_offset);
+
+        // Compute 4 corner offsets in local space
+        let w = drive_state.wheel_width * 0.5;
+        let r = drive_state.wheel_radius * 0.5;
+
+        let local_corners = [
+            base_center_local + Vec3::new(-w, 0.0, -r),
+            base_center_local + Vec3::new(w, 0.0, -r),
+            base_center_local + Vec3::new(-w, 0.0, r),
+            base_center_local + Vec3::new(w, 0.0, r),
+        ];
+
+        // Transform corners to world space
+        let mut world_origins = [Vec3::ZERO; 4];
+        for i in 0..4 {
+            world_origins[i] = car_transform.transform_point(local_corners[i]);
+            contact_data.ray_origins[i] = world_origins[i];
+        }
+
+        let ray_dir = Dir3::NEG_Y;
+        let max_dist = 3.0;
+        let solid = true;
+        let filter = SpatialQueryFilter::from_excluded_entities([wheel_entity, car_entity]);
+
+        let mut distances = [f32::MAX; 4];
+        let mut hit_points = [Vec3::ZERO; 4];
+        let mut hits_count = 0;
+
+        for i in 0..4 {
+            if let Some(hit) = spatial_query.cast_ray(world_origins[i], ray_dir, max_dist, solid, &filter) {
+                distances[i] = hit.distance;
+                hit_points[i] = world_origins[i] + *ray_dir * hit.distance;
+                hits_count += 1;
+            } else {
+                distances[i] = f32::MAX;
+                hit_points[i] = Vec3::ZERO;
+            }
+        }
+
+        contact_data.ray_distances = distances;
+        contact_data.hit_points = hit_points;
+        contact_data.hits_count = hits_count;
+
+        // Compute average contact plane normal if we have at least 3 hits
+        let mut valid_hits = Vec::new();
+        for i in 0..4 {
+            if distances[i] != f32::MAX {
+                valid_hits.push(hit_points[i]);
+            }
+        }
+
+        if valid_hits.len() >= 3 {
+            let v0 = valid_hits[1] - valid_hits[0];
+            let v1 = valid_hits[2] - valid_hits[0];
+            let mut normal = v0.cross(v1).normalize_or_zero();
+
+            if valid_hits.len() == 4 {
+                let v2 = valid_hits[3] - valid_hits[0];
+                let normal2 = v0.cross(v2).normalize_or_zero();
+                normal = (normal + normal2).normalize_or_zero();
+            }
+
+            if normal.y < 0.0 {
+                normal = -normal;
+            }
+
+            if normal == Vec3::ZERO || normal.is_nan() {
+                contact_data.contact_normal = Vec3::Y;
+            } else {
+                contact_data.contact_normal = normal;
+            }
+        } else {
+            contact_data.contact_normal = Vec3::Y;
         }
     }
 }
@@ -443,7 +598,7 @@ pub fn apply_car_steering_and_drive(
 pub fn draw_car_gizmos(
     mut gizmos: Gizmos,
     q_car: Query<(&Transform, &LinearVelocity, &CarDriveState), With<Car>>,
-    q_wheels: Query<(&Wheel, &Transform)>,
+    q_wheels: Query<(&Wheel, &Transform, &WheelContactData)>,
 ) {
     let Ok((car_transform, car_velocity, drive_state)) = q_car.single() else {
         return;
@@ -456,11 +611,72 @@ pub fn draw_car_gizmos(
     let steer_dir_world =
         car_transform.rotation * Vec3::new(steer_angle.sin(), 0.0, -steer_angle.cos());
 
-    for (wheel, wheel_transform) in &q_wheels {
+    for (wheel, wheel_transform, wheel_contact) in &q_wheels {
+        let contact_normal = wheel_contact.contact_normal;
+        let project_on_plane = |v: Vec3, normal: Vec3| -> Vec3 {
+            v - normal * v.dot(normal)
+        };
+
         if wheel.is_front {
             let start = wheel_transform.translation;
-            let end = start + steer_dir_world * 1.5;
+            let steer_dir_plane = project_on_plane(steer_dir_world, contact_normal).normalize_or_zero();
+            let end = start + steer_dir_plane * 1.5;
             gizmos.line(start, end, Color::srgb(0.0, 1.0, 0.0));
+        }
+
+        // Draw orange lines for 4 rays
+        let ray_color = Color::srgb(1.0, 0.5, 0.0);
+        let star_color = Color::srgb(0.0, 0.0, 1.0);
+        let sphere_color = Color::srgb(0.0, 0.0, 1.0);
+
+        for i in 0..4 {
+            let start = wheel_contact.ray_origins[i];
+            let end = if wheel_contact.ray_distances[i] == f32::MAX {
+                start + Vec3::NEG_Y * 3.0
+            } else {
+                wheel_contact.hit_points[i]
+            };
+            gizmos.line(start, end, ray_color);
+
+            // If hit ground, draw blue star and sphere
+            if wheel_contact.ray_distances[i] != f32::MAX {
+                let hit = wheel_contact.hit_points[i];
+                // Draw 3 perpendicular lines (star) of total span 0.3 (so each arm is 0.15)
+                gizmos.line(hit - Vec3::X * 0.15, hit + Vec3::X * 0.15, star_color);
+                gizmos.line(hit - Vec3::Y * 0.15, hit + Vec3::Y * 0.15, star_color);
+                gizmos.line(hit - Vec3::Z * 0.15, hit + Vec3::Z * 0.15, star_color);
+
+                // Draw small sphere
+                let sphere = Sphere::new(0.05);
+                gizmos.primitive_3d(&sphere, Isometry3d::from_translation(hit), sphere_color);
+            }
+        }
+
+        // Draw gray boxes defining the plane segment
+        if wheel_contact.hits_count > 0 {
+            let mut centroid = Vec3::ZERO;
+            let mut valid_count = 0;
+            for i in 0..4 {
+                if wheel_contact.ray_distances[i] != f32::MAX {
+                    centroid += wheel_contact.hit_points[i];
+                    valid_count += 1;
+                }
+            }
+            if valid_count > 0 {
+                centroid /= valid_count as f32;
+
+                // Rotated to the contact normal
+                let plane_rotation = Quat::from_rotation_arc(Vec3::Y, contact_normal);
+                let box_color = Color::srgb(0.5, 0.5, 0.5);
+
+                // Draw a nice gray plane segment using intersecting flat cuboids
+                let cuboid = Cuboid::new(0.5, 0.01, 0.5);
+                gizmos.primitive_3d(
+                    &cuboid,
+                    Isometry3d::new(centroid, plane_rotation),
+                    box_color,
+                );
+            }
         }
     }
 }
