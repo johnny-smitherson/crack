@@ -28,7 +28,7 @@ impl<S: States> Plugin for DrivingPlugin<S> {
                 keybinds_control_car,
                 update_wheel_contact_normals,
                 apply_car_steering_and_drive,
-                draw_car_gizmos,
+                // draw_car_gizmos,
                 cap_car_velocities,
                 update_vehicle_physics_from_tuning,
             )
@@ -57,9 +57,9 @@ pub enum GamePhysicsLayer {
 
 #[derive(Clone, Debug)]
 pub struct WheelContactData {
-    pub ray_distances: [f32; 4],
-    pub hit_points: [Vec3; 4],
-    pub ray_origins: [Vec3; 4],
+    pub ray_distances: [f32; 8],
+    pub hit_points: [Vec3; 8],
+    pub ray_origins: [Vec3; 8],
     pub contact_normal: Vec3,
     pub hits_count: u8,
 }
@@ -67,9 +67,9 @@ pub struct WheelContactData {
 impl Default for WheelContactData {
     fn default() -> Self {
         Self {
-            ray_distances: [f32::MAX; 4],
-            hit_points: [Vec3::ZERO; 4],
-            ray_origins: [Vec3::ZERO; 4],
+            ray_distances: [f32::MAX; 8],
+            hit_points: [Vec3::ZERO; 8],
+            ray_origins: [Vec3::ZERO; 8],
             contact_normal: Vec3::Y,
             hits_count: 0,
         }
@@ -88,6 +88,13 @@ pub struct Drive {
     pub accelerate: f32, // 0.0 ..= 1.0
     pub brake: f32,      // 0.0 ..= 1.0
     pub steer: f32,      // -1.0 ..= 1.0
+}
+
+#[derive(Resource, Default)]
+pub struct SimState {
+    pub time_elapsed: f32,
+    pub spawned: bool,
+    pub is_sim: bool,
 }
 
 #[derive(Component, Clone)]
@@ -145,7 +152,7 @@ impl Default for CarDriveState {
             suspension_rest: 0.3,
             suspension_stiffness: 8.0,
             suspension_damping: 0.8,
-            extra_spring_length: 1.0,
+            extra_spring_length: 0.2,
             avg_suspension_height: 0.0,
 
             car_mass: 1200.0,
@@ -156,11 +163,11 @@ impl Default for CarDriveState {
 
             wheel_radius: 0.45,
             wheel_width: 0.35,
-            wheel_y_offset: 0.9,
+            wheel_y_offset: 0.25,
 
-            car_max_speed: 120.0,
+            car_max_speed: 140.0,
 
-            horsepower: 250.0,
+            horsepower: 150.0,
             current_gear: 1,
             engine_rpm: 800.0,
         }
@@ -331,10 +338,22 @@ pub fn apply_car_steering_and_drive(
 
     let physical_rpm = (forward_speed.abs() * 60.0f32 * final_drive * gear_ratio)
         / (2.0f32 * std::f32::consts::PI * drive_state.wheel_radius);
-    let throttle_rpm = 800.0f32 + drive_state.avg_accelerate * 2200.0f32;
-    let mut rpm = physical_rpm.max(throttle_rpm);
-    rpm = rpm.max(800.0f32).min(6500.0f32);
-    drive_state.engine_rpm = rpm;
+    
+    let mut target_rpm = physical_rpm;
+    if drive_state.avg_accelerate > 0.05f32 {
+        let throttle_rpm = 800.0f32 + drive_state.avg_accelerate * 2200.0f32;
+        target_rpm = target_rpm.max(throttle_rpm);
+        drive_state.engine_rpm = drive_state.engine_rpm.lerp(target_rpm, 10.0 * dt);
+    } else {
+        // Coasting: engine RPM decays towards physical_rpm or idle (800.0)
+        let decay_target = physical_rpm.max(800.0f32);
+        if drive_state.engine_rpm > decay_target {
+            drive_state.engine_rpm = (drive_state.engine_rpm - 2500.0 * dt).max(decay_target);
+        } else {
+            drive_state.engine_rpm = drive_state.engine_rpm.lerp(decay_target, 10.0 * dt);
+        }
+    }
+    drive_state.engine_rpm = drive_state.engine_rpm.min(6500.0);
 
     // Automatic gear shifting
     if !drive_state.is_reverse {
@@ -366,6 +385,15 @@ pub fn apply_car_steering_and_drive(
         // Engine force limit: 1G of engine traction limit
         let max_engine_force = drive_state.car_mass * 9.81f32 * 1.0f32;
         drive_force_mag = drive_force_mag.min(max_engine_force);
+    }
+
+    // Rolling resistance + Aerodynamic Drag (applies always)
+    if forward_speed.abs() > 0.1f32 {
+        let direction = forward_speed.signum();
+        let aero_drag = 0.46f32 * forward_speed * forward_speed;
+        let rolling_res = drive_state.car_mass * 9.81f32 * 0.06f32;
+        let total_drag = (aero_drag + rolling_res).min(drive_state.car_mass * 9.81f32 * 0.5f32);
+        total_linear_force += -car_forward * direction * total_drag;
     }
 
     // 3. Virtual Wheels Force Accumulation
@@ -595,51 +623,46 @@ pub fn update_wheel_contact_normals(
     mut q_cars: Query<(&Transform, &CarDriveState, &mut CarWheelsContactData), With<Car>>,
 ) {
     for (car_transform, drive_state, mut contact_data) in q_cars.iter_mut() {
-        let wheel_offsets = [
-            // FL
-            Vec3::new(
-                -drive_state.car_half_width,
-                -drive_state.car_half_height,
-                -drive_state.car_half_length,
-            ),
-            // FR
-            Vec3::new(
-                drive_state.car_half_width + 0.1,
-                -drive_state.car_half_height,
-                -drive_state.car_half_length,
-            ),
-            // RL
-            Vec3::new(
-                -drive_state.car_half_width,
-                -drive_state.car_half_height,
-                drive_state.car_half_length,
-            ),
-            // RR
-            Vec3::new(
-                drive_state.car_half_width,
-                -drive_state.car_half_height,
-                drive_state.car_half_length,
-            ),
-        ];
+        for wheel_idx in 0..4 {
+            let (x_min, x_max, z_min, z_max) = match wheel_idx {
+                0 => (
+                    -drive_state.car_half_width,
+                    0.0f32,
+                    -drive_state.car_half_length,
+                    0.0f32,
+                ), // FL
+                1 => (
+                    0.0f32,
+                    drive_state.car_half_width,
+                    -drive_state.car_half_length,
+                    0.0f32,
+                ), // FR
+                2 => (
+                    -drive_state.car_half_width,
+                    0.0f32,
+                    0.0f32,
+                    drive_state.car_half_length,
+                ), // RL
+                _ => (
+                    0.0f32,
+                    drive_state.car_half_width,
+                    0.0f32,
+                    drive_state.car_half_length,
+                ), // RR
+            };
 
-        for (wheel_idx, offset) in wheel_offsets.into_iter().enumerate() {
-            let mut adjusted_offset = offset;
-            adjusted_offset.y += drive_state.wheel_y_offset;
-
-            // Compute 4 corner offsets in local space
-            let w = drive_state.wheel_width * 0.5;
-            let r = drive_state.wheel_radius * 0.5;
-
-            let local_corners = [
-                adjusted_offset + Vec3::new(-w, 0.0, -r),
-                adjusted_offset + Vec3::new(w, 0.0, -r),
-                adjusted_offset + Vec3::new(-w, 0.0, r),
-                adjusted_offset + Vec3::new(w, 0.0, r),
-            ];
+            let mut local_corners = [Vec3::ZERO; 8];
+            for i in 0..8 {
+                let rx = rand::random::<f32>();
+                let rz = rand::random::<f32>();
+                let x = x_min + rx * (x_max - x_min);
+                let z = z_min + rz * (z_max - z_min);
+                local_corners[i] = Vec3::new(x, -drive_state.car_half_height + drive_state.wheel_y_offset, z);
+            }
 
             // Transform corners to world space
-            let mut world_origins = [Vec3::ZERO; 4];
-            for i in 0..4 {
+            let mut world_origins = [Vec3::ZERO; 8];
+            for i in 0..8 {
                 world_origins[i] = car_transform.transform_point(local_corners[i]);
                 contact_data.wheels[wheel_idx].ray_origins[i] = world_origins[i];
             }
@@ -650,16 +673,18 @@ pub fn update_wheel_contact_normals(
             let solid = true;
             let filter = SpatialQueryFilter::from_mask([GamePhysicsLayer::Map]);
 
-            let mut distances = [f32::MAX; 4];
-            let mut hit_points = [Vec3::ZERO; 4];
+            let mut distances = [f32::MAX; 8];
+            let mut hit_points = [Vec3::ZERO; 8];
             let mut hits_count = 0;
+            let mut sum_normals = Vec3::ZERO;
 
-            for i in 0..4 {
+            for i in 0..8 {
                 if let Some(hit) =
                     spatial_query.cast_ray(world_origins[i], ray_dir, max_dist, solid, &filter)
                 {
                     distances[i] = hit.distance;
                     hit_points[i] = world_origins[i] + *ray_dir * hit.distance;
+                    sum_normals += hit.normal;
                     hits_count += 1;
                 } else {
                     distances[i] = f32::MAX;
@@ -672,34 +697,8 @@ pub fn update_wheel_contact_normals(
             w_contact.hit_points = hit_points;
             w_contact.hits_count = hits_count;
 
-            // Compute average contact plane normal if we have at least 3 hits
-            let mut valid_hits = Vec::new();
-            for i in 0..4 {
-                if distances[i] != f32::MAX {
-                    valid_hits.push(hit_points[i]);
-                }
-            }
-
-            if valid_hits.len() >= 3 {
-                let v0 = valid_hits[1] - valid_hits[0];
-                let v1 = valid_hits[2] - valid_hits[0];
-                let mut normal = v0.cross(v1).normalize_or_zero();
-
-                if valid_hits.len() == 4 {
-                    let v2 = valid_hits[3] - valid_hits[0];
-                    let normal2 = v0.cross(v2).normalize_or_zero();
-                    normal = (normal + normal2).normalize_or_zero();
-                }
-
-                if normal.y < 0.0 {
-                    normal = -normal;
-                }
-
-                if normal == Vec3::ZERO || normal.is_nan() {
-                    w_contact.contact_normal = Vec3::Y;
-                } else {
-                    w_contact.contact_normal = normal;
-                }
+            if hits_count > 0 {
+                w_contact.contact_normal = (sum_normals / hits_count as f32).normalize_or_zero();
             } else {
                 w_contact.contact_normal = Vec3::Y;
             }
@@ -715,7 +714,7 @@ pub fn draw_car_gizmos(
         return;
     };
 
-    // Draw orange lines for 4 rays for each of the 4 virtual wheels
+    // Draw orange lines for 8 rays for each of the 4 virtual wheels
     let ray_color = Color::srgb(1.0, 0.5, 0.0);
     let star_color = Color::srgb(0.0, 0.0, 1.0);
     let sphere_color = Color::srgb(0.0, 0.0, 1.0);
@@ -724,7 +723,7 @@ pub fn draw_car_gizmos(
     for wheel_idx in 0..4 {
         let wheel_contact = &contact_data.wheels[wheel_idx];
 
-        for i in 0..4 {
+        for i in 0..8 {
             let start = wheel_contact.ray_origins[i];
             let end = if wheel_contact.ray_distances[i] > 1.0f32 {
                 start + local_down * 1.0f32
@@ -750,7 +749,7 @@ pub fn draw_car_gizmos(
         // Draw plane defining the plane segment (green for contact, red for no contact)
         let mut centroid = Vec3::ZERO;
         let mut engaged_count = 0;
-        for i in 0..4 {
+        for i in 0..8 {
             if wheel_contact.ray_distances[i] <= 1.0f32 {
                 centroid += wheel_contact.hit_points[i];
                 engaged_count += 1;
@@ -761,7 +760,7 @@ pub fn draw_car_gizmos(
         let plane_center = if has_contact {
             centroid / engaged_count as f32
         } else {
-            wheel_contact.ray_origins.iter().sum::<Vec3>() / 4.0
+            wheel_contact.ray_origins.iter().sum::<Vec3>() / 8.0f32
                 + local_down * 1.0f32
         };
 

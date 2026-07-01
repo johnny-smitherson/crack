@@ -8,7 +8,13 @@ impl Plugin for MapMaterialEditPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MapMaterialEditState>()
             .add_systems(EguiPrimaryContextPass, (map_material_edit_ui,));
-        app.add_systems(Update, (auto_apply_new_materials, auto_apply_nearest_sampling_to_images));
+        app.add_systems(
+            Update,
+            (
+                auto_apply_new_materials,
+                auto_apply_nearest_sampling_to_images,
+            ),
+        );
     }
 }
 
@@ -38,9 +44,9 @@ impl Default for MapMaterialEditState {
             reflectance: 0.0,
             ior: 1.0,
             // Lighting defaults without HDR
-            dir_light_illuminance: 2500.0,
-            ambient_light_brightness: 800.0,
-            skybox_brightness: 800.0,
+            dir_light_illuminance: 3500.0,
+            ambient_light_brightness: 1000.0,
+            skybox_brightness: 1000.0,
         }
     }
 }
@@ -133,7 +139,7 @@ fn auto_apply_new_materials(
     mut images: ResMut<Assets<Image>>,
     state: Res<MapMaterialEditState>,
 ) {
-    use bevy::image::{ImageSampler, ImageSamplerDescriptor, ImageFilterMode};
+    use bevy::image::{ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
     for event in events.read() {
         if let AssetEvent::Added { id } = event {
             let asset_id = *id;
@@ -163,7 +169,7 @@ fn auto_apply_nearest_sampling_to_images(
     mut events: MessageReader<AssetEvent<Image>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    use bevy::image::{ImageSampler, ImageSamplerDescriptor, ImageFilterMode};
+    use bevy::image::{ImageFilterMode, ImageSampler, ImageSamplerDescriptor};
     for event in events.read() {
         if let AssetEvent::Added { id } = event {
             if let Some(mut image) = images.get_mut(*id) {

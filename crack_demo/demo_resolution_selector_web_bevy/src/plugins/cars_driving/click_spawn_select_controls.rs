@@ -43,6 +43,7 @@ pub fn handle_click_raycast_spawn_car(
                     commands.trigger(SpawnCarRequestEvent {
                         position: hit_point,
                         car_type: get_random_car_type().to_string(),
+                        rotation: None,
                     });
                 }
             }

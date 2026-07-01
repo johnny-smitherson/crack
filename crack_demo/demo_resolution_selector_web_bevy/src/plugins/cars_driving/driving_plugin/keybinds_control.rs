@@ -1,6 +1,6 @@
 use crate::plugins::cars_driving::{
     driving_plugin::spawn_car::Car,
-    driving_plugin::{CarDriveState, Drive},
+    driving_plugin::{CarDriveState, Drive, SimState},
 };
 use avian3d::prelude::{AngularVelocity, LinearVelocity};
 use bevy::prelude::*;
@@ -21,7 +21,14 @@ pub fn keybinds_control_car(
     mut commands: Commands,
     mut next_state: ResMut<NextState<crate::plugins::states::GameControlState>>,
     mut is_reverse_gear: Local<bool>,
+    sim_state: Option<Res<SimState>>,
 ) {
+    if let Some(sim) = sim_state {
+        if sim.is_sim {
+            return;
+        }
+    }
+
     // If escape or F is pressed, exit car
     if keyboard.just_pressed(KeyCode::Escape) || keyboard.just_pressed(KeyCode::KeyF) {
         next_state.set(crate::plugins::states::GameControlState::MapFreecam);

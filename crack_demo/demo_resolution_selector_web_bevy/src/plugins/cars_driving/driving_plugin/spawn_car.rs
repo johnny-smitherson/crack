@@ -17,6 +17,7 @@ use bevy::world_serialization::WorldAssetRoot;
 pub struct SpawnCarRequestEvent {
     pub position: Vec3,
     pub car_type: String,
+    pub rotation: Option<Quat>,
 }
 
 #[derive(Component)]
@@ -55,8 +56,10 @@ pub fn spawn_car_request_event_observer(
         pos.y += 3.0;
     }
 
-    let random_angle = rand::random::<f32>() * std::f32::consts::TAU;
-    let car_rot = Quat::from_rotation_y(random_angle);
+    let car_rot = spawn_car_event.rotation.unwrap_or_else(|| {
+        let random_angle = rand::random::<f32>() * std::f32::consts::TAU;
+        Quat::from_rotation_y(random_angle)
+    });
 
     let default_drive_state = CarDriveState {
         spawn_position: Some(pos),

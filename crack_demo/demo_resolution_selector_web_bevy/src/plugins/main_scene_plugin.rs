@@ -54,12 +54,18 @@ fn setup_camera_and_load(mut commands: Commands, asset_server: Res<AssetServer>)
             brightness: 1000.0,
             ..default()
         },
+        //         bevy::post_process::motion_blur::MotionBlur {
+        //     shutter_angle: 1.0,
+        //     samples: 2,
+        // },
+        Msaa::Off,
+
     ));
 
     // Spawn a directional light pointing at a 45-degree angle to all axes
     commands.spawn((
         DirectionalLight {
-            illuminance: 10000.0,
+            illuminance: 3500.0,
             shadow_maps_enabled: true,
             ..default()
         },
@@ -151,7 +157,7 @@ fn convert_and_apply_skybox(
                             commands.entity(entity).insert(EnvironmentMapLight {
                                 diffuse_map: state.handle.clone(),
                                 specular_map: state.handle.clone(),
-                                intensity: 2000.0,
+                                intensity: 200.0,
                                 ..default()
                             });
                         }
