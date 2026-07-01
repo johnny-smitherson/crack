@@ -492,14 +492,14 @@ pub fn update_wheel_contact_normals(
     for (wheel_entity, wheel, mut contact_data) in q_wheels.iter_mut() {
         // Find parent car
         let mut parent_car = None;
-        for (car_entity, car_transform, drive_state, car) in q_cars.iter() {
+        for (_car_entity, car_transform, drive_state, car) in q_cars.iter() {
             if car.physics_children.contains(&wheel_entity) {
-                parent_car = Some((car_transform, drive_state, car_entity));
+                parent_car = Some((car_transform, drive_state));
                 break;
             }
         }
 
-        let Some((car_transform, drive_state, car_entity)) = parent_car else {
+        let Some((car_transform, drive_state)) = parent_car else {
             continue;
         };
 
@@ -540,7 +540,7 @@ pub fn update_wheel_contact_normals(
         let ray_dir = Dir3::NEG_Y;
         let max_dist = 3.0;
         let solid = true;
-        let filter = SpatialQueryFilter::from_excluded_entities([wheel_entity, car_entity]);
+        let filter = SpatialQueryFilter::from_mask([GamePhysicsLayer::Map]);
 
         let mut distances = [f32::MAX; 4];
         let mut hit_points = [Vec3::ZERO; 4];
@@ -652,31 +652,42 @@ pub fn draw_car_gizmos(
             }
         }
 
-        // Draw gray boxes defining the plane segment
-        if wheel_contact.hits_count > 0 {
-            let mut centroid = Vec3::ZERO;
-            let mut valid_count = 0;
-            for i in 0..4 {
-                if wheel_contact.ray_distances[i] != f32::MAX {
-                    centroid += wheel_contact.hit_points[i];
-                    valid_count += 1;
-                }
-            }
-            if valid_count > 0 {
-                centroid /= valid_count as f32;
-
-                // Rotated to the contact normal
-                let plane_rotation = Quat::from_rotation_arc(Vec3::Y, contact_normal);
-                let box_color = Color::srgb(0.5, 0.5, 0.5);
-
-                // Draw a nice gray plane segment using intersecting flat cuboids
-                let cuboid = Cuboid::new(0.5, 0.01, 0.5);
-                gizmos.primitive_3d(
-                    &cuboid,
-                    Isometry3d::new(centroid, plane_rotation),
-                    box_color,
-                );
+        // Draw plane defining the plane segment
+        let is_any_ray_too_long = wheel_contact.ray_distances.iter().any(|&d| d > drive_state.suspension_max);
+        
+        let mut centroid = Vec3::ZERO;
+        let mut valid_count = 0;
+        for i in 0..4 {
+            if wheel_contact.ray_distances[i] != f32::MAX {
+                centroid += wheel_contact.hit_points[i];
+                valid_count += 1;
             }
         }
+
+        let (plane_center, box_color) = if is_any_ray_too_long {
+            // Draw plane in red at the max suspension length
+            let origin_centroid = wheel_contact.ray_origins.iter().sum::<Vec3>() / 4.0;
+            let clamped_center = origin_centroid + Vec3::NEG_Y * drive_state.suspension_max;
+            (clamped_center, Color::srgb(1.0, 0.0, 0.0))
+        } else {
+            // Use hit centroid and gray color
+            let center = if valid_count > 0 {
+                centroid / valid_count as f32
+            } else {
+                wheel_contact.ray_origins.iter().sum::<Vec3>() / 4.0 + Vec3::NEG_Y * drive_state.suspension_max
+            };
+            (center, Color::srgb(0.5, 0.5, 0.5))
+        };
+
+        // Rotated to the contact normal
+        let plane_rotation = Quat::from_rotation_arc(Vec3::Y, contact_normal);
+
+        // Draw a nice plane segment using flat cuboid
+        let cuboid = Cuboid::new(0.5, 0.01, 0.5);
+        gizmos.primitive_3d(
+            &cuboid,
+            Isometry3d::new(plane_center, plane_rotation),
+            box_color,
+        );
     }
 }

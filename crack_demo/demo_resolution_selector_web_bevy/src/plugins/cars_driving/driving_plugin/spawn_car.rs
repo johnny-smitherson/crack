@@ -12,7 +12,7 @@ use avian3d::{
     prelude::{
         Collider, ColliderConstructor, ColliderConstructorHierarchy, CollisionLayers,
         DistanceJoint, Friction, LinearMotor, MassPropertiesBundle, MotorModel, PrismaticJoint,
-        RigidBody, SleepingDisabled,
+        RigidBody, SleepingDisabled, RevoluteJoint,
     },
 };
 use bevy::prelude::*;
@@ -183,7 +183,7 @@ pub fn spawn_car_request_event_observer(
                 Collider::cylinder(wheel_radius, wheel_width),
                 CollisionLayers::new([GamePhysicsLayer::Wheel], [GamePhysicsLayer::Map]),
                 SweptCcd::default(),
-                Friction::new(0.05).with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
+                Friction::new(0.85).with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
                 SleepingDisabled,
                 Wheel { is_front, is_left },
                 WheelContactData::default(),
@@ -224,6 +224,16 @@ pub fn spawn_car_request_event_observer(
             ))
             .id();
         physics_children.push(distance_joint);
+
+        // Revolute joint for wheel spinning
+        let revolute_joint = commands
+            .spawn(
+                RevoluteJoint::new(car_entity, wheel)
+                    .with_local_anchor1(Vector::new(offset.x, anchor_y, offset.z))
+                    .with_hinge_axis(Vector::X),
+            )
+            .id();
+        physics_children.push(revolute_joint);
     }
 
     commands.entity(car_entity).insert(Car {
