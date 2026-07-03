@@ -70,36 +70,35 @@ struct ModelRoot {
 }
 
 #[derive(Component)]
-struct NeedAlignment {
-    target_position: Vec3,
-    scale: f32,
-}
+struct NeedAlignment;
 
-#[allow(dead_code)]
 #[derive(Component)]
 struct PedestrianSkeleton {
     joint_labels: std::collections::HashMap<Entity, BoneLabel>,
-    left_shoulder: Option<Entity>,
-    left_elbow: Option<Entity>,
-    left_arm_local_dir: Vec3,
-    left_arm_local_hinge: Vec3,
-    right_shoulder: Option<Entity>,
-    right_elbow: Option<Entity>,
-    right_arm_local_dir: Vec3,
-    right_arm_local_hinge: Vec3,
+}
+
+#[derive(Component)]
+struct PedestrianGltf {
+    handle: Handle<bevy::gltf::Gltf>,
 }
 
 #[derive(Resource)]
-struct ArmControl {
-    yaw_angle: f32,
-    pitch_angle: f32,
+struct AnimationSettings {
+    available_animations: Vec<String>,
+    selected_animation: Option<String>,
+    speed: f32,
+    graph_handle: Handle<AnimationGraph>,
+    animation_nodes: std::collections::HashMap<String, AnimationNodeIndex>,
 }
 
-impl Default for ArmControl {
+impl Default for AnimationSettings {
     fn default() -> Self {
         Self {
-            yaw_angle: 90.0,
-            pitch_angle: 90.0,
+            available_animations: Vec::new(),
+            selected_animation: None,
+            speed: 1.0,
+            graph_handle: Handle::default(),
+            animation_nodes: std::collections::HashMap::new(),
         }
     }
 }
@@ -123,13 +122,14 @@ struct SpawnPedestrianRequest {
     position: Vec3,
     model_name: String,
     handle: Handle<WorldAsset>,
+    gltf_handle: Handle<bevy::gltf::Gltf>,
     model_index: usize,
 }
 
 #[derive(Resource)]
 struct ManifestLoader {
     handle: Handle<TextAsset>,
-    glb_handles: Option<Vec<(String, Handle<WorldAsset>)>>,
+    glb_handles: Option<Vec<(String, Handle<WorldAsset>, Handle<bevy::gltf::Gltf>)>>,
     spawned: bool,
 }
 
@@ -227,7 +227,7 @@ fn main() {
         .init_asset_loader::<TextAssetLoader>()
         .init_resource::<SelectedModel>()
         .init_resource::<HoveredModel>()
-        .init_resource::<ArmControl>()
+        .init_resource::<AnimationSettings>()
         .init_resource::<FrameCounter>()
         .init_resource::<SkeletonVisuals>()
         .add_observer(spawn_pedestrian_observer)
@@ -236,8 +236,9 @@ fn main() {
             Update,
             (
                 load_manifest_system,
-                align_pedestrians_system,
-                control_arms_system,
+                init_pedestrians_system,
+                setup_animation_players_system,
+                play_animations_system,
                 draw_skeletons_system,
                 picker_system,
                 draw_hovered_bbox_system,
@@ -262,10 +263,10 @@ fn spawn_pedestrian_observer(
             name: req.model_name.clone(),
             size: Vec3::ZERO,
         },
-        NeedAlignment {
-            target_position: req.position,
-            scale: rand::random::<f32>() * 0.2 + 1.3,
+        PedestrianGltf {
+            handle: req.gltf_handle.clone(),
         },
+        NeedAlignment,
     ))
     .with_children(|parent| {
         parent.spawn((
@@ -408,6 +409,8 @@ fn load_manifest_system(
     mut loader: ResMut<ManifestLoader>,
     text_assets: Res<Assets<TextAsset>>,
     world_assets: Res<Assets<WorldAsset>>,
+    gltf_assets: Res<Assets<bevy::gltf::Gltf>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     if loader.glb_handles.is_none() {
         if let Some(text_asset) = text_assets.get(&loader.handle) {
@@ -420,9 +423,10 @@ fn load_manifest_system(
                     continue;
                 }
                 let glb_url = format!("{}/3d_data/pedestrian_3d_gen/{}", base_url, line);
-                let scene_url = GltfAssetLabel::Scene(0).from_asset(glb_url);
+                let scene_url = GltfAssetLabel::Scene(0).from_asset(glb_url.clone());
                 let handle = asset_server.load::<WorldAsset>(scene_url);
-                handles.push((line.to_string(), handle));
+                let gltf_handle = asset_server.load::<bevy::gltf::Gltf>(glb_url);
+                handles.push((line.to_string(), handle, gltf_handle));
             }
             info!(
                 "Parsed manifest. Loading {} GLB world assets in parallel...",
@@ -433,8 +437,8 @@ fn load_manifest_system(
     } else if !loader.spawned {
         let handles = loader.glb_handles.as_ref().unwrap();
         let mut all_loaded = true;
-        for (_, handle) in handles {
-            if world_assets.get(handle).is_none() {
+        for (_, handle, gltf_handle) in handles {
+            if world_assets.get(handle).is_none() || gltf_assets.get(gltf_handle).is_none() {
                 all_loaded = false;
                 break;
             }
@@ -442,10 +446,55 @@ fn load_manifest_system(
         if all_loaded {
             info!("All GLB scenes loaded! Triggering spawn events...");
 
+            // Collect all animations and populate AnimationSettings resource
+            let mut animation_names = std::collections::BTreeSet::new();
+            let mut clips = Vec::new();
+            let mut clip_to_name = std::collections::HashMap::new();
+
+            for (_, _, gltf_handle) in handles {
+                if let Some(gltf) = gltf_assets.get(gltf_handle) {
+                    for (name, clip_handle) in &gltf.named_animations {
+                        let name_str = name.to_string();
+                        if !animation_names.contains(&name_str) {
+                            animation_names.insert(name_str.clone());
+                            clips.push(clip_handle.clone());
+                            clip_to_name.insert(clip_handle.id(), name_str);
+                        }
+                    }
+                }
+            }
+
+            let available_animations: Vec<String> = animation_names.into_iter().collect();
+            let selected_animation = if available_animations.contains(&"A_TPose".to_string()) {
+                Some("A_TPose".to_string())
+            } else if !available_animations.is_empty() {
+                Some(available_animations[0].clone())
+            } else {
+                None
+            };
+
+            let (graph, node_indices) = AnimationGraph::from_clips(clips.clone());
+            let graph_handle = graphs.add(graph);
+
+            let mut animation_nodes = std::collections::HashMap::new();
+            for (idx, clip_handle) in clips.iter().enumerate() {
+                if let Some(name) = clip_to_name.get(&clip_handle.id()) {
+                    animation_nodes.insert(name.clone(), node_indices[idx]);
+                }
+            }
+
+            commands.insert_resource(AnimationSettings {
+                available_animations,
+                selected_animation,
+                speed: 1.0,
+                graph_handle,
+                animation_nodes,
+            });
+
             let count = handles.len();
             let cols = (count as f32).sqrt().ceil() as usize;
 
-            for (idx, (line, handle)) in handles.iter().enumerate() {
+            for (idx, (line, handle, gltf_handle)) in handles.iter().enumerate() {
                 let col = idx % cols;
                 let row = idx / cols;
 
@@ -460,6 +509,7 @@ fn load_manifest_system(
                     position: Vec3::new(x, y, z),
                     model_name: model_name.clone(),
                     handle: handle.clone(),
+                    gltf_handle: gltf_handle.clone(),
                     model_index: idx,
                 });
             }
@@ -485,19 +535,18 @@ fn get_mesh_descendants(
     }
 }
 
-fn align_pedestrians_system(
+fn init_pedestrians_system(
     mut commands: Commands,
     query: Query<(Entity, &NeedAlignment, &Children)>,
     children_query: Query<&Children>,
     mesh_query: Query<&Mesh3d>,
     global_transform_query: Query<&GlobalTransform>,
-    mut transform_query: Query<&mut Transform>,
     mut model_root_query: Query<&mut ModelRoot>,
     parent_query: Query<&ChildOf>,
     name_query: Query<&Name>,
     meshes: Res<Assets<Mesh>>,
 ) {
-    for (root_entity, need_align, children) in query.iter() {
+    for (root_entity, _need_align, children) in query.iter() {
         let mut mesh_entities = Vec::new();
 
         for child in children.iter() {
@@ -557,27 +606,10 @@ fn align_pedestrians_system(
             continue;
         }
 
-        let center = (min + max) / 2.0;
         let size = max - min;
-        let s = need_align.scale;
-
-        let root_pos = need_align.target_position + s * Vec3::new(0.0, size.y / 2.0, 0.0);
-
-        if let Ok(mut root_transform) = transform_query.get_mut(root_entity) {
-            root_transform.translation = root_pos;
-            root_transform.scale = Vec3::splat(s);
-        }
-
-        for child in children.iter() {
-            if let Ok(mut child_transform) = transform_query.get_mut(child) {
-                child_transform.translation = -center;
-            }
-        }
-
-
 
         if let Ok(mut root) = model_root_query.get_mut(root_entity) {
-            root.size = size * s;
+            root.size = size;
         }
 
         let mut skeleton_root = root_entity;
@@ -618,66 +650,10 @@ fn align_pedestrians_system(
             });
         }
         
-        let (classification, left_shoulder, left_elbow, left_wrist, right_shoulder, right_elbow, right_wrist) = classify_skeleton(root_entity, &joints);
-        
-        let mut left_arm_local_dir = Vec3::NEG_Y;
-        let mut left_arm_local_hinge = Vec3::NEG_X;
-        if let (Some(_s), Some(e), Some(w)) = (left_shoulder, left_elbow, left_wrist) {
-            if let Ok(elbow_trans) = transform_query.get(e) {
-                left_arm_local_dir = elbow_trans.translation;
-            }
-            if let Ok(wrist_trans) = transform_query.get(w) {
-                let e_pos = left_arm_local_dir;
-                let q_elbow = transform_query.get(e).map(|t| t.rotation).unwrap_or(Quat::IDENTITY);
-                let w_pos = e_pos + q_elbow * wrist_trans.translation;
-                
-                let a = e_pos.normalize();
-                let b = (w_pos - e_pos).normalize();
-                let mut hinge = a.cross(b);
-                if hinge.length_squared() < 1e-4 {
-                    hinge = Vec3::NEG_X;
-                } else {
-                    hinge = hinge.normalize();
-                }
-                left_arm_local_hinge = hinge;
-            }
-        }
-
-        let mut right_arm_local_dir = Vec3::NEG_Y;
-        let mut right_arm_local_hinge = Vec3::X;
-        if let (Some(_s), Some(e), Some(w)) = (right_shoulder, right_elbow, right_wrist) {
-            if let Ok(elbow_trans) = transform_query.get(e) {
-                right_arm_local_dir = elbow_trans.translation;
-            }
-            if let Ok(wrist_trans) = transform_query.get(w) {
-                let e_pos = right_arm_local_dir;
-                let q_elbow = transform_query.get(e).map(|t| t.rotation).unwrap_or(Quat::IDENTITY);
-                let w_pos = e_pos + q_elbow * wrist_trans.translation;
-                
-                let a = e_pos.normalize();
-                let b = (w_pos - e_pos).normalize();
-                let mut hinge = a.cross(b);
-                if hinge.length_squared() < 1e-4 {
-                    hinge = Vec3::X;
-                } else {
-                    hinge = hinge.normalize();
-                }
-                right_arm_local_hinge = hinge;
-            }
-        }
-        
-
+        let (classification, _, _, _, _, _, _) = classify_skeleton(root_entity, &joints);
         
         commands.entity(root_entity).insert(PedestrianSkeleton {
             joint_labels: classification,
-            left_shoulder,
-            left_elbow,
-            left_arm_local_dir,
-            left_arm_local_hinge,
-            right_shoulder,
-            right_elbow,
-            right_arm_local_dir,
-            right_arm_local_hinge,
         });
 
         commands.entity(root_entity).remove::<NeedAlignment>();
@@ -1240,7 +1216,7 @@ fn draw_gui_system(
     mut contexts: EguiContexts,
     selected: Res<SelectedModel>,
     model_roots: Query<&ModelRoot>,
-    mut arm_control: ResMut<ArmControl>,
+    mut anim_settings: ResMut<AnimationSettings>,
     mut skeleton_visuals: ResMut<SkeletonVisuals>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
@@ -1292,109 +1268,133 @@ fn draw_gui_system(
                     ui.heading("Selected Pedestrian:");
                     ui.label(format!("Index: {}", root.index));
                     ui.label(format!("Name: {}", root.name));
-                    ui.label(format!("Scaled Size: {:.2} x {:.2} x {:.2}", root.size.x, root.size.y, root.size.z));
+                    ui.label(format!("Size: {:.2} x {:.2} x {:.2}", root.size.x, root.size.y, root.size.z));
                 }
             } else {
                 ui.label("No pedestrian selected");
             }
         });
 
-    egui::Window::new("Left Arm Joint Control")
+    egui::Window::new("Animation Selector")
         .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-12.0, -12.0))
-        .default_size(egui::vec2(250.0, 120.0))
+        .default_size(egui::vec2(250.0, 200.0))
         .show(ctx, |ui| {
-            ui.label("Rotate Left Shoulder Joint:");
-            ui.add(egui::Slider::new(&mut arm_control.yaw_angle, -90.0..=90.0).text("Yaw (-90..+90, Y-axis)"));
-            ui.add(egui::Slider::new(&mut arm_control.pitch_angle, 0.0..=180.0).text("Pitch (0..180, X-axis)"));
-            if ui.button("Reset to Leisure (90 Yaw, 90 Pitch)").clicked() {
-                arm_control.yaw_angle = 90.0;
-                arm_control.pitch_angle = 90.0;
-            }
+            // Speed slider above the list
+            ui.add(egui::Slider::new(&mut anim_settings.speed, 0.3..=3.0).text("Speed"));
+            
+            ui.separator();
+            ui.label("Select Animation:");
+            
+            let anim_names = anim_settings.available_animations.clone();
+            let current_selected = anim_settings.selected_animation.clone();
+
+            // A list/selector of animations
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for anim_name in &anim_names {
+                    if ui.radio(current_selected.as_ref() == Some(anim_name), anim_name).clicked() {
+                        anim_settings.selected_animation = Some(anim_name.clone());
+                    }
+                }
+            });
         });
 }
 
-fn control_arms_system(
-    arm_control: Res<ArmControl>,
-    skeletons: Query<(Entity, &PedestrianSkeleton)>,
-    model_roots: Query<(&GlobalTransform, &ModelRoot)>,
-    parent_query: Query<&ChildOf>,
-    global_transform_query: Query<&GlobalTransform>,
-    mut transform_query: Query<&mut Transform>,
-    query_need_alignment: Query<&NeedAlignment>,
-    mut frame_counter: ResMut<FrameCounter>,
+#[derive(Component)]
+struct CurrentPlayingAnimation {
+    name: String,
+    speed: f32,
+}
+
+fn setup_animation_players_system(
+    mut commands: Commands,
+    anim_settings: Option<Res<AnimationSettings>>,
+    players: Query<Entity, (With<AnimationPlayer>, Without<AnimationGraphHandle>)>,
 ) {
-    frame_counter.0 += 1;
-
-    let rot_yaw = Quat::from_rotation_y(arm_control.yaw_angle.to_radians());
-    let rot_pitch = Quat::from_rotation_z(arm_control.pitch_angle.to_radians());
-    let target_dir_model = rot_yaw * rot_pitch * Vec3::NEG_Y;
-
-    let mut hinge_model = target_dir_model.cross(Vec3::NEG_Z);
-    if hinge_model.length_squared() < 1e-4 {
-        hinge_model = target_dir_model.cross(Vec3::Y);
+    let Some(settings) = anim_settings else {
+        return;
+    };
+    for player_ent in &players {
+        commands.entity(player_ent).insert(AnimationGraphHandle(settings.graph_handle.clone()));
     }
-    if hinge_model.length_squared() < 1e-4 {
-        hinge_model = Vec3::X;
-    }
-    let hinge_model = hinge_model.normalize();
+}
 
-    for (root_entity, skeleton) in skeletons.iter() {
-        let Some(shoulder_ent) = skeleton.left_shoulder else {
-            continue;
-        };
-        
-        let Ok((root_gt, _)) = model_roots.get(root_entity) else {
-            continue;
-        };
-        let (_, r_root, _) = root_gt.to_scale_rotation_translation();
-        
-        let mut r_parent = Quat::IDENTITY;
-        if let Ok(parent_childof) = parent_query.get(shoulder_ent) {
-            let parent_ent = parent_childof.get();
-            if let Ok(parent_gt) = global_transform_query.get(parent_ent) {
-                let (_, r_p, _) = parent_gt.to_scale_rotation_translation();
-                r_parent = r_p;
+fn play_animations_system(
+    mut commands: Commands,
+    settings: Res<AnimationSettings>,
+    gltf_assets: Res<Assets<bevy::gltf::Gltf>>,
+    model_roots: Query<&PedestrianGltf>,
+    mut players: Query<(Entity, &mut AnimationPlayer, Option<&mut CurrentPlayingAnimation>)>,
+    parent_query: Query<&ChildOf>,
+) {
+    for (player_ent, mut player, current_playing) in players.iter_mut() {
+        // Find the model root entity by walking up the hierarchy
+        let mut current = player_ent;
+        let mut model_root_gltf = None;
+        loop {
+            if let Ok(gltf_comp) = model_roots.get(current) {
+                model_root_gltf = Some(gltf_comp);
+                break;
+            }
+            if let Ok(parent) = parent_query.get(current) {
+                current = parent.get();
+            } else {
+                break;
             }
         }
-        
-        let a_target = (r_parent.inverse() * r_root * target_dir_model).normalize();
-        let h_target = (r_parent.inverse() * r_root * hinge_model).normalize();
-        let p_target = h_target.cross(a_target).normalize();
-        
-        let m_target = Mat3::from_cols(p_target, a_target, h_target);
-        
-        let a_local = skeleton.left_arm_local_dir.normalize();
-        let h_local = skeleton.left_arm_local_hinge.normalize();
-        let p_local = h_local.cross(a_local).normalize();
-        
-        let m_local = Mat3::from_cols(p_local, a_local, h_local);
-        
-        let shoulder_rot = Quat::from_mat3(&(m_target * m_local.transpose()));
-        
-        if let Ok(mut transform) = transform_query.get_mut(shoulder_ent) {
-            transform.rotation = shoulder_rot;
-        }
-    }
 
-    let any_need_align = !query_need_alignment.is_empty();
-    if !any_need_align && frame_counter.0 == 30 {
-        for (root_entity, skeleton) in skeletons.iter() {
-            let Some(shoulder_ent) = skeleton.left_shoulder else { continue; };
-            let Some(elbow_ent) = skeleton.left_elbow else { continue; };
-            let Ok((root_gt, root)) = model_roots.get(root_entity) else { continue; };
-            let Ok(shoulder_gt) = global_transform_query.get(shoulder_ent) else { continue; };
-            let Ok(elbow_gt) = global_transform_query.get(elbow_ent) else { continue; };
-            
-            let (_, r_root, _) = root_gt.to_scale_rotation_translation();
-            let arm_dir_world = (elbow_gt.translation() - shoulder_gt.translation()).normalize();
-            let arm_dir_model = r_root.inverse() * arm_dir_world;
-            
-            println!(
-                "Pedestrian Index: {}, Name: {}, Arm Direction in Model Space: {:?}, Shoulder: {:?}, Elbow: {:?}",
-                root.index, root.name, arm_dir_model, shoulder_ent, elbow_ent
-            );
+        let Some(gltf_comp) = model_root_gltf else {
+            continue;
+        };
 
+        let Some(gltf) = gltf_assets.get(&gltf_comp.handle) else {
+            continue;
+        };
 
+        // Determine which animation to play
+        let anim_name = if let Some(selected) = &settings.selected_animation {
+            if gltf.named_animations.contains_key(selected.as_str()) {
+                selected.as_str()
+            } else {
+                "A_TPose"
+            }
+        } else {
+            "A_TPose"
+        };
+
+        let target_speed = settings.speed;
+
+        let should_update = match &current_playing {
+            Some(curr) => curr.name != anim_name || curr.speed != target_speed,
+            None => true,
+        };
+
+        if should_update {
+            if let Some(&node_index) = settings.animation_nodes.get(anim_name) {
+                let name_changed = match &current_playing {
+                    Some(curr) => curr.name != anim_name,
+                    None => true,
+                };
+
+                if name_changed {
+                    player.stop_all();
+                    player.play(node_index).repeat().set_speed(target_speed);
+                } else {
+                    if let Some(active) = player.animation_mut(node_index) {
+                        active.set_speed(target_speed);
+                    }
+                }
+
+                // Update tracking component
+                if let Some(mut curr) = current_playing {
+                    curr.name = anim_name.to_string();
+                    curr.speed = target_speed;
+                } else {
+                    commands.entity(player_ent).insert(CurrentPlayingAnimation {
+                        name: anim_name.to_string(),
+                        speed: target_speed,
+                    });
+                }
+            }
         }
     }
 }
