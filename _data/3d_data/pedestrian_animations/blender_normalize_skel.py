@@ -791,7 +791,7 @@ def render_stage2_preview(output_jpg_path):
     
     print("Stage 2 preview renders complete.")
 
-def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones, ref_actions, ref_rest_matrices=None):
+def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones, ref_actions, ref_rest_matrices=None, ref_bone_parents=None):
     print("Executing Stage 3: Full-body animation retargeting with C matrix coordinate space transformation & spine interpolation...")
     
     target_key_bones = identify_key_bones(target_armature, target_bone_mapping)
@@ -829,7 +829,7 @@ def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones
         
     # Spine Bone Chain Mapping with Interpolation Support
     ref_spine_bones = ['pelvis', 'spine_01', 'spine_02', 'spine_03']
-    target_spine_bones = [b.name for b in target_armature.data.bones if any(k in b.name for k in ['bone_0', 'bone_1', 'bone_2', 'bone_3'])]
+    target_spine_bones = [b.name for b in target_armature.data.bones if b.name in {'bone_0', 'bone_1', 'bone_2', 'bone_3'}]
     if not target_spine_bones:
         target_spine_bones = ['bone_0', 'bone_1', 'bone_2', 'bone_3']
     target_spine_bones = [b for b in target_spine_bones if target_armature.data.bones.get(b)]
@@ -837,7 +837,66 @@ def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones
     print(f"Ref Spine Chain: {ref_spine_bones}")
     print(f"Target Spine Chain: {target_spine_bones}")
     
-    # Calculate C transformation matrices: C = M_tgt_rest.to_3x3().inverted() @ M_ref_rest.to_3x3()
+    # Calculate retargeting transformation quaternions using parent-relative rest orientations.
+    # Blender's f-curve rotation_quaternion values are in parent-bone-local space.
+    # The correct retargeting formula is the full sandwich:
+    #   q_tgt = inv(q_tgt_rest_local) @ q_ref_rest_local @ q_ref_anim @ inv(q_ref_rest_local) @ q_tgt_rest_local
+    # We precompute: retarget_pre[t_b] = inv(q_tgt_rest_local) @ q_ref_rest_local
+    #                retarget_post[t_b] = inv(q_ref_rest_local) @ q_tgt_rest_local
+    
+    def get_parent_relative_rest_quat_ref(bone_name):
+        """Get the parent-relative rest orientation quaternion for a reference bone."""
+        mat = ref_rest_matrices.get(bone_name) if ref_rest_matrices else None
+        if mat:
+            parent_name = ref_bone_parents.get(bone_name) if ref_bone_parents else None
+            if parent_name:
+                parent_mat = ref_rest_matrices.get(parent_name)
+                if parent_mat:
+                    local_mat = parent_mat.inverted() @ mat
+                    return local_mat.to_quaternion()
+            return mat.to_quaternion()
+        return mathutils.Quaternion()
+    
+    def get_parent_relative_rest_quat_tgt(bone_name):
+        """Get the parent-relative rest orientation quaternion for a target bone."""
+        bone = target_armature.data.bones.get(bone_name)
+        if bone:
+            if bone.parent:
+                local_mat = bone.parent.matrix_local.inverted() @ bone.matrix_local
+                return local_mat.to_quaternion()
+            return bone.matrix_local.to_quaternion()
+        return mathutils.Quaternion()
+    
+    retarget_pre = {}   # inv(q_tgt_rest_local) @ q_ref_rest_local
+    retarget_post = {}  # inv(q_ref_rest_local) @ q_tgt_rest_local
+    
+    for r_b, t_b in ref_to_target.items():
+        q_ref_local = get_parent_relative_rest_quat_ref(r_b)
+        q_tgt_local = get_parent_relative_rest_quat_tgt(t_b)
+        
+        retarget_pre[t_b] = q_tgt_local.inverted() @ q_ref_local
+        retarget_post[t_b] = q_ref_local.inverted() @ q_tgt_local
+        
+        ref_parent = ref_bone_parents.get(r_b) if ref_bone_parents else None
+        tgt_bone = target_armature.data.bones.get(t_b)
+        tgt_parent = tgt_bone.parent.name if (tgt_bone and tgt_bone.parent) else None
+        print(f"  Retarget map: {r_b} (parent={ref_parent}) -> {t_b} (parent={tgt_parent})")
+        print(f"    q_ref_local=({q_ref_local.w:.3f}, {q_ref_local.x:.3f}, {q_ref_local.y:.3f}, {q_ref_local.z:.3f})")
+        print(f"    q_tgt_local=({q_tgt_local.w:.3f}, {q_tgt_local.x:.3f}, {q_tgt_local.y:.3f}, {q_tgt_local.z:.3f})")
+    
+    for idx, t_b in enumerate(target_spine_bones):
+        u = idx / max(1, len(target_spine_bones) - 1)
+        r_idx = u * (len(ref_spine_bones) - 1)
+        r_b_name = ref_spine_bones[min(int(round(r_idx)), len(ref_spine_bones) - 1)]
+        
+        q_ref_local = get_parent_relative_rest_quat_ref(r_b_name)
+        q_tgt_local = get_parent_relative_rest_quat_tgt(t_b)
+        
+        retarget_pre[t_b] = q_tgt_local.inverted() @ q_ref_local
+        retarget_post[t_b] = q_ref_local.inverted() @ q_tgt_local
+        print(f"  Spine retarget: {r_b_name} -> {t_b}: q_ref=({q_ref_local.w:.3f},{q_ref_local.x:.3f},{q_ref_local.y:.3f},{q_ref_local.z:.3f}) q_tgt=({q_tgt_local.w:.3f},{q_tgt_local.x:.3f},{q_tgt_local.y:.3f},{q_tgt_local.z:.3f})")
+    
+    # Also compute C_matrices for root location transform (still needed for position data)
     C_matrices = {}
     for r_b, t_b in ref_to_target.items():
         m_r_mat = ref_rest_matrices.get(r_b) if ref_rest_matrices else None
@@ -848,17 +907,6 @@ def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones
             C_matrices[t_b] = m_t_mat.inverted() @ m_r_3x3
         else:
             C_matrices[t_b] = mathutils.Matrix.Identity(3)
-            
-    for idx, t_b in enumerate(target_spine_bones):
-        u = idx / max(1, len(target_spine_bones) - 1)
-        r_idx = u * (len(ref_spine_bones) - 1)
-        r_b_name = ref_spine_bones[min(int(round(r_idx)), len(ref_spine_bones) - 1)]
-        m_r_mat = ref_rest_matrices.get(r_b_name) if ref_rest_matrices else None
-        m_t_b = target_armature.data.bones.get(t_b)
-        m_t_mat = m_t_b.matrix_local.to_3x3() if m_t_b else mathutils.Matrix.Identity(3)
-        if m_r_mat and m_t_mat:
-            m_r_3x3 = m_r_mat.to_3x3() if hasattr(m_r_mat, 'to_3x3') else m_r_mat
-            C_matrices[t_b] = m_t_mat.inverted() @ m_r_3x3
             
     # Root height scale factor
     ref_h = 1.8
@@ -909,11 +957,13 @@ def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones
                     for fc in fcurves_to_remove:
                         cb.fcurves.remove(fc)
                         
-                    # Transform Quaternion Keyframes in-place using C Matrix (R_tgt = C @ R_ref)
+                    # Transform Quaternion Keyframes using sandwich formula:
+                    # q_tgt = retarget_pre @ q_ref_anim @ retarget_post
                     for (t_b_name, prop), curves in bone_curves.items():
-                        C_mat = C_matrices.get(t_b_name, mathutils.Matrix.Identity(3))
                         
                         if prop in ['rotation_quaternion'] and all(idx in curves for idx in [0, 1, 2, 3]):
+                            pre = retarget_pre.get(t_b_name, mathutils.Quaternion())
+                            post = retarget_post.get(t_b_name, mathutils.Quaternion())
                             fc_w, fc_x, fc_y, fc_z = curves[0], curves[1], curves[2], curves[3]
                             num_keys = len(fc_w.keyframe_points)
                             
@@ -924,10 +974,8 @@ def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones
                                 z = fc_z.keyframe_points[k].co[1]
                                 
                                 q_ref = mathutils.Quaternion((w, x, y, z))
-                                r_ref = q_ref.to_matrix()
-                                # Local pose rotation conversion: R_tgt = C @ R_ref
-                                r_tgt = C_mat @ r_ref
-                                q_tgt = r_tgt.to_quaternion()
+                                # Full sandwich: q_tgt = pre @ q_ref @ post
+                                q_tgt = pre @ q_ref @ post
                                 
                                 fc_w.keyframe_points[k].co[1] = q_tgt.w
                                 fc_x.keyframe_points[k].co[1] = q_tgt.x
@@ -935,6 +983,7 @@ def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones
                                 fc_z.keyframe_points[k].co[1] = q_tgt.z
                                 
                         elif prop in ['location'] and t_b_name == t_root and all(idx in curves for idx in [0, 1, 2]):
+                            C_mat = C_matrices.get(t_b_name, mathutils.Matrix.Identity(3))
                             fc_px, fc_py, fc_pz = curves[0], curves[1], curves[2]
                             num_keys = len(fc_px.keyframe_points)
                             
@@ -1136,9 +1185,9 @@ def main():
         print(f"Error: expected 3 arguments, got {len(args)}")
         sys.exit(1)
         
-    ref_glb_path = args[0]
-    input_glb_path = args[1]
-    out_dir = args[2]
+    ref_glb_path = os.path.abspath(args[0])
+    input_glb_path = os.path.abspath(args[1])
+    out_dir = os.path.abspath(args[2])
     
     os.makedirs(out_dir, exist_ok=True)
     
@@ -1213,6 +1262,7 @@ def main():
                 }
                 
     ref_rest_matrices = {b.name: b.matrix_local.copy() for b in ref_armature.data.bones}
+    ref_bone_parents = {b.name: (b.parent.name if b.parent else None) for b in ref_armature.data.bones}
     
     # Capture and protect animations (Actions) from the reference model
     ref_actions = list(bpy.data.actions)
@@ -1281,7 +1331,7 @@ def main():
     render_stage2_preview(output_stage_2_jpg_path)
     
     # 4. Process Stage 3 (Apply reference animations to target)
-    stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones, ref_actions, ref_rest_matrices=ref_key_matrices)
+    stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones, ref_actions, ref_rest_matrices=ref_rest_matrices, ref_bone_parents=ref_bone_parents)
     
     # Export Stage 3 GLB
     print(f"Exporting Stage 3 model to: {output_stage_3_path}")
