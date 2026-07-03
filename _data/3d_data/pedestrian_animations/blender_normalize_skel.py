@@ -844,57 +844,45 @@ def stage_3_apply_animations(target_armature, target_bone_mapping, ref_key_bones
     # We precompute: retarget_pre[t_b] = inv(q_tgt_rest_local) @ q_ref_rest_local
     #                retarget_post[t_b] = inv(q_ref_rest_local) @ q_tgt_rest_local
     
-    def get_parent_relative_rest_quat_ref(bone_name):
-        """Get the parent-relative rest orientation quaternion for a reference bone."""
+    def get_armature_relative_rest_quat_ref(bone_name):
+        """Get the armature-space rest orientation quaternion for a reference bone."""
         mat = ref_rest_matrices.get(bone_name) if ref_rest_matrices else None
         if mat:
-            parent_name = ref_bone_parents.get(bone_name) if ref_bone_parents else None
-            if parent_name:
-                parent_mat = ref_rest_matrices.get(parent_name)
-                if parent_mat:
-                    local_mat = parent_mat.inverted() @ mat
-                    return local_mat.to_quaternion()
             return mat.to_quaternion()
         return mathutils.Quaternion()
     
-    def get_parent_relative_rest_quat_tgt(bone_name):
-        """Get the parent-relative rest orientation quaternion for a target bone."""
+    def get_armature_relative_rest_quat_tgt(bone_name):
+        """Get the armature-space rest orientation quaternion for a target bone."""
         bone = target_armature.data.bones.get(bone_name)
         if bone:
-            if bone.parent:
-                local_mat = bone.parent.matrix_local.inverted() @ bone.matrix_local
-                return local_mat.to_quaternion()
             return bone.matrix_local.to_quaternion()
         return mathutils.Quaternion()
     
-    retarget_pre = {}   # inv(q_tgt_rest_local) @ q_ref_rest_local
-    retarget_post = {}  # inv(q_ref_rest_local) @ q_tgt_rest_local
+    retarget_pre = {}   # inv(q_tgt_rest_arm) @ q_ref_rest_arm
+    retarget_post = {}  # inv(q_ref_rest_arm) @ q_tgt_rest_arm
     
     for r_b, t_b in ref_to_target.items():
-        q_ref_local = get_parent_relative_rest_quat_ref(r_b)
-        q_tgt_local = get_parent_relative_rest_quat_tgt(t_b)
+        q_ref_arm = get_armature_relative_rest_quat_ref(r_b)
+        q_tgt_arm = get_armature_relative_rest_quat_tgt(t_b)
         
-        retarget_pre[t_b] = q_tgt_local.inverted() @ q_ref_local
-        retarget_post[t_b] = q_ref_local.inverted() @ q_tgt_local
+        retarget_pre[t_b] = q_tgt_arm.inverted() @ q_ref_arm
+        retarget_post[t_b] = q_ref_arm.inverted() @ q_tgt_arm
         
-        ref_parent = ref_bone_parents.get(r_b) if ref_bone_parents else None
-        tgt_bone = target_armature.data.bones.get(t_b)
-        tgt_parent = tgt_bone.parent.name if (tgt_bone and tgt_bone.parent) else None
-        print(f"  Retarget map: {r_b} (parent={ref_parent}) -> {t_b} (parent={tgt_parent})")
-        print(f"    q_ref_local=({q_ref_local.w:.3f}, {q_ref_local.x:.3f}, {q_ref_local.y:.3f}, {q_ref_local.z:.3f})")
-        print(f"    q_tgt_local=({q_tgt_local.w:.3f}, {q_tgt_local.x:.3f}, {q_tgt_local.y:.3f}, {q_tgt_local.z:.3f})")
+        print(f"  Retarget map: {r_b} -> {t_b}")
+        print(f"    q_ref_arm=({q_ref_arm.w:.3f}, {q_ref_arm.x:.3f}, {q_ref_arm.y:.3f}, {q_ref_arm.z:.3f})")
+        print(f"    q_tgt_arm=({q_tgt_arm.w:.3f}, {q_tgt_arm.x:.3f}, {q_tgt_arm.y:.3f}, {q_tgt_arm.z:.3f})")
     
     for idx, t_b in enumerate(target_spine_bones):
         u = idx / max(1, len(target_spine_bones) - 1)
         r_idx = u * (len(ref_spine_bones) - 1)
         r_b_name = ref_spine_bones[min(int(round(r_idx)), len(ref_spine_bones) - 1)]
         
-        q_ref_local = get_parent_relative_rest_quat_ref(r_b_name)
-        q_tgt_local = get_parent_relative_rest_quat_tgt(t_b)
+        q_ref_arm = get_armature_relative_rest_quat_ref(r_b_name)
+        q_tgt_arm = get_armature_relative_rest_quat_tgt(t_b)
         
-        retarget_pre[t_b] = q_tgt_local.inverted() @ q_ref_local
-        retarget_post[t_b] = q_ref_local.inverted() @ q_tgt_local
-        print(f"  Spine retarget: {r_b_name} -> {t_b}: q_ref=({q_ref_local.w:.3f},{q_ref_local.x:.3f},{q_ref_local.y:.3f},{q_ref_local.z:.3f}) q_tgt=({q_tgt_local.w:.3f},{q_tgt_local.x:.3f},{q_tgt_local.y:.3f},{q_tgt_local.z:.3f})")
+        retarget_pre[t_b] = q_tgt_arm.inverted() @ q_ref_arm
+        retarget_post[t_b] = q_ref_arm.inverted() @ q_tgt_arm
+        print(f"  Spine retarget: {r_b_name} -> {t_b}: q_ref=({q_ref_arm.w:.3f},{q_ref_arm.x:.3f},{q_ref_arm.y:.3f},{q_ref_arm.z:.3f}) q_tgt=({q_tgt_arm.w:.3f},{q_tgt_arm.x:.3f},{q_tgt_arm.y:.3f},{q_tgt_arm.z:.3f})")
     
     # Also compute C_matrices for root location transform (still needed for position data)
     C_matrices = {}
