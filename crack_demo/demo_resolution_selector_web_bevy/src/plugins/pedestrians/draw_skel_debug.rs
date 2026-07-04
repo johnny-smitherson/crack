@@ -3,7 +3,9 @@
 use bevy::ecs::relationship::Relationship;
 use bevy::prelude::*;
 
-use crate::plugins::pedestrians::skeleton::{BoneLabel, PedestrianSkeleton, traverse_hierarchy_raw};
+use crate::plugins::pedestrians::skeleton::{
+    BoneLabel, PedestrianSkeleton, traverse_hierarchy_raw,
+};
 use crate::plugins::pedestrians::spawn_pedestrian::ModelRoot;
 
 /// Toggles skeleton gizmo drawing.
@@ -17,17 +19,17 @@ pub fn bone_color(label: BoneLabel) -> Color {
     match label {
         BoneLabel::Head | BoneLabel::Neck => Color::srgb(1.0, 0.4, 0.7), // Pink
         BoneLabel::Spine => Color::srgb(0.0, 0.0, 0.5),                  // Dark Blue
-        BoneLabel::Midgroin => Color::srgb(1.0, 1.0, 0.0),              // Yellow
-        BoneLabel::LeftShoulder => Color::srgb(0.5, 0.8, 1.0),          // Light Blue
-        BoneLabel::RightShoulder => Color::srgb(1.0, 0.7, 0.85),        // Light Pink
-        BoneLabel::LeftArm => Color::srgb(0.6, 0.2, 0.8),              // Purple
-        BoneLabel::RightArm => Color::srgb(1.0, 0.6, 0.0),            // Orange
-        BoneLabel::LeftHand => Color::srgb(0.6, 0.6, 0.0),           // Dark Yellow
-        BoneLabel::RightHand => Color::srgb(1.0, 1.0, 0.5),          // Light Yellow
-        BoneLabel::LeftLeg => Color::srgb(1.0, 0.2, 0.2),            // Red
-        BoneLabel::RightLeg => Color::srgb(0.2, 1.0, 0.2),           // Green
-        BoneLabel::LeftFoot => Color::srgb(0.8, 0.0, 0.8),          // Dark Purple/Magenta
-        BoneLabel::RightFoot => Color::srgb(0.0, 0.8, 0.8),         // Light Purple/Teal
+        BoneLabel::Midgroin => Color::srgb(1.0, 1.0, 0.0),               // Yellow
+        BoneLabel::LeftShoulder => Color::srgb(0.5, 0.8, 1.0),           // Light Blue
+        BoneLabel::RightShoulder => Color::srgb(1.0, 0.7, 0.85),         // Light Pink
+        BoneLabel::LeftArm => Color::srgb(0.6, 0.2, 0.8),                // Purple
+        BoneLabel::RightArm => Color::srgb(1.0, 0.6, 0.0),               // Orange
+        BoneLabel::LeftHand => Color::srgb(0.6, 0.6, 0.0),               // Dark Yellow
+        BoneLabel::RightHand => Color::srgb(1.0, 1.0, 0.5),              // Light Yellow
+        BoneLabel::LeftLeg => Color::srgb(1.0, 0.2, 0.2),                // Red
+        BoneLabel::RightLeg => Color::srgb(0.2, 1.0, 0.2),               // Green
+        BoneLabel::LeftFoot => Color::srgb(0.8, 0.0, 0.8),               // Dark Purple/Magenta
+        BoneLabel::RightFoot => Color::srgb(0.0, 0.8, 0.8),              // Light Purple/Teal
     }
 }
 

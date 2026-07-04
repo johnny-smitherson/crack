@@ -25,11 +25,13 @@ pub use manifest::{PedestrianManifest, PedestrianUrl};
 pub use spawn_pedestrian::{ModelRoot, SpawnPedestrianEvent};
 
 use animation::{
-    play_animations_system, pedestrian_animation_control_observer, setup_animation_players_system,
+    pedestrian_animation_control_observer, play_animations_system, setup_animation_players_system,
 };
 use draw_skel_debug::draw_skeletons_system;
 use manifest::{TextAsset, TextAssetLoader, load_pedestrian_manifest_system, start_manifest_load};
-use spawn_pedestrian::{PedestrianSpawnCounter, init_pedestrians_system, spawn_pedestrian_observer};
+use spawn_pedestrian::{
+    PedestrianSpawnCounter, init_pedestrians_system, spawn_pedestrian_observer,
+};
 
 pub struct PedestriansPlugin;
 

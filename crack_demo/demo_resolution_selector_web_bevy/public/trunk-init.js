@@ -33,7 +33,8 @@ export default function myInitializer () {
         console.timeEnd("trunk-initializer");
       },
       onSuccess: (wasm) => {
-        loading_state(true, "Download Wasm Successful.");
+        // loading_state(true, "Download Wasm Successful.");
+        loading_state(false, "");
         console.log("Loading... successful!");
         // console.log("WebAssembly: ", wasm);
       },

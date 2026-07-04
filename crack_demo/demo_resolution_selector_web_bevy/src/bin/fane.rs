@@ -1,14 +1,11 @@
-//! Shows how to iterate over combinations of query results.
-
+use bevy::render::settings::Backends;
 use bevy::{
     prelude::*,
-    render::{
-        RenderPlugin,
-        settings::{Backends, WgpuSettings},
-    },
+    render::{RenderPlugin, settings::WgpuSettings},
     window::WindowResolution,
 };
-pub fn main_bevy() {
+
+fn main() {
     info!("exec main_bevy()...");
     #[cfg(feature = "web")]
     let backends = Backends::GL;
@@ -23,7 +20,7 @@ pub fn main_bevy() {
                 .build()
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Crack! - Pantelimon".into(),
+                        title: "Crack! - Fane".into(),
                         canvas: Some("#the-canvas".into()),
                         // resizable: true,
                         fit_canvas_to_parent: true,
@@ -57,21 +54,35 @@ pub fn main_bevy() {
                 std::time::Duration::from_millis(666),
             ),
         })
-        .add_plugins(crate::ui_egui::UiEguiPlugin)
-        .add_plugins(crate::plugins::main_scene_plugin::MainScenePlugin)
-        .add_plugins(crate::plugins::game_freecam::camera_controls::CameraControlsPlugin)
-        .add_plugins(crate::plugins::physics_plugin::PhysicsPlugin)
-        .add_plugins(crate::plugins::map_plugin::MapPlugin)
-        .add_plugins(crate::plugins::geojson::GeoJsonPlugin)
-        .add_plugins(crate::plugins::cars_driving::CarsAndDrivingPlugin)
-        .add_plugins(crate::plugins::states::GameStatesPlugin)
-        .insert_resource(ClearColor(Color::BLACK))
-        .add_systems(Update, log_dt)
+        ///////////////////
+        .add_systems(Startup, scene.spawn())
         .run();
 }
 
-fn log_dt(time: Res<Time<Real>>, frames: Res<bevy::diagnostic::FrameCount>) {
-    if (frames.0 < 120 && time.delta_secs() > 0.1) || time.delta_secs() > 2.0 {
-        info!("slow frame: {} / dt: {}", frames.0, time.delta_secs());
-    }
+/// set up a simple 3D scene
+fn scene() -> impl SceneList {
+    bsn_list! [
+        (
+            #CircularBase
+            Mesh3d(asset_value(Circle::new(4.0)))
+            MeshMaterial3d::<StandardMaterial>(asset_value(Color::WHITE))
+            Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
+        ),
+        (
+            #Cube
+            Mesh3d(asset_value(Cuboid::new(1.0, 1.0, 1.0)))
+            MeshMaterial3d::<StandardMaterial>(asset_value(Color::srgb_u8(124, 144, 255)))
+            Transform::from_xyz(0.0, 0.5, 0.0)
+        ),
+        (
+            PointLight {
+                shadow_maps_enabled: true,
+            }
+            Transform::from_xyz(4.0, 8.0, 4.0)
+        ),
+        (
+            Camera3d
+            template_value(Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y))
+        )
+    ]
 }

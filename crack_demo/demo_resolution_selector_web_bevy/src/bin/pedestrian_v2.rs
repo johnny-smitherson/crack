@@ -105,11 +105,7 @@ fn main() {
         .add_systems(Startup, setup_scene)
         .add_systems(
             Update,
-            (
-                spawn_grid_system,
-                picker_system,
-                draw_hovered_bbox_system,
-            ),
+            (spawn_grid_system, picker_system, draw_hovered_bbox_system),
         )
         .add_systems(EguiPrimaryContextPass, draw_gui_system)
         .run();
@@ -424,10 +420,7 @@ fn draw_gui_system(
                 .max_height(160.0)
                 .show(ui, |ui| {
                     for name in &anim_names {
-                        if ui
-                            .radio(current.as_ref() == Some(name), name)
-                            .clicked()
-                        {
+                        if ui.radio(current.as_ref() == Some(name), name).clicked() {
                             anim_sel.selected = Some(name.clone());
                             anim_changed = true;
                         }
