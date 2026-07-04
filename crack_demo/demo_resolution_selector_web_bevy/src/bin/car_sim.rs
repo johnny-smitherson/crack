@@ -11,19 +11,19 @@ use bevy::{
     },
     window::WindowResolution,
 };
+use demo_resolution_selector_web_bevy::plugins::cars_driving::driving_plugin::spawn_car::Car;
+use demo_resolution_selector_web_bevy::plugins::cars_driving::driving_plugin::{
+    CarDriveState, CarWheelsContactData, SimState,
+};
 use demo_resolution_selector_web_bevy::{
     plugins::{
+        cars_driving::CarsAndDrivingPlugin, cars_driving::car_info::get_random_car_type,
         cars_driving::driving_plugin::GamePhysicsLayer,
-        cars_driving::CarsAndDrivingPlugin,
         cars_driving::driving_plugin::spawn_car::SpawnCarRequestEvent,
-        cars_driving::car_info::get_random_car_type,
-        physics_plugin::PhysicsPlugin,
-        states::GameStatesPlugin,
+        physics_plugin::PhysicsPlugin, states::GameStatesPlugin,
     },
     ui_egui::UiState,
 };
-use demo_resolution_selector_web_bevy::plugins::cars_driving::driving_plugin::{CarDriveState, CarWheelsContactData, SimState};
-use demo_resolution_selector_web_bevy::plugins::cars_driving::driving_plugin::spawn_car::Car;
 
 #[derive(Resource)]
 struct SimLogTimer {
@@ -71,7 +71,10 @@ fn main() {
         .add_plugins(bevy_egui::EguiPlugin::default())
         .insert_resource(UiState::with_physics_debug()) // Satisfies PhysicsPlugin's sync_physics_debug_config
         .insert_resource(SimLogTimer::default())
-        .insert_resource(SimState { is_sim: true, ..default() })
+        .insert_resource(SimState {
+            is_sim: true,
+            ..default()
+        })
         .add_plugins(PhysicsPlugin)
         // .insert_resource(SubstepCount(50))
         .add_plugins(GameStatesPlugin)
@@ -96,7 +99,8 @@ fn update_sim_control(
         let car_type = get_random_car_type();
         info!("Spawn timer met: Triggering SpawnCarRequestEvent at (40, 0, 40)");
 
-        let car_rot = Quat::from_rotation_arc(Vec3::NEG_Z, Vec3::new(-40.0, 0.0, -40.0).normalize());
+        let car_rot =
+            Quat::from_rotation_arc(Vec3::NEG_Z, Vec3::new(-40.0, 0.0, -40.0).normalize());
 
         commands.trigger(SpawnCarRequestEvent {
             position: Vec3::new(40.0, 0.0, 40.0),
@@ -122,7 +126,15 @@ fn update_sim_control(
 fn log_car_state(
     time: Res<Time>,
     mut log_timer: ResMut<SimLogTimer>,
-    q_car: Query<(&Transform, &LinearVelocity, &CarDriveState, &CarWheelsContactData), With<Car>>,
+    q_car: Query<
+        (
+            &Transform,
+            &LinearVelocity,
+            &CarDriveState,
+            &CarWheelsContactData,
+        ),
+        With<Car>,
+    >,
 ) {
     let dt = time.delta_secs();
     log_timer.total_time += dt;
@@ -162,10 +174,21 @@ fn log_car_state(
 
             info!(
                 "TIME: {:.2}s | POS: ({:.2}, {:.2}, {:.2}) | SPEED: {:.2} m/s | ROT: (Y:{:.1} P:{:.1} R:{:.1}) | CTL: (A:{:.1} B:{:.1} S:{:.1}) | SUSP: [FL: {:.2}m, FR: {:.2}m, RL: {:.2}m, RR: {:.2}m]",
-                log_timer.total_time, pos.x, pos.y, pos.z, speed,
-                yaw.to_degrees(), pitch.to_degrees(), roll.to_degrees(),
-                acc, brake, steer,
-                susp_lengths[0], susp_lengths[1], susp_lengths[2], susp_lengths[3]
+                log_timer.total_time,
+                pos.x,
+                pos.y,
+                pos.z,
+                speed,
+                yaw.to_degrees(),
+                pitch.to_degrees(),
+                roll.to_degrees(),
+                acc,
+                brake,
+                steer,
+                susp_lengths[0],
+                susp_lengths[1],
+                susp_lengths[2],
+                susp_lengths[3]
             );
         }
     }

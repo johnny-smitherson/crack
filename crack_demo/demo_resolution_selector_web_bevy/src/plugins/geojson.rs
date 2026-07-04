@@ -24,7 +24,11 @@ impl Plugin for GeoJsonPlugin {
             .init_resource::<OsmOverlayState>()
             .add_systems(
                 EguiPrimaryContextPass,
-                (geojson_ui_system, geojson_text_labels_system, osm_overlay_ui_system),
+                (
+                    geojson_ui_system,
+                    geojson_text_labels_system,
+                    osm_overlay_ui_system,
+                ),
             )
             .add_systems(
                 Update,
@@ -503,7 +507,9 @@ fn trigger_geojson_loading(
     mut loading_status: ResMut<GameLoadingStatus>,
     current_state: Res<State<OsmDatabaseLoadFinished>>,
 ) {
-    if current_state.get() == &OsmDatabaseLoadFinished::MapFinished && !loading_status.geojson_loading_started {
+    if current_state.get() == &OsmDatabaseLoadFinished::MapFinished
+        && !loading_status.geojson_loading_started
+    {
         let bbox_url = format!(
             "{}3d_data_v2/data_in/zone-bbox.txt",
             crate::config::DATA_BASE_URL
@@ -838,7 +844,9 @@ fn project_geojson_coordinates(
                     for pts in lines {
                         let projected_pts: Vec<Vec3> = pts
                             .iter()
-                            .filter(|&&(lat, lon)| find_tile_for_lat_lon(lat, lon, &map_tree).is_some())
+                            .filter(|&&(lat, lon)| {
+                                find_tile_for_lat_lon(lat, lon, &map_tree).is_some()
+                            })
                             .map(|&(lat, lon)| project_point(lat, lon, &map_tree, &coord))
                             .collect();
                         if projected_pts.len() >= 2 {
@@ -855,7 +863,9 @@ fn project_geojson_coordinates(
                     for ring in rings {
                         let projected_ring: Vec<Vec3> = ring
                             .iter()
-                            .filter(|&&(lat, lon)| find_tile_for_lat_lon(lat, lon, &map_tree).is_some())
+                            .filter(|&&(lat, lon)| {
+                                find_tile_for_lat_lon(lat, lon, &map_tree).is_some()
+                            })
                             .map(|&(lat, lon)| project_point(lat, lon, &map_tree, &coord))
                             .collect();
                         if projected_ring.len() >= 3 {
@@ -1109,7 +1119,9 @@ fn select_and_animate(
                 .looking_at(*p, Vec3::Y)
                 .rotation;
         }
-        FeatureGeometry::LineString(_) | FeatureGeometry::MultiLineString(_) | FeatureGeometry::Polygon(_) => {
+        FeatureGeometry::LineString(_)
+        | FeatureGeometry::MultiLineString(_)
+        | FeatureGeometry::Polygon(_) => {
             let center = feature.center;
             let size = feature.bbox_max - feature.bbox_min;
             let dist = size.x.max(size.z).max(10.0) * 1.5;
@@ -1208,23 +1220,28 @@ fn geojson_text_labels_system(
                     if let Ok(p_center) = camera.world_to_viewport(camera_transform, pos) {
                         let camera_right = camera_transform.right();
                         let sphere_radius = 3.0;
-                        if let Ok(p_edge) =
-                            camera.world_to_viewport(camera_transform, pos + camera_right * sphere_radius)
+                        if let Ok(p_edge) = camera
+                            .world_to_viewport(camera_transform, pos + camera_right * sphere_radius)
                         {
                             let r_screen = p_center.distance(p_edge);
                             let font_size = (r_screen * 3.0).clamp(11.0, 36.0);
 
                             egui::Area::new(egui::Id::new(format!("lbl_{:?}_{}", pos, label)))
-                                .fixed_pos(egui::pos2(p_center.x - 20.0, p_center.y - font_size - 8.0))
+                                .fixed_pos(egui::pos2(
+                                    p_center.x - 20.0,
+                                    p_center.y - font_size - 8.0,
+                                ))
                                 .show(ctx, |ui| {
                                     ui.label(
                                         egui::RichText::new(&label)
                                             .color(egui::Color32::from_rgb(255, 60, 60))
                                             .size(font_size)
                                             .strong()
-                                            .background_color(egui::Color32::from_rgba_premultiplied(
-                                                0, 0, 0, 180,
-                                            )),
+                                            .background_color(
+                                                egui::Color32::from_rgba_premultiplied(
+                                                    0, 0, 0, 180,
+                                                ),
+                                            ),
                                     );
                                 });
                         }
@@ -1247,7 +1264,11 @@ fn geojson_text_labels_system(
                             FeatureGeometry::LineString(pts) => {
                                 for (idx, pt) in pts.iter().enumerate() {
                                     if idx == 0 || idx % 8 == 0 || idx == pts.len() - 1 {
-                                        label_candidates.push((*pt, name.clone(), "road".to_string()));
+                                        label_candidates.push((
+                                            *pt,
+                                            name.clone(),
+                                            "road".to_string(),
+                                        ));
                                     }
                                 }
                             }
@@ -1255,7 +1276,11 @@ fn geojson_text_labels_system(
                                 for pts in lines {
                                     for (idx, pt) in pts.iter().enumerate() {
                                         if idx == 0 || idx % 8 == 0 || idx == pts.len() - 1 {
-                                            label_candidates.push((*pt, name.clone(), "road".to_string()));
+                                            label_candidates.push((
+                                                *pt,
+                                                name.clone(),
+                                                "road".to_string(),
+                                            ));
                                         }
                                     }
                                 }
@@ -1276,9 +1301,18 @@ fn geojson_text_labels_system(
         if let Some(features) = database.categories.get("routes") {
             for feat in features {
                 let route_type = feat.tags.get("route").map(|s| s.as_str()).unwrap_or("");
-                let is_public_transport = route_type == "bus" || route_type == "tram" || route_type == "trolleybus" || route_type == "trolley" || route_type == "tramway";
-                if !is_public_transport { continue; }
-                let ref_name = feat.tags.get("ref").cloned()
+                let is_public_transport = route_type == "bus"
+                    || route_type == "tram"
+                    || route_type == "trolleybus"
+                    || route_type == "trolley"
+                    || route_type == "tramway";
+                if !is_public_transport {
+                    continue;
+                }
+                let ref_name = feat
+                    .tags
+                    .get("ref")
+                    .cloned()
                     .or_else(|| feat.name.clone())
                     .unwrap_or_else(|| "Line".to_string());
 
@@ -1296,7 +1330,11 @@ fn geojson_text_labels_system(
                     FeatureGeometry::LineString(pts) => {
                         for (idx, pt) in pts.iter().enumerate() {
                             if idx == 0 || idx % 6 == 0 || idx == pts.len() - 1 {
-                                label_candidates.push((*pt, label_text.clone(), "route".to_string()));
+                                label_candidates.push((
+                                    *pt,
+                                    label_text.clone(),
+                                    "route".to_string(),
+                                ));
                             }
                         }
                     }
@@ -1304,7 +1342,11 @@ fn geojson_text_labels_system(
                         for pts in lines {
                             for (idx, pt) in pts.iter().enumerate() {
                                 if idx == 0 || idx % 6 == 0 || idx == pts.len() - 1 {
-                                    label_candidates.push((*pt, label_text.clone(), "route".to_string()));
+                                    label_candidates.push((
+                                        *pt,
+                                        label_text.clone(),
+                                        "route".to_string(),
+                                    ));
                                 }
                             }
                         }
@@ -1325,7 +1367,11 @@ fn geojson_text_labels_system(
                 for feat in features {
                     if let Some(name) = &feat.name {
                         if !name.trim().is_empty() {
-                            label_candidates.push((feat.center, name.clone(), "business".to_string()));
+                            label_candidates.push((
+                                feat.center,
+                                name.clone(),
+                                "business".to_string(),
+                            ));
                         }
                     }
                 }
@@ -1337,7 +1383,8 @@ fn geojson_text_labels_system(
     let mut close_candidates = Vec::new();
     for (pos, name, type_) in label_candidates {
         let dist = cam_translation.distance(pos);
-        if dist < 400.0 { // only show labels within 400 meters of camera to avoid screen clutter
+        if dist < 400.0 {
+            // only show labels within 400 meters of camera to avoid screen clutter
             close_candidates.push((pos, name, type_, dist));
         }
     }
@@ -1348,7 +1395,8 @@ fn geojson_text_labels_system(
         let mut found_cluster_idx = None;
         for (idx, (c_pos, _)) in clusters.iter().enumerate() {
             let d_xz = Vec2::new(pos.x - c_pos.x, pos.z - c_pos.z).length();
-            if d_xz < 40.0 { // 40m grouping radius
+            if d_xz < 40.0 {
+                // 40m grouping radius
                 found_cluster_idx = Some(idx);
                 break;
             }
@@ -1775,10 +1823,7 @@ impl Default for OsmOverlayState {
     }
 }
 
-fn osm_overlay_ui_system(
-    mut contexts: EguiContexts,
-    mut osm_overlay: ResMut<OsmOverlayState>,
-) {
+fn osm_overlay_ui_system(mut contexts: EguiContexts, mut osm_overlay: ResMut<OsmOverlayState>) {
     if !osm_overlay.show_window {
         return;
     }
@@ -1799,8 +1844,14 @@ fn osm_overlay_ui_system(
         .show(ctx, |ui| {
             ui.checkbox(&mut show_roads, "Show Roads (Streets)");
             ui.checkbox(&mut show_lanes, "Show Street Lanes");
-            ui.checkbox(&mut show_bus_routes, "Show Public Transport Routes (Bus/Tram/Trolley)");
-            ui.checkbox(&mut show_businesses, "Show Businesses (Shops/Amenities/Offices/Craft)");
+            ui.checkbox(
+                &mut show_bus_routes,
+                "Show Public Transport Routes (Bus/Tram/Trolley)",
+            );
+            ui.checkbox(
+                &mut show_businesses,
+                "Show Businesses (Shops/Amenities/Offices/Craft)",
+            );
             ui.checkbox(&mut show_railways, "Show Railways");
             ui.checkbox(&mut show_waterways, "Show Waterways");
             ui.checkbox(&mut show_buildings, "Show Buildings");
@@ -1834,13 +1885,14 @@ fn osm_overlay_gizmos_system(
     let waterway_color = Color::srgb(0.0, 0.3, 0.9);
     let building_color = Color::srgb(1.0, 0.5, 0.0);
 
-    let query_y = |x: f32, z: f32| -> f32 {
-        query_point_ground_y(x, z, &map_tree, &spatial_query) + 0.2
-    };
+    let query_y =
+        |x: f32, z: f32| -> f32 { query_point_ground_y(x, z, &map_tree, &spatial_query) + 0.2 };
 
     // Draw parallel segments to create thick lines
     let draw_lines = |gizmos: &mut Gizmos, pts: &[Vec3], color: Color| {
-        if pts.len() < 2 { return; }
+        if pts.len() < 2 {
+            return;
+        }
         let mut grounded = Vec::with_capacity(pts.len());
         for pt in pts {
             grounded.push(Vec3::new(pt.x, query_y(pt.x, pt.z), pt.z));
@@ -1880,7 +1932,9 @@ fn osm_overlay_gizmos_system(
 
     let draw_polygon = |gizmos: &mut Gizmos, rings: &[Vec<Vec3>], color: Color| {
         for ring in rings {
-            if ring.is_empty() { continue; }
+            if ring.is_empty() {
+                continue;
+            }
             let mut grounded = Vec::with_capacity(ring.len());
             for pt in ring {
                 grounded.push(Vec3::new(pt.x, query_y(pt.x, pt.z), pt.z));
@@ -1918,7 +1972,9 @@ fn osm_overlay_gizmos_system(
             let divider_color = Color::srgb(0.9, 0.9, 0.0); // Dashed yellow dividers
 
             for feature in features {
-                let lanes = feature.tags.get("lanes")
+                let lanes = feature
+                    .tags
+                    .get("lanes")
                     .and_then(|s| s.parse::<usize>().ok())
                     .unwrap_or(2);
                 let lane_width = 3.0;
@@ -1926,7 +1982,9 @@ fn osm_overlay_gizmos_system(
 
                 match &feature.geometry {
                     FeatureGeometry::LineString(pts) => {
-                        if pts.len() < 2 { continue; }
+                        if pts.len() < 2 {
+                            continue;
+                        }
                         let mut grounded = Vec::with_capacity(pts.len());
                         for pt in pts {
                             grounded.push(Vec3::new(pt.x, query_y(pt.x, pt.z), pt.z));
@@ -1957,7 +2015,9 @@ fn osm_overlay_gizmos_system(
                     }
                     FeatureGeometry::MultiLineString(lines) => {
                         for pts in lines {
-                            if pts.len() < 2 { continue; }
+                            if pts.len() < 2 {
+                                continue;
+                            }
                             let mut grounded = Vec::with_capacity(pts.len());
                             for pt in pts {
                                 grounded.push(Vec3::new(pt.x, query_y(pt.x, pt.z), pt.z));
@@ -1997,8 +2057,14 @@ fn osm_overlay_gizmos_system(
         if let Some(features) = database.categories.get("routes") {
             for feature in features {
                 let route_type = feature.tags.get("route").map(|s| s.as_str()).unwrap_or("");
-                let is_public_transport = route_type == "bus" || route_type == "tram" || route_type == "trolleybus" || route_type == "trolley" || route_type == "tramway";
-                if !is_public_transport { continue; }
+                let is_public_transport = route_type == "bus"
+                    || route_type == "tram"
+                    || route_type == "trolleybus"
+                    || route_type == "trolley"
+                    || route_type == "tramway";
+                if !is_public_transport {
+                    continue;
+                }
 
                 let color = if route_type == "bus" {
                     bus_route_color
@@ -2139,7 +2205,10 @@ fn init_bus_route(
     }
 
     if !bus_route_points.is_empty() {
-        info!("Successfully found Bus 335 route with {} points! Initializing movement.", bus_route_points.len());
+        info!(
+            "Successfully found Bus 335 route with {} points! Initializing movement.",
+            bus_route_points.len()
+        );
         commands.entity(entity).insert(MovingBus {
             points: bus_route_points,
             current_index: 0,

@@ -6,8 +6,8 @@ use crate::plugins::{
 use avian3d::{
     dynamics::ccd::SweptCcd,
     prelude::{
-        ColliderConstructor, ColliderConstructorHierarchy, CollisionLayers,
-        MassPropertiesBundle, RigidBody, SleepingDisabled,
+        ColliderConstructor, ColliderConstructorHierarchy, CollisionLayers, MassPropertiesBundle,
+        RigidBody, SleepingDisabled,
     },
 };
 use bevy::prelude::*;

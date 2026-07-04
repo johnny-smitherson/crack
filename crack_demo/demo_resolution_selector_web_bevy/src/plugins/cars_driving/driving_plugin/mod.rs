@@ -7,8 +7,9 @@ use crate::plugins::cars_driving::driving_plugin::{
     camera_follow::camera_follows_car, spawn_car::Car,
 };
 use avian3d::prelude::{
-    AngularInertia, AngularVelocity, CenterOfMass, ComputeMassProperties3d, Forces, LinearVelocity, Mass,
-    MassPropertiesExt, PhysicsLayer, ReadRigidBodyForces, SpatialQuery, SpatialQueryFilter, WriteRigidBodyForces,
+    AngularInertia, AngularVelocity, CenterOfMass, ComputeMassProperties3d, Forces, LinearVelocity,
+    Mass, MassPropertiesExt, PhysicsLayer, ReadRigidBodyForces, SpatialQuery, SpatialQueryFilter,
+    WriteRigidBodyForces,
 };
 use bevy::prelude::*;
 use bevy_egui::EguiPrimaryContextPass;
@@ -258,10 +259,7 @@ pub fn car_drive_observer(
 
 pub fn update_vehicle_physics_from_tuning(
     q_car: Query<(Entity, &CarDriveState), Changed<CarDriveState>>,
-    mut q_body: Query<
-        (&mut Mass, &mut AngularInertia, &mut CenterOfMass),
-        With<Car>,
-    >,
+    mut q_body: Query<(&mut Mass, &mut AngularInertia, &mut CenterOfMass), With<Car>>,
 ) {
     for (car_entity, drive_state) in q_car.iter() {
         if let Ok((mut body_mass, mut body_inertia, mut body_center)) = q_body.get_mut(car_entity) {
@@ -285,22 +283,20 @@ pub fn update_vehicle_physics_from_tuning(
 }
 
 pub fn apply_car_steering_and_drive(
-    mut q_car: Query<(
-        &mut Transform,
-        &CenterOfMass,
-        &mut CarDriveState,
-        &mut CarWheelsContactData,
-        Forces,
-    ), With<Car>>,
+    mut q_car: Query<
+        (
+            &mut Transform,
+            &CenterOfMass,
+            &mut CarDriveState,
+            &mut CarWheelsContactData,
+            Forces,
+        ),
+        With<Car>,
+    >,
     time: Res<Time>,
 ) {
-    let Ok((
-        mut car_transform,
-        body_center,
-        mut drive_state,
-        contact_data,
-        mut car_forces,
-    )) = q_car.single_mut()
+    let Ok((mut car_transform, body_center, mut drive_state, contact_data, mut car_forces)) =
+        q_car.single_mut()
     else {
         return;
     };
@@ -338,7 +334,7 @@ pub fn apply_car_steering_and_drive(
 
     let physical_rpm = (forward_speed.abs() * 60.0f32 * final_drive * gear_ratio)
         / (2.0f32 * std::f32::consts::PI * drive_state.wheel_radius);
-    
+
     let mut target_rpm = physical_rpm;
     if drive_state.avg_accelerate > 0.05f32 {
         let throttle_rpm = 800.0f32 + drive_state.avg_accelerate * 2200.0f32;
@@ -381,7 +377,7 @@ pub fn apply_car_steering_and_drive(
         let force_scale = (1.0f32 - speed_ratio).max(0.0f32);
         drive_force_mag =
             (power_watts / speed_for_power) * drive_state.avg_accelerate * force_scale;
-        
+
         // Engine force limit: 1G of engine traction limit
         let max_engine_force = drive_state.car_mass * 9.81f32 * 1.0f32;
         drive_force_mag = drive_force_mag.min(max_engine_force);
@@ -451,8 +447,8 @@ pub fn apply_car_steering_and_drive(
         adjusted_offset.y += drive_state.wheel_y_offset;
         let mount_world = car_transform.transform_point(adjusted_offset);
 
-        let velocity_at_wheel =
-            car_forces.linear_velocity() + car_forces.angular_velocity().cross(mount_world - com_world);
+        let velocity_at_wheel = car_forces.linear_velocity()
+            + car_forces.angular_velocity().cross(mount_world - com_world);
         let w_contact = &contact_data.wheels[wheel_idx];
 
         // --- Suspension Engagement & Length Check ---
@@ -491,7 +487,8 @@ pub fn apply_car_steering_and_drive(
         let base_stiffness = gravity_force / drive_state.extra_spring_length.max(0.01f32);
         let stiffness = base_stiffness * (drive_state.suspension_stiffness / 8.0f32);
 
-        let displacement = (drive_state.suspension_rest + drive_state.extra_spring_length) - avg_length;
+        let displacement =
+            (drive_state.suspension_rest + drive_state.extra_spring_length) - avg_length;
 
         // More aggressive scaling if length is shorter than rest position (but avoid division by zero)
         let scaling = if avg_length < drive_state.suspension_rest {
@@ -505,9 +502,10 @@ pub fn apply_car_steering_and_drive(
 
         let force_dir = w_contact.contact_normal;
         let speed_along_suspension = velocity_at_wheel.dot(force_dir);
-        
+
         // Critical damping coefficient dynamically computed based on stiffness
-        let damping_coef = 2.0f32 * (stiffness * mass_per_wheel).sqrt() * drive_state.suspension_damping;
+        let damping_coef =
+            2.0f32 * (stiffness * mass_per_wheel).sqrt() * drive_state.suspension_damping;
         let damping_force = -damping_coef * speed_along_suspension * scaling;
 
         let mut total_suspension_force = (spring_force + damping_force).max(0.0f32);
@@ -537,7 +535,11 @@ pub fn apply_car_steering_and_drive(
 
         // --- Braking Force ---
         if drive_state.avg_brake > 0.0f32 {
-            let forward_dir = if is_front { steer_dir_world } else { car_forward };
+            let forward_dir = if is_front {
+                steer_dir_world
+            } else {
+                car_forward
+            };
             let forward_dir_plane =
                 (forward_dir - force_dir * forward_dir.dot(force_dir)).normalize_or_zero();
             let speed_forward = velocity_at_wheel.dot(forward_dir_plane);
@@ -657,7 +659,11 @@ pub fn update_wheel_contact_normals(
                 let rz = rand::random::<f32>();
                 let x = x_min + rx * (x_max - x_min);
                 let z = z_min + rz * (z_max - z_min);
-                local_corners[i] = Vec3::new(x, -drive_state.car_half_height + drive_state.wheel_y_offset, z);
+                local_corners[i] = Vec3::new(
+                    x,
+                    -drive_state.car_half_height + drive_state.wheel_y_offset,
+                    z,
+                );
             }
 
             // Transform corners to world space
@@ -760,8 +766,7 @@ pub fn draw_car_gizmos(
         let plane_center = if has_contact {
             centroid / engaged_count as f32
         } else {
-            wheel_contact.ray_origins.iter().sum::<Vec3>() / 8.0f32
-                + local_down * 1.0f32
+            wheel_contact.ray_origins.iter().sum::<Vec3>() / 8.0f32 + local_down * 1.0f32
         };
 
         let box_color = if has_contact {
