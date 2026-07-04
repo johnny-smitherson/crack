@@ -4,4 +4,4 @@ set -ex
 export RUST_LOG=info
 
 cd crack_demo/demo_resolution_selector_web_bevy
-trunk serve index.fane.html
+trunk serve index.fane.html --port 1984
