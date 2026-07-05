@@ -5,7 +5,10 @@ Revamp the car physics system to replace the current scattered raycast-based hov
 
 ## Open Questions
 - What default tuning values should be used for the new sliders before we allow user adjustment?
+  -> whatever makes sense as a good default
 - Which specific part of the car's model bounds (min/max Y) should the 5% offset be calculated against?
+  -> local min Y, underneath the bottom part of the car 
+  -> so the overlap between the bottom bed and the start of the wheel rays are roughly 5% of the car height (maxy - miny)
 
 ## Proposed Changes
 
