@@ -3,7 +3,7 @@ use demo_resolution_selector_web_bevy::basic_app::make_basic_app;
 use demo_resolution_selector_web_bevy::utils::setup_debug_scene::SetupDebugScenePlugin;
 
 fn main() {
-    make_basic_app("Fane")
+    make_basic_app("Pedestrian Controller")
         .add_systems(Startup, scene.spawn())
         .add_plugins(SetupDebugScenePlugin)
         .run();
