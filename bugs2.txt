@@ -12,3 +12,9 @@
 - cosmetic wheels
   - the cars' wheels should be procedurally placed only cosmetically by taking the values of the car's orientation, of the point and surface of contact with the ground. The wheels are simple black cylinders with the usual black/white debug texture. Use the car's velocity and the wheel's diameter to compute wheel rotation, and use the hit with the ground to compute wheel position. The cosmetic wheel does not have any physics role at all. Its position will be computed from the car data in the Last schedule to make sure we render them in the correct place at all times.
 
+- get in / get out of car animation
+  - when player controlled walking pedestrian hits f looking at car with crosshairs and closer than 1m, the enter car animation starts -the character walks to the car,  the player loses their physics and controller and collider and so on (they despawn),  and the mesh enter car (sit down) animation plays after which the player mesh plays driving animation loop.  
+  - when player is inside car, the car loop animation plays on a mesh. they are parented to the car at an offset controllable by some sliders in a debug window on the menu button Degbug category that you will add. This menu will only be available inside car.
+  - since the car already exists, we add a different type of event on it that turns it into the active controlled player car: so the event has the car root entity instead of the path of the asset, but it will attach to that and do the same to it.
+  - When player is controlling car and presses f, we do the opposite: we send an event to de-control the car, put the car mesh in "get out of car / sitting" animation, move it out of the car, then despawn the mesh and send a new spawn controllable pedestrian event to start controlling the pedestrian again.
+  - all get in/get out of car code should go in the best place in the codebase, pick a place and we will review the plan 
