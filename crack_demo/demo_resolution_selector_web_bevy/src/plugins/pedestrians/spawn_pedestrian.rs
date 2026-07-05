@@ -1,6 +1,7 @@
 //! The pedestrian spawn path: turn a [`SpawnPedestrianEvent`] into a live, aligned,
 //! classified pedestrian entity.
 
+use avian3d::collision::collider::{ColliderConstructor, ColliderConstructorHierarchy};
 use avian3d::prelude::Collider;
 use bevy::ecs::relationship::Relationship;
 use bevy::prelude::*;
@@ -73,6 +74,8 @@ pub fn spawn_pedestrian_observer(
         .with_children(|parent| {
             parent.spawn((
                 WorldAssetRoot(handle),
+                // Do not enable physics on mesh - it would need to be reinterpolated!
+                //  ColliderConstructorHierarchy::new(ColliderConstructor::TrimeshFromMesh),
                 Transform::IDENTITY,
                 Visibility::default(),
                 InheritedVisibility::default(),
@@ -145,9 +148,9 @@ pub fn init_pedestrians_system(
             };
 
             if let Some(mesh) = meshes.get(mesh_handle) {
-                if let Some(collider) = Collider::trimesh_from_mesh(mesh) {
-                    commands.entity(*ent).insert(collider);
-                }
+                // if let Some(collider) = Collider::trimesh_from_mesh(mesh) {
+                //     commands.entity(*ent).insert(collider);
+                // }
                 if let Some(bevy::render::mesh::VertexAttributeValues::Float32x3(positions)) =
                     mesh.attribute(Mesh::ATTRIBUTE_POSITION)
                 {
