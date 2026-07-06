@@ -53,12 +53,25 @@ packages/api_asscrack/.github/copilot-instructions.md:41  # TODO: get which is m
 packages/api_asscrack/.github/copilot-instructions.md:42  # TODO: s
 ```
 
-## changes (last 5 commits — 2 hours ago)
-```
-crack_demo/demo_resolution_selector_web_bevy/src/plugins/cars_driving/driving_plugin/collision_sparks.rs +to
-```
-
 ## crack_demo
+
+### crack_demo/demo_resolution_selector_web_bevy/Cargo.toml
+```
+table [package]
+table [dependencies]
+table [dependencies.web-sys]
+table [features]
+key name
+key version
+key authors
+key edition
+key bevy_egui
+key rand
+key rand_chacha
+key tracing
+key bytes
+key optional
+```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/bin/car_sim.rs
 ```
@@ -69,6 +82,17 @@ impl SimLogTimer
 ```
 pub struct MainGamePlugin
 impl MainGamePlugin
+```
+
+### crack_demo/demo_resolution_selector_web_bevy/src/plugins/audio/mod.rs
+```
+pub struct SoundEntry
+pub struct SoundManifest
+pub struct PlaySoundEvent
+pub struct AudioDemoState
+pub struct AudioDemoPlugin
+impl AudioDemoState
+impl AudioDemoPlugin
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/cars_driving/car_info.rs
@@ -149,6 +173,24 @@ pub fn print_animation_catalog(anims: Res<PedestrianAnimations>, mut done: Local
 pub fn drive_character_animation(time: Res<Time>, anims: Res<PedestrianAnimations>, controlled: Res<ControlledCharacter>, mouse: Res<ButtonInput<MouseButton>>, keys: Res<ButtonInput<KeyCode>>, mut commands: Commands, mut contexts: EguiContexts, mut controllers: Query< ( &LinearVelocity, Has<Grounded>, &MovementModifiers, &CharacterScale, Has<Climbing>, Has<Rolling>, Option<&EquippedWeapon>, Option<&GunState>, &mut AnimState, &mut CombatState, Option<&EnteringCarTimer>,)
 ```
 
+### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrians/pedestrian_controller_plugin/controller.rs
+```
+pub fn character_input(keys: Res<ButtonInput<KeyCode>>, camera: Query<&GlobalTransform, With<Camera3d>>, mut modifiers: Query<&mut MovementModifiers>, mut movement_writer: MessageWriter<MovementAction>,)
+pub fn update_grounded(mut commands: Commands, mut query: Query<(Entity, &GroundDetection, &GlobalTransform)
+pub fn movement(time: Res<Time>, mut movement_reader: MessageReader<MovementAction>, mut controllers: Query<( &CharacterMovementSettings, &mut LinearVelocity, Has<Grounded>,)
+pub fn apply_gravity(time: Res<Time>, mut controllers: Query<(&CharacterMovementSettings, &mut LinearVelocity)
+pub fn apply_movement_damping(mut query: Query<(&CharacterMovementSettings, &mut LinearVelocity)
+pub fn apply_speed_cap(time: Res<Time>, mut query: Query<(&mut MovementModifiers, &mut LinearVelocity, Has<Rolling>)
+pub fn move_and_slide(mut query: Query< ( Entity, Option<&GroundDetection>, Option<&mut CharacterCollisions>, &mut Transform, &mut LinearVelocity, &Collider,)
+pub fn apply_forces_to_dynamic_bodies(characters: Query<(&ComputedMass, &CharacterCollisions)
+pub fn face_movement(time: Res<Time>, mut query: Query<(&LinearVelocity, &mut Transform)
+pub fn respawn_if_fallen(mut query: Query<(&mut Transform, &mut LinearVelocity)
+pub fn jump_or_climb(keys: Res<ButtonInput<KeyCode>>, spatial_query: SpatialQuery, mut commands: Commands, mut movement_writer: MessageWriter<MovementAction>, map: Option<Res<MapTree>>, tiles: Query<()
+pub fn update_climb(time: Res<Time>, mut commands: Commands, mut query: Query<(Entity, &mut Transform, &mut LinearVelocity, &mut Climbing)
+pub fn update_roll(time: Res<Time>, mut commands: Commands, mut query: Query<(Entity, &Transform, &mut LinearVelocity, &mut Rolling)
+pub fn detect_fallen_off_map(map: Option<Res<MapTree>>, tiles: Query<()
+```
+
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrians/pedestrian_controller_plugin/interaction_ui.rs
 ```
 pub struct CarSeatOffset
@@ -206,11 +248,32 @@ pub fn adopt_pedestrian(mut commands: Commands, mut controlled: ResMut<Controlle
 pub fn escape_to_freecam(keys: Res<ButtonInput<KeyCode>>, mut commands: Commands, mut controlled: ResMut<ControlledCharacter>, mut next_state: ResMut<NextState<GameControlState>>,)
 ```
 
+### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrians/spawn_pedestrian.rs
+```
+pub struct SpawnPedestrianEvent
+pub struct ModelRoot
+pub struct PedestrianGltf
+pub struct NeedAlignment
+pub struct PedestrianSpawnCounter
+pub fn spawn_pedestrian_observer(trigger: On<SpawnPedestrianEvent>, mut commands: Commands, asset_server: Res<AssetServer>, mut counter: ResMut<PedestrianSpawnCounter>,)
+pub fn init_pedestrians_system(mut commands: Commands, query: Query<(Entity, &NeedAlignment, &Children)
+```
+
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/physics_plugin.rs
 ```
 pub struct PhysicsPlugin
 impl PhysicsPlugin
 pub fn sync_physics_debug_config(ui_state: Res<UiState>, mut gizmo_store: ResMut<GizmoConfigStore>,)
+```
+
+### crack_demo/demo_resolution_selector_web_bevy/src/plugins/states/mod.rs
+```
+pub struct GameStatesPlugin
+pub enum InitialMapLoadFinished
+pub enum OsmDatabaseLoadFinished
+pub enum SoundManifestLoadFinished
+pub enum GameControlState
+impl GameStatesPlugin
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/weapons/mod.rs
@@ -280,24 +343,6 @@ code-fence plain
 ```
 table [target.'cfg(target_os = "linux")']
 table [target.'cfg(target = "wasm32-unknown-unknown")']
-```
-
-### crack_demo/demo_resolution_selector_web_bevy/Cargo.toml
-```
-table [package]
-table [dependencies]
-table [dependencies.web-sys]
-table [features]
-key name
-key version
-key authors
-key edition
-key bevy_egui
-key rand
-key rand_chacha
-key tracing
-key bytes
-key optional
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/index.fane.html
@@ -489,24 +534,6 @@ pub fn orbit_camera_input(mouse_buttons: Res<ButtonInput<MouseButton>>, mouse_mo
 pub fn follow_camera(time: Res<Time>, controlled: Res<ControlledCharacter>, mut rig: ResMut<CameraRig>, controller: Query<&GlobalTransform, With<CharacterController>>, mut camera: Query<&mut Transform, With<Camera3d>>,)
 ```
 
-### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrians/pedestrian_controller_plugin/controller.rs
-```
-pub fn character_input(keys: Res<ButtonInput<KeyCode>>, camera: Query<&GlobalTransform, With<Camera3d>>, mut modifiers: Query<&mut MovementModifiers>, mut movement_writer: MessageWriter<MovementAction>,)
-pub fn update_grounded(mut commands: Commands, mut query: Query<(Entity, &GroundDetection, &GlobalTransform)
-pub fn movement(time: Res<Time>, mut movement_reader: MessageReader<MovementAction>, mut controllers: Query<( &CharacterMovementSettings, &mut LinearVelocity, Has<Grounded>,)
-pub fn apply_gravity(time: Res<Time>, mut controllers: Query<(&CharacterMovementSettings, &mut LinearVelocity)
-pub fn apply_movement_damping(mut query: Query<(&CharacterMovementSettings, &mut LinearVelocity)
-pub fn apply_speed_cap(time: Res<Time>, mut query: Query<(&mut MovementModifiers, &mut LinearVelocity, Has<Rolling>)
-pub fn move_and_slide(mut query: Query< ( Entity, Option<&GroundDetection>, Option<&mut CharacterCollisions>, &mut Transform, &mut LinearVelocity, &Collider,)
-pub fn apply_forces_to_dynamic_bodies(characters: Query<(&ComputedMass, &CharacterCollisions)
-pub fn face_movement(time: Res<Time>, mut query: Query<(&LinearVelocity, &mut Transform)
-pub fn respawn_if_fallen(mut query: Query<(&mut Transform, &mut LinearVelocity)
-pub fn jump_or_climb(keys: Res<ButtonInput<KeyCode>>, spatial_query: SpatialQuery, mut commands: Commands, mut movement_writer: MessageWriter<MovementAction>, map: Option<Res<MapTree>>, tiles: Query<()
-pub fn update_climb(time: Res<Time>, mut commands: Commands, mut query: Query<(Entity, &mut Transform, &mut LinearVelocity, &mut Climbing)
-pub fn update_roll(time: Res<Time>, mut commands: Commands, mut query: Query<(Entity, &Transform, &mut LinearVelocity, &mut Rolling)
-pub fn detect_fallen_off_map(map: Option<Res<MapTree>>, tiles: Query<()
-```
-
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrians/skeleton.rs
 ```
 pub struct PedestrianSkeleton
@@ -517,26 +544,6 @@ pub fn classify_skeleton(root_entity: Entity, joints: &[JointData],) → ( std::
 pub fn find_parent_of(entity: Entity, joints: &[JointData]) → Option<Entity>
 pub fn find_pos_of(entity: Entity, joints: &[JointData]) → Option<Vec3>
 pub fn classify_limb_path(tip_entity: Option<Entity>, spine_path: &[Entity], root_entity: Entity, joints: &[JointData], labels: &mut std::collections::HashMap<Entity, BoneLabel>, limb_main_label: BoneLabel, limb_shoulder_label: BoneLabel, limb_hand_label: BoneLabel,) → Option<(Entity, Entity, Ent...
-```
-
-### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrians/spawn_pedestrian.rs
-```
-pub struct SpawnPedestrianEvent
-pub struct ModelRoot
-pub struct PedestrianGltf
-pub struct NeedAlignment
-pub struct PedestrianSpawnCounter
-pub fn spawn_pedestrian_observer(trigger: On<SpawnPedestrianEvent>, mut commands: Commands, asset_server: Res<AssetServer>, mut counter: ResMut<PedestrianSpawnCounter>,)
-pub fn init_pedestrians_system(mut commands: Commands, query: Query<(Entity, &NeedAlignment, &Children)
-```
-
-### crack_demo/demo_resolution_selector_web_bevy/src/plugins/states/mod.rs
-```
-pub struct GameStatesPlugin
-pub enum InitialMapLoadFinished
-pub enum OsmDatabaseLoadFinished
-pub enum GameControlState
-impl GameStatesPlugin
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/weapons/weapon_manifest.rs

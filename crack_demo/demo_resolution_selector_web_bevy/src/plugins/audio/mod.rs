@@ -122,7 +122,7 @@ impl Plugin for AudioDemoPlugin {
 /// Kick off loading of the manifest text file.
 fn start_sound_manifest_load(mut commands: Commands, asset_server: Res<AssetServer>) {
     let base = crate::config::DATA_BASE_URL.trim_end_matches('/');
-    let folder = format!("{}/sound_data/sound-fx/", base);
+    let folder = format!("{}/sound_data/sound-fx2/", base);
     let manifest_url = format!("{}manifest.txt", folder);
     info!("Loading sound manifest: {}", manifest_url);
     let manifest_handle = asset_server.load::<TextAsset>(manifest_url);
