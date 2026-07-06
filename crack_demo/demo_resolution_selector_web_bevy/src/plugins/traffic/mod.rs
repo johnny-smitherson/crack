@@ -10,6 +10,7 @@ pub mod driver;
 pub mod despawn;
 pub mod debug_ui;
 pub mod pedestrian_traffic;
+pub mod common;
 
 #[derive(Default, PartialEq, Clone, Copy, Debug)]
 pub enum TrafficDriveMode {
@@ -46,14 +47,9 @@ impl Default for TrafficConfig {
 /// Marker + path state on the car root entity.
 #[derive(Component)]
 pub struct TrafficCar {
-    pub path: Vec<Vec3>,        // full resolved polyline
-    pub next_idx: usize,        // next waypoint index
-    pub stuck_timer: f32,       // secs below min speed
-    pub out_of_view_timer: f32, // secs failing the visibility raycast
+    pub state: common::TrafficAgentState,
     pub half_height: f32,       // cached car half height
-    pub current_seg: usize,     // current segment index in graph
     pub mode: TrafficDriveMode, // drive mode (Normal or Reversing)
-    pub last_visible: bool,     // last visibility status (cached)
 }
 
 /// Trigger: spawn one traffic car whose path starts at/near `position`.
@@ -64,13 +60,9 @@ pub struct SpawnTrafficCarEvent {
 
 #[derive(Component)]
 pub struct TrafficPedestrian {
-    pub path: Vec<Vec3>,
-    pub next_idx: usize,
-    pub current_seg: usize,
+    pub state: common::TrafficAgentState,
     pub offset_sign: f32,      // +1 / -1: which side of the road centre
-    pub stuck_timer: f32,
-    pub out_of_view_timer: f32,
-    pub last_visible: bool,
+    pub last_pos: Vec3,        // for stuck check
 }
 
 #[derive(Event, Clone, Debug)]

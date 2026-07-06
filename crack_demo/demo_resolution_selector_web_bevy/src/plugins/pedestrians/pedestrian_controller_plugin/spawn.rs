@@ -107,9 +107,13 @@ pub fn spawn_controlled_pedestrian_observer(
         Transform::from_translation(controller_pos)
             .with_rotation(event.rotation.unwrap_or(Quat::IDENTITY)),
         Visibility::default(),
-    ));
-
-    let controller = controller.id();
+    ))
+    .insert((
+        CollisionEventsEnabled,
+        crate::plugins::pedestrian_ai::faction::Health::full(100.0),
+        crate::plugins::pedestrian_ai::faction::Faction::Neutral,
+    ))
+    .id();
 
     // Intermediate scale node: child of controller, parent of the model. Scaling here keeps the
     // model's feet at the capsule bottom and does not affect the animation playback.

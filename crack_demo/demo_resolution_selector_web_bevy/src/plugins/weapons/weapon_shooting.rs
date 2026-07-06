@@ -293,6 +293,7 @@ pub fn tick_pending_melee_hits(
     q_model: Query<(), With<ModelRoot>>,
     q_skel: Query<(), With<PedestrianSkeleton>>,
     q_driver: Query<(), With<DriverMesh>>,
+    healths: Query<&crate::plugins::pedestrian_ai::faction::Health>,
 ) {
     let dt = time.delta_secs();
     for (entity, gt, mut pending) in &mut query {
@@ -301,7 +302,7 @@ pub fn tick_pending_melee_hits(
             let origin = gt.translation() + Vec3::Y * 0.5;
             let forward = gt.forward();
             let filter = SpatialQueryFilter::from_excluded_entities([entity]);
-            if let Some(hit) = spatial.cast_ray(origin, forward, 1.5, true, &filter) {
+            if let Some(hit) = spatial.cast_ray(origin, forward, 1.8, true, &filter) {
                 let hit_pos = origin + *forward * hit.distance;
                 let is_person = is_person_entity(
                     hit.entity,
@@ -323,6 +324,30 @@ pub fn tick_pending_melee_hits(
                             fx: crate::plugins::audio::audio_fx::AudioFxEventType::PunchHit,
                             position: hit_pos,
                             follow: None,
+                        });
+                    }
+
+                    // Resolve the hit entity up to CharacterController with Health
+                    let mut cur = hit.entity;
+                    loop {
+                        if q_controller.contains(cur) {
+                            break;
+                        }
+                        match parents.get(cur) {
+                            Ok(child_of) => cur = child_of.parent(),
+                            Err(_) => break,
+                        }
+                    }
+                    if healths.get(cur).is_ok() {
+                        let amount = if pending.is_melee {
+                            crate::plugins::pedestrian_ai::combat::SWORD_DAMAGE
+                        } else {
+                            crate::plugins::pedestrian_ai::combat::PUNCH_DAMAGE
+                        };
+                        commands.trigger(crate::plugins::pedestrian_ai::combat::DamageEvent {
+                            target: cur,
+                            amount,
+                            source: entity,
                         });
                     }
                 } else if pending.is_melee {

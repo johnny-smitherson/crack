@@ -151,14 +151,14 @@ pub fn draw_traffic_gizmos(
     for (transform, traffic_car) in q_cars.iter() {
         let car_pos = transform.translation;
         let mut prev = car_pos;
-        for &pt in traffic_car.path.iter().skip(traffic_car.next_idx) {
+        for &pt in traffic_car.state.path.iter().skip(traffic_car.state.next_idx) {
             gizmos.line(prev, pt, car_path_color);
             prev = pt;
         }
 
         // Draw lookahead point
-        if traffic_car.next_idx < traffic_car.path.len() {
-            let target = traffic_car.path[traffic_car.next_idx.min(traffic_car.path.len() - 1)];
+        if traffic_car.state.next_idx < traffic_car.state.path.len() {
+            let target = traffic_car.state.path[traffic_car.state.next_idx.min(traffic_car.state.path.len() - 1)];
             gizmos.sphere(target, 0.4, Color::srgb(1.0, 0.0, 0.0));
         }
     }
@@ -168,14 +168,14 @@ pub fn draw_traffic_gizmos(
     for (transform, traffic_ped) in q_peds.iter() {
         let ped_pos = transform.translation;
         let mut prev = ped_pos;
-        for &pt in traffic_ped.path.iter().skip(traffic_ped.next_idx) {
+        for &pt in traffic_ped.state.path.iter().skip(traffic_ped.state.next_idx) {
             gizmos.line(prev, pt, ped_path_color);
             prev = pt;
         }
 
         // Draw lookahead target
-        if traffic_ped.next_idx < traffic_ped.path.len() {
-            let target = traffic_ped.path[traffic_ped.next_idx.min(traffic_ped.path.len() - 1)];
+        if traffic_ped.state.next_idx < traffic_ped.state.path.len() {
+            let target = traffic_ped.state.path[traffic_ped.state.next_idx.min(traffic_ped.state.path.len() - 1)];
             gizmos.sphere(target, 0.25, Color::srgb(0.0, 0.0, 1.0));
         }
     }

@@ -15,9 +15,9 @@ use crate::plugins::{
 
 use super::{
     TrafficConfig, TrafficCar, SpawnTrafficCarEvent,
-    SPAWN_INTERVAL_S, SPAWN_MIN_CAMERA_DIST, CAR_SPAWN_SPACING, SPAWN_BEHIND_MAX_DOT,
+    SPAWN_INTERVAL_S, SPAWN_MIN_CAMERA_DIST, CAR_SPAWN_SPACING,
 };
-use super::road_graph::{TrafficRoadGraph, quantize, pick_continuation, RerouteMode};
+use super::road_graph::TrafficRoadGraph;
 
 pub fn get_ground_y(
     pos: Vec3,
@@ -59,12 +59,14 @@ pub fn traffic_network_spawner(
         return;
     }
 
-    let now = time.elapsed_secs();
-    if now - *last_spawn < SPAWN_INTERVAL_S {
+    let count = q_traffic.iter().count();
+    if count >= config.max_cars {
         return;
     }
 
-    if q_traffic.iter().count() >= config.max_cars {
+    let fast_fill = count < (config.max_cars as f32 * super::FAST_FILL_FRACTION) as usize;
+    let now = time.elapsed_secs();
+    if !fast_fill && now - *last_spawn < SPAWN_INTERVAL_S {
         return;
     }
 
@@ -72,63 +74,24 @@ pub fn traffic_network_spawner(
         return;
     };
 
-    let camera_pos = cam_gt.translation();
-    let cam_fwd = cam_gt.forward();
-    let num_segments = graph.segments.len();
-    if num_segments == 0 {
-        return;
-    }
+    let existing = q_all_cars.iter().map(|tf| tf.translation).collect::<Vec<_>>();
 
-    // Try up to 10 candidates
-    for _ in 0..10 {
-        let seg_idx = (rand::random::<f32>() * num_segments as f32) as usize;
-        let seg = &graph.segments[seg_idx];
-        if seg.points.is_empty() {
-            continue;
-        }
-        let pt_idx = (rand::random::<f32>() * seg.points.len() as f32) as usize;
-        let candidate_point = seg.points[pt_idx];
-
-        let dist = camera_pos.distance(candidate_point);
-        if dist > config.spawn_radius || dist < SPAWN_MIN_CAMERA_DIST {
-            continue;
-        }
-
-        // Reject if candidate is in front of the camera (behind/side check)
-        let to_pt = (candidate_point - camera_pos).normalize_or_zero();
-        if cam_fwd.dot(to_pt) >= SPAWN_BEHIND_MAX_DOT {
-            continue;
-        }
-
-        // Check if inside frustum
-        if let Some(ndc) = camera.world_to_ndc(cam_gt, candidate_point) {
-            let inside_x = ndc.x >= -1.0 && ndc.x <= 1.0;
-            let inside_y = ndc.y >= -1.0 && ndc.y <= 1.0;
-            let inside_z = ndc.z >= 0.0 && ndc.z <= 1.0;
-            if inside_x && inside_y && inside_z {
-                // Reject visible candidate
-                continue;
-            }
-        }
-
-        // Check distance to existing cars
-        let mut too_close = false;
-        for car_tf in q_all_cars.iter() {
-            if car_tf.translation.distance(candidate_point) < CAR_SPAWN_SPACING {
-                too_close = true;
-                break;
-            }
-        }
-        if too_close {
-            continue;
-        }
-
-        // Success! Spawn it
+    if let Some(candidate_point) = super::common::pick_spawn_candidate(
+        &graph,
+        camera,
+        cam_gt,
+        config.spawn_radius,
+        SPAWN_MIN_CAMERA_DIST,
+        CAR_SPAWN_SPACING,
+        &existing,
+        fast_fill,
+    ) {
         commands.trigger(SpawnTrafficCarEvent {
             position: candidate_point,
         });
-        *last_spawn = now;
-        break;
+        if !fast_fill {
+            *last_spawn = now;
+        }
     }
 }
 
@@ -148,59 +111,11 @@ pub fn spawn_traffic_car_observer(
 
     let req_pos = trigger.event().position;
 
-    // 1. Find closest road segment point
-    let mut closest_pt = req_pos;
-    let mut closest_dist = f32::MAX;
-    let mut closest_seg_idx = 0;
-    let mut closest_pt_idx = 0;
-
-    for (s_idx, seg) in graph.segments.iter().enumerate() {
-        for (p_idx, &pt) in seg.points.iter().enumerate() {
-            let d = pt.distance(req_pos);
-            if d < closest_dist {
-                closest_dist = d;
-                closest_pt = pt;
-                closest_seg_idx = s_idx;
-                closest_pt_idx = p_idx;
-            }
-        }
-    }
-
-    // 2. Build path from closest segment point in the direction of the longer side
-    let seg = &graph.segments[closest_seg_idx];
-    let mut forward_dist = 0.0;
-    for w in seg.points[closest_pt_idx..].windows(2) {
-        forward_dist += w[0].distance(w[1]);
-    }
-    let mut backward_dist = 0.0;
-    for w in seg.points[..=closest_pt_idx].windows(2) {
-        backward_dist += w[0].distance(w[1]);
-    }
-    let forward = forward_dist >= backward_dist;
-
-    let mut path_points = if forward {
-        seg.points[closest_pt_idx..].to_vec()
-    } else {
-        seg.points[..=closest_pt_idx].iter().cloned().rev().collect::<Vec<_>>()
+    let Some((closest_seg_idx, path_points)) = super::common::build_path_from(&graph, req_pos) else {
+        return;
     };
 
-    // 3. OSM continuation: append one next segment
-    if path_points.len() >= 2 {
-        let end_node = quantize(*path_points.last().unwrap());
-        let car_dir = (path_points[1] - path_points[0]).normalize_or_zero();
-        if let Some((_next_idx, next_points)) = pick_continuation(
-            &graph,
-            end_node,
-            closest_seg_idx,
-            RerouteMode::ClosestAngle(car_dir),
-        ) {
-            path_points.extend(next_points[1..].iter().cloned());
-        }
-    }
-
-    if path_points.len() < 2 {
-        return;
-    }
+    let closest_pt = path_points[0];
 
     // 4. Ground the spawn position
     let ground_y = get_ground_y(closest_pt, map_tree.as_ref().map(|r| &**r), &spatial_query);
@@ -222,14 +137,9 @@ pub fn spawn_traffic_car_observer(
     commands.entity(car_entity).insert((
         avian3d::prelude::LinearVelocity(dir * init_speed),
         TrafficCar {
-            path: path_points,
-            next_idx: 1,
-            stuck_timer: 0.0,
-            out_of_view_timer: 0.0,
+            state: super::common::TrafficAgentState::new(path_points, closest_seg_idx),
             half_height: 0.5,
-            current_seg: closest_seg_idx,
             mode: super::TrafficDriveMode::Normal,
-            last_visible: true,
         },
     ));
 

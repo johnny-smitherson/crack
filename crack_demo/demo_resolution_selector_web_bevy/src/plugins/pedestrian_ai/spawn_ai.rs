@@ -101,6 +101,8 @@ pub fn spawn_ai_pedestrian_observer(
                     GamePhysicsLayer::Wheel,
                 ],
             ),
+            CollisionEventsEnabled,
+            RigidBody::Kinematic,
             Transform::from_translation(controller_pos),
             Visibility::default(),
         ))

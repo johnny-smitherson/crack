@@ -13,9 +13,9 @@ use crate::plugins::{
 };
 use super::{
     TrafficConfig, TrafficPedestrian, SpawnTrafficPedestrianEvent,
-    SPAWN_INTERVAL_S, SPAWN_MIN_CAMERA_DIST, PED_SPAWN_SPACING, SPAWN_BEHIND_MAX_DOT,
-    OUT_OF_RANGE_FACTOR, OUT_OF_VIEW_DESPAWN_S, VIEW_RAYCAST_HZ, STUCK_HARD_DESPAWN_S,
-    WAYPOINT_REACHED_XZ, LOOKAHEAD_XZ, PED_ROAD_OFFSET, STUCK_SPEED_EPS, STUCK_TRIGGER_S,
+    SPAWN_MIN_CAMERA_DIST, PED_SPAWN_SPACING,
+    WAYPOINT_REACHED_XZ, LOOKAHEAD_XZ, PED_ROAD_OFFSET,
+    PED_STUCK_REROUTE_S, VIEW_RAYCAST_HZ,
 };
 use super::road_graph::{TrafficRoadGraph, quantize, pick_continuation, RerouteMode};
 use super::spawn::get_ground_y;
@@ -46,12 +46,14 @@ pub fn traffic_pedestrian_spawner(
         return;
     }
 
-    let now = time.elapsed_secs();
-    if now - *last_spawn < SPAWN_INTERVAL_S {
+    let count = q_traffic_peds.iter().count();
+    if count >= config.max_peds {
         return;
     }
 
-    if q_traffic_peds.iter().count() >= config.max_peds {
+    let fast_fill = count < (config.max_peds as f32 * super::FAST_FILL_FRACTION) as usize;
+    let now = time.elapsed_secs();
+    if !fast_fill && now - *last_spawn < super::SPAWN_INTERVAL_S {
         return;
     }
 
@@ -59,63 +61,24 @@ pub fn traffic_pedestrian_spawner(
         return;
     };
 
-    let camera_pos = cam_gt.translation();
-    let cam_fwd = cam_gt.forward();
-    let num_segments = graph.segments.len();
-    if num_segments == 0 {
-        return;
-    }
+    let existing = q_all_peds.iter().map(|tf| tf.translation).collect::<Vec<_>>();
 
-    // Try up to 10 candidates
-    for _ in 0..10 {
-        let seg_idx = (rand::random::<f32>() * num_segments as f32) as usize;
-        let seg = &graph.segments[seg_idx];
-        if seg.points.is_empty() {
-            continue;
-        }
-        let pt_idx = (rand::random::<f32>() * seg.points.len() as f32) as usize;
-        let candidate_point = seg.points[pt_idx];
-
-        let dist = camera_pos.distance(candidate_point);
-        if dist > config.spawn_radius || dist < SPAWN_MIN_CAMERA_DIST {
-            continue;
-        }
-
-        // Must be behind/side of the camera
-        let to_pt = (candidate_point - camera_pos).normalize_or_zero();
-        if cam_fwd.dot(to_pt) >= SPAWN_BEHIND_MAX_DOT {
-            continue;
-        }
-
-        // Check if inside frustum
-        if let Some(ndc) = camera.world_to_ndc(cam_gt, candidate_point) {
-            let inside_x = ndc.x >= -1.0 && ndc.x <= 1.0;
-            let inside_y = ndc.y >= -1.0 && ndc.y <= 1.0;
-            let inside_z = ndc.z >= 0.0 && ndc.z <= 1.0;
-            if inside_x && inside_y && inside_z {
-                // Reject visible candidate
-                continue;
-            }
-        }
-
-        // Check distance to existing pedestrians
-        let mut too_close = false;
-        for ped_tf in q_all_peds.iter() {
-            if ped_tf.translation.distance(candidate_point) < PED_SPAWN_SPACING {
-                too_close = true;
-                break;
-            }
-        }
-        if too_close {
-            continue;
-        }
-
-        // Success! Spawn it
+    if let Some(candidate_point) = super::common::pick_spawn_candidate(
+        &graph,
+        camera,
+        cam_gt,
+        config.spawn_radius,
+        SPAWN_MIN_CAMERA_DIST,
+        PED_SPAWN_SPACING,
+        &existing,
+        fast_fill,
+    ) {
         commands.trigger(SpawnTrafficPedestrianEvent {
             position: candidate_point,
         });
-        *last_spawn = now;
-        break;
+        if !fast_fill {
+            *last_spawn = now;
+        }
     }
 }
 
@@ -134,59 +97,9 @@ pub fn spawn_traffic_pedestrian_observer(
 
     let req_pos = trigger.event().position;
 
-    // 1. Find closest road segment point
-    let mut _closest_pt = req_pos;
-    let mut closest_dist = f32::MAX;
-    let mut closest_seg_idx = 0;
-    let mut closest_pt_idx = 0;
-
-    for (s_idx, seg) in graph.segments.iter().enumerate() {
-        for (p_idx, &pt) in seg.points.iter().enumerate() {
-            let d = pt.distance(req_pos);
-            if d < closest_dist {
-                closest_dist = d;
-                _closest_pt = pt;
-                closest_seg_idx = s_idx;
-                closest_pt_idx = p_idx;
-            }
-        }
-    }
-
-    // 2. Build path from closest segment point in the direction of the longer side
-    let seg = &graph.segments[closest_seg_idx];
-    let mut forward_dist = 0.0;
-    for w in seg.points[closest_pt_idx..].windows(2) {
-        forward_dist += w[0].distance(w[1]);
-    }
-    let mut backward_dist = 0.0;
-    for w in seg.points[..=closest_pt_idx].windows(2) {
-        backward_dist += w[0].distance(w[1]);
-    }
-    let forward = forward_dist >= backward_dist;
-
-    let mut path_points = if forward {
-        seg.points[closest_pt_idx..].to_vec()
-    } else {
-        seg.points[..=closest_pt_idx].iter().cloned().rev().collect::<Vec<_>>()
-    };
-
-    // Append one next segment
-    if path_points.len() >= 2 {
-        let end_node = quantize(*path_points.last().unwrap());
-        let walk_dir = (path_points[1] - path_points[0]).normalize_or_zero();
-        if let Some((_next_seg, next_points)) = pick_continuation(
-            &graph,
-            end_node,
-            closest_seg_idx,
-            RerouteMode::ClosestAngle(walk_dir),
-        ) {
-            path_points.extend(next_points[1..].iter().cloned());
-        }
-    }
-
-    if path_points.len() < 2 {
+    let Some((closest_seg_idx, path_points)) = super::common::build_path_from(&graph, req_pos) else {
         return;
-    }
+    };
 
     // 3. Pick offset_sign randomly (+1 / -1)
     let offset_sign = if rand::random::<bool>() { 1.0 } else { -1.0 };
@@ -243,13 +156,9 @@ pub fn adopt_traffic_pedestrians(
         if let Some(idx) = best_idx {
             let entry = pending.pending.remove(idx);
             commands.entity(entity).insert(TrafficPedestrian {
-                path: entry.path,
-                next_idx: 1,
-                current_seg: entry.current_seg,
+                state: super::common::TrafficAgentState::new(entry.path, entry.current_seg),
                 offset_sign: entry.offset_sign,
-                stuck_timer: 0.0,
-                out_of_view_timer: 0.0,
-                last_visible: true,
+                last_pos: entry.spawn_pos,
             });
         }
     }
@@ -264,7 +173,6 @@ pub fn drive_traffic_pedestrians(
         &AiState,
         &mut TrafficPedestrian,
         &mut LocomotionInput,
-        Option<&LinearVelocity>,
     )>,
 ) {
     let dt = time.delta_secs();
@@ -272,7 +180,7 @@ pub fn drive_traffic_pedestrians(
         return;
     }
 
-    for (_entity, gt, state, mut tp, mut input, opt_lin_vel) in q_peds.iter_mut() {
+    for (_entity, gt, state, mut tp, mut input) in q_peds.iter_mut() {
         // Only override when AI is idle
         if *state != AiState::Idle {
             continue;
@@ -280,24 +188,21 @@ pub fn drive_traffic_pedestrians(
 
         let ped_pos = gt.translation();
 
-        // 1. Stuck detection & recovery
+        // 1. Stuck detection & recovery (1.0s distance-based check)
         let mut is_stuck = false;
-        if let Some(lin_vel) = opt_lin_vel {
-            let current_speed = lin_vel.0.length();
-            if input.move_dir.length() > 0.1 && current_speed < STUCK_SPEED_EPS {
-                tp.stuck_timer += dt;
-                // Check if we just crossed the trigger threshold
-                if tp.stuck_timer > STUCK_TRIGGER_S && (tp.stuck_timer - dt) <= STUCK_TRIGGER_S {
-                    is_stuck = true;
-                }
-            } else {
-                tp.stuck_timer = 0.0;
+        tp.state.still_timer += dt;
+        if tp.state.still_timer >= PED_STUCK_REROUTE_S {
+            let dist_moved = ped_pos.distance(tp.last_pos);
+            if dist_moved < 0.3 && !tp.state.path.is_empty() {
+                is_stuck = true;
             }
+            tp.last_pos = ped_pos;
+            tp.state.still_timer = 0.0;
         }
 
         if is_stuck {
             // Reroute randomly from current nearest node
-            let seg = &graph.segments[tp.current_seg];
+            let seg = &graph.segments[tp.state.current_seg];
             let dist_a = seg.points[0].distance(ped_pos);
             let dist_b = seg.points.last().unwrap().distance(ped_pos);
             let nearest_node = if dist_a < dist_b {
@@ -309,83 +214,51 @@ pub fn drive_traffic_pedestrians(
             if let Some((next_seg, next_points)) = pick_continuation(
                 &graph,
                 nearest_node,
-                tp.current_seg,
+                tp.state.current_seg,
                 RerouteMode::Random,
             ) {
-                tp.path = next_points;
-                tp.next_idx = 1;
-                tp.current_seg = next_seg;
+                tp.state.path = next_points;
+                tp.state.next_idx = 1;
+                tp.state.current_seg = next_seg;
             } else {
-                // Linear scan fallback
-                let mut _closest_pt = ped_pos;
-                let mut closest_dist = f32::MAX;
-                let mut closest_seg_idx = 0;
-                let mut closest_pt_idx = 0;
-
-                for (s_idx, seg) in graph.segments.iter().enumerate() {
-                    for (p_idx, &pt) in seg.points.iter().enumerate() {
-                        let d = pt.distance(ped_pos);
-                        if d < closest_dist {
-                            closest_dist = d;
-                            _closest_pt = pt;
-                            closest_seg_idx = s_idx;
-                            closest_pt_idx = p_idx;
-                        }
-                    }
+                // Snap to nearest segment overall fallback
+                if let Some((closest_seg, path_points)) = super::common::build_path_from(&graph, ped_pos) {
+                    tp.state.path = path_points;
+                    tp.state.next_idx = 1;
+                    tp.state.current_seg = closest_seg;
                 }
-
-                let seg = &graph.segments[closest_seg_idx];
-                let mut forward_dist = 0.0;
-                for w in seg.points[closest_pt_idx..].windows(2) {
-                    forward_dist += w[0].distance(w[1]);
-                }
-                let mut backward_dist = 0.0;
-                for w in seg.points[..=closest_pt_idx].windows(2) {
-                    backward_dist += w[0].distance(w[1]);
-                }
-                let forward = forward_dist >= backward_dist;
-
-                let mut path_points = if forward {
-                    seg.points[closest_pt_idx..].to_vec()
-                } else {
-                    seg.points[..=closest_pt_idx].iter().cloned().rev().collect::<Vec<_>>()
-                };
-
-                if path_points.len() >= 2 {
-                    let end_node = quantize(*path_points.last().unwrap());
-                    let walk_dir = (path_points[1] - path_points[0]).normalize_or_zero();
-                    if let Some((_next_seg, next_points)) = pick_continuation(
-                        &graph,
-                        end_node,
-                        closest_seg_idx,
-                        RerouteMode::ClosestAngle(walk_dir),
-                    ) {
-                        path_points.extend(next_points[1..].iter().cloned());
-                    }
-                }
-
-                tp.path = path_points;
-                tp.next_idx = 1;
-                tp.current_seg = closest_seg_idx;
             }
             continue;
         }
 
-        // 2. Advance waypoint index if close in XZ plane
-        while tp.next_idx < tp.path.len() {
-            let target = tp.path[tp.next_idx];
-            let dist_xz = Vec2::new(ped_pos.x - target.x, ped_pos.z - target.z).length();
+        // 2. Advance waypoint index if close in XZ plane to the offset target
+        while tp.state.next_idx < tp.state.path.len() {
+            let target = tp.state.path[tp.state.next_idx];
+            let dir = if tp.state.next_idx > 0 {
+                (tp.state.path[tp.state.next_idx] - tp.state.path[tp.state.next_idx - 1]).normalize_or_zero()
+            } else if tp.state.path.len() >= 2 {
+                (tp.state.path[1] - tp.state.path[0]).normalize_or_zero()
+            } else {
+                Vec3::ZERO
+            };
+            let mut offset_target = target;
+            if dir != Vec3::ZERO {
+                let perp = Vec3::new(dir.z, 0.0, -dir.x);
+                offset_target += perp * tp.offset_sign * PED_ROAD_OFFSET;
+            }
+
+            let dist_xz = Vec2::new(ped_pos.x - offset_target.x, ped_pos.z - offset_target.z).length();
             if dist_xz < WAYPOINT_REACHED_XZ {
-                tp.next_idx += 1;
+                tp.state.next_idx += 1;
             } else {
                 break;
             }
         }
 
         // 3. Reroute at path end
-        if tp.next_idx >= tp.path.len() {
-            let last_node = quantize(*tp.path.last().unwrap());
-            let current_points = &tp.path;
+        if tp.state.next_idx >= tp.state.path.len() {
+            let last_node = quantize(*tp.state.path.last().unwrap());
+            let current_points = &tp.state.path;
             let last_dir = if current_points.len() >= 2 {
                 let len = current_points.len();
                 (current_points[len - 1] - current_points[len - 2]).normalize_or_zero()
@@ -396,17 +269,17 @@ pub fn drive_traffic_pedestrians(
             if let Some((next_seg, next_points)) = pick_continuation(
                 &graph,
                 last_node,
-                tp.current_seg,
+                tp.state.current_seg,
                 RerouteMode::ClosestAngle(last_dir),
             ) {
-                let mut new_path = vec![*tp.path.last().unwrap()];
+                let mut new_path = vec![*tp.state.path.last().unwrap()];
                 new_path.extend(next_points[1..].iter().cloned());
-                tp.path = new_path;
-                tp.next_idx = 1;
-                tp.current_seg = next_seg;
+                tp.state.path = new_path;
+                tp.state.next_idx = 1;
+                tp.state.current_seg = next_seg;
             } else {
                 // Reverse current segment to turn around
-                let seg = &graph.segments[tp.current_seg];
+                let seg = &graph.segments[tp.state.current_seg];
                 let start_quant = quantize(seg.points[0]);
                 let reversed_points: Vec<Vec3> = if start_quant == last_node {
                     seg.points.clone()
@@ -414,34 +287,34 @@ pub fn drive_traffic_pedestrians(
                     seg.points.iter().cloned().rev().collect()
                 };
 
-                let mut new_path = vec![*tp.path.last().unwrap()];
+                let mut new_path = vec![*tp.state.path.last().unwrap()];
                 new_path.extend(reversed_points[1..].iter().cloned());
-                tp.path = new_path;
-                tp.next_idx = 1;
+                tp.state.path = new_path;
+                tp.state.next_idx = 1;
             }
         }
 
         // 4. Lookahead target
-        let mut target_idx = tp.next_idx;
-        while target_idx < tp.path.len() {
-            let target = tp.path[target_idx];
+        let mut target_idx = tp.state.next_idx;
+        while target_idx < tp.state.path.len() {
+            let target = tp.state.path[target_idx];
             let dist_xz = Vec2::new(ped_pos.x - target.x, ped_pos.z - target.z).length();
             if dist_xz >= LOOKAHEAD_XZ {
                 break;
             }
             target_idx += 1;
         }
-        let target_idx = target_idx.min(tp.path.len() - 1);
-        if tp.path.is_empty() {
+        let target_idx = target_idx.min(tp.state.path.len() - 1);
+        if tp.state.path.is_empty() {
             continue;
         }
-        let mut target = tp.path[target_idx];
+        let mut target = tp.state.path[target_idx];
 
         // 5. Offset laterally
         let dir = if target_idx > 0 {
-            (tp.path[target_idx] - tp.path[target_idx - 1]).normalize_or_zero()
-        } else if tp.path.len() >= 2 {
-            (tp.path[1] - tp.path[0]).normalize_or_zero()
+            (tp.state.path[target_idx] - tp.state.path[target_idx - 1]).normalize_or_zero()
+        } else if tp.state.path.len() >= 2 {
+            (tp.state.path[1] - tp.state.path[0]).normalize_or_zero()
         } else {
             Vec3::ZERO
         };
@@ -462,8 +335,8 @@ pub fn despawn_traffic_pedestrians(
     time: Res<Time>,
     config: Res<TrafficConfig>,
     mut q_peds: Query<(Entity, &Transform, &mut TrafficPedestrian)>,
-    q_children: Query<&Children>,
     q_camera: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    q_parent: Query<&ChildOf>,
     spatial_query: SpatialQuery,
     mut commands: Commands,
     mut raycast_timer: Local<f32>,
@@ -490,68 +363,40 @@ pub fn despawn_traffic_pedestrians(
         let ped_pos = transform.translation;
         let dist_to_camera = ped_pos.distance(camera_pos);
 
-        // 1. Out of range check (visibility gated)
-        if dist_to_camera > config.spawn_radius * OUT_OF_RANGE_FACTOR && !tp.last_visible {
+        // 1. Direct should_despawn check (fast path using cached visibility)
+        if super::common::should_despawn(dist_to_camera, config.spawn_radius, &tp.state) {
             commands.entity(entity).despawn();
             continue;
         }
 
-        // 2. Stuck check (visibility gated)
-        if tp.stuck_timer > STUCK_HARD_DESPAWN_S && !tp.last_visible {
-            commands.entity(entity).despawn();
-            continue;
-        }
-
-        // 3. Out of view timer check
+        // 2. Out of view timer check
         if run_raycasts {
             let ped_top = ped_pos + Vec3::Y * 1.6;
-            
-            // Check frustum first
-            let in_frustum = if let Some(ndc) = camera.world_to_ndc(cam_gt, ped_top) {
-                ndc.x >= -1.0 && ndc.x <= 1.0 && ndc.y >= -1.0 && ndc.y <= 1.0 && ndc.z >= 0.0 && ndc.z <= 1.0
-            } else {
-                false
-            };
+            let visible = super::common::update_visibility(
+                camera,
+                cam_gt,
+                &spatial_query,
+                entity,
+                ped_top,
+                &q_parent,
+            );
 
-            let mut visible = false;
-            if in_frustum {
-                // In frustum, run occlusion raycast
-                let cam_to_ped = ped_top - camera_pos;
-                let dist = cam_to_ped.length();
-                let dir_vec = cam_to_ped.normalize_or_zero();
-
-                if dir_vec != Vec3::ZERO {
-                    let mut excluded = vec![entity];
-                    if let Ok(children) = q_children.get(entity) {
-                        excluded.extend(children.iter());
-                    }
-                    let filter = SpatialQueryFilter::default().with_excluded_entities(excluded);
-
-                    if let Some(hit_dir) = bevy::prelude::Dir3::new(dir_vec).ok() {
-                        if let Some(_hit) = spatial_query.cast_ray(camera_pos, hit_dir, dist - 0.1, true, &filter) {
-                            // Hit something else (occluded)
-                        } else {
-                            // Line of sight clear -> visible!
-                            visible = true;
-                        }
-                    }
-                }
-            }
-
-            tp.last_visible = visible;
+            tp.state.last_visible = visible;
             if visible {
-                tp.out_of_view_timer = 0.0;
+                tp.state.out_of_view_timer = 0.0;
             }
         }
 
-        if !tp.last_visible {
-            tp.out_of_view_timer += dt;
+        if !tp.state.last_visible {
+            tp.state.out_of_view_timer += dt;
         } else {
-            tp.out_of_view_timer = 0.0;
+            tp.state.out_of_view_timer = 0.0;
         }
 
-        if tp.out_of_view_timer > OUT_OF_VIEW_DESPAWN_S {
+        // Recheck despawn condition after visibility update
+        if super::common::should_despawn(dist_to_camera, config.spawn_radius, &tp.state) {
             commands.entity(entity).despawn();
         }
     }
 }
+

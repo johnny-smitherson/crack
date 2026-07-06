@@ -73,14 +73,14 @@ const GRAVITY_Y: f32 = -9.81 * 2.0;
 /// Per-mode horizontal speed caps.
 const CROUCH_SPEED: f32 = 1.8;
 const JOG_SPEED: f32 = 4.0;
-/// Sprint ramps from `2 * JOG_SPEED` up to `SPRINT_MAX_MULT * JOG_SPEED` while Shift is held.
-const SPRINT_MAX_MULT: f32 = 3.0;
+/// Sprint ramps from `1 * JOG_SPEED` up to `SPRINT_MAX_MULT * JOG_SPEED` while Shift is held.
+const SPRINT_MAX_MULT: f32 = 1.5;
 const SPRINT_RAMP_TIME: f32 = 2.5;
 
 // Animation selection by current horizontal speed.
 const MOVE_ANIM_THRESHOLD: f32 = 0.25;
-const WALK_MAX_SPEED: f32 = 2.2;
-const JOG_MAX_SPEED: f32 = 6.0;
+const WALK_MAX_SPEED: f32 = 2.0;
+const JOG_MAX_SPEED: f32 = 4.5;
 
 // Jump animation phase timings (seconds).
 const JUMP_START_TIME: f32 = 0.22;

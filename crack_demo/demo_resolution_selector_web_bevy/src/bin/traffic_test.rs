@@ -9,6 +9,10 @@ use demo_resolution_selector_web_bevy::{
         states::GameStatesPlugin,
         cars_driving::CarsAndDrivingPlugin,
         traffic::TrafficPlugin,
+        pedestrians::pedestrian_controller_plugin::PedestrianControllerPlugin,
+        weapons::WeaponsPlugin,
+        pedestrian_ai::PedestrianAiPlugin,
+        audio::GameAudioPlugin,
         geojson::{GeoJsonDatabase, GeoJsonFeature, FeatureGeometry},
     },
     utils::setup_debug_scene::SetupDebugScenePlugin,
@@ -28,6 +32,10 @@ fn main() {
         .add_plugins(CarsAndDrivingPlugin)
         .add_plugins(SetupDebugScenePlugin)
         .add_plugins(TrafficPlugin)
+        .add_plugins(PedestrianControllerPlugin)
+        .add_plugins(WeaponsPlugin)
+        .add_plugins(PedestrianAiPlugin)
+        .add_plugins(GameAudioPlugin)
         .add_systems(Startup, (inject_hardcoded_intersection, force_loaded_states))
         .add_systems(Update, simple_camera_movement)
         .run();

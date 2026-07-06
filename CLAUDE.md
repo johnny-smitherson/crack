@@ -118,6 +118,7 @@ pub struct CollisionMarker
 pub struct SparkParticle
 pub fn handle_car_collisions(mut commands: Commands, mut collision_events: MessageReader<CollisionStart>, mut rate_limiter: ResMut<SparkRateLimiter>, spatial_query: SpatialQuery, q_car: Query<&Car>, q_parent: Query<&ChildOf>, q_lin_vel: Query<&LinearVelocity>, q_gt: Query<&GlobalTransform>, q_name: Query<&Name>, time: Res<Time>,)
 pub fn update_and_draw_collision_effects(mut commands: Commands, time: Res<Time>, mut gizmos: Gizmos, q_markers: Query<(Entity, &CollisionMarker)
+pub fn car_pedestrian_damage(mut commands: Commands, mut collision_events: MessageReader<CollisionStart>, q_car: Query<&Car>, q_parent: Query<&ChildOf>, q_lin_vel: Query<&LinearVelocity>, q_controller: Query<()
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/cars_driving/driving_plugin/mod.rs
@@ -197,13 +198,6 @@ impl GeoBBox
   pub fn contains(&self, lat: f64, lon: f64) → bool
 impl OsmOverlayState
 pub fn octant_path_to_geobbox(path: &str) → Option<GeoBBox>
-```
-
-### crack_demo/demo_resolution_selector_web_bevy/src/plugins/main_scene_plugin.rs
-```
-pub struct MainScenePlugin
-pub struct SkyboxState
-impl MainScenePlugin
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrian_ai/anim_ai.rs
@@ -406,7 +400,7 @@ impl GameStatesPlugin
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/traffic/debug_ui.rs
 ```
-pub fn traffic_debug_ui(mut contexts: EguiContexts, mut config: ResMut<TrafficConfig>, ui_state: Option<ResMut<UiState>>, q_traffic: Query<Entity, With<TrafficCar>>, graph: Res<TrafficRoadGraph>, q_camera: Query<&GlobalTransform, With<Camera3d>>, mut commands: Commands,)
+pub fn traffic_debug_ui(mut contexts: EguiContexts, mut config: ResMut<TrafficConfig>, ui_state: Option<ResMut<UiState>>, q_traffic: Query<Entity, With<TrafficCar>>, q_traffic_peds: Query<Entity, With<TrafficPedestrian>>, graph: Res<TrafficRoadGraph>, q_camera: Query<&GlobalTransform, With<Camera3d>>, mut commands: Commands,)
 pub fn draw_traffic_gizmos(mut gizmos: Gizmos, graph: Res<TrafficRoadGraph>, config: Res<TrafficConfig>, q_cars: Query<(&Transform, &TrafficCar)
 ```
 
@@ -417,7 +411,7 @@ pub fn despawn_traffic_cars(time: Res<Time>, config: Res<TrafficConfig>, mut q_c
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/traffic/driver.rs
 ```
-pub fn drive_traffic_cars(time: Res<Time>, config: Res<TrafficConfig>, mut q_cars: Query<(Entity, &Transform, &LinearVelocity, &CarDriveState, &mut TrafficCar)
+pub fn drive_traffic_cars(time: Res<Time>, config: Res<TrafficConfig>, graph: Res<TrafficRoadGraph>, mut q_cars: Query<(Entity, &Transform, &LinearVelocity, &mut CarDriveState, &mut TrafficCar)
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/traffic/mod.rs
@@ -425,17 +419,33 @@ pub fn drive_traffic_cars(time: Res<Time>, config: Res<TrafficConfig>, mut q_car
 pub struct TrafficConfig
 pub struct TrafficCar
 pub struct SpawnTrafficCarEvent
+pub struct TrafficPedestrian
+pub struct SpawnTrafficPedestrianEvent
 pub struct TrafficPlugin
+pub enum TrafficDriveMode
 impl TrafficConfig
 impl TrafficPlugin
+```
+
+### crack_demo/demo_resolution_selector_web_bevy/src/plugins/traffic/pedestrian_traffic.rs
+```
+pub struct PendingTrafficPeds
+pub struct PendingTrafficPedEntry
+pub fn traffic_pedestrian_spawner(time: Res<Time>, mut last_spawn: Local<f32>, config: Res<TrafficConfig>, graph: Res<TrafficRoadGraph>, q_camera: Query<(&Camera, &GlobalTransform)
+pub fn spawn_traffic_pedestrian_observer(trigger: On<SpawnTrafficPedestrianEvent>, mut commands: Commands, graph: Res<TrafficRoadGraph>, map_tree: Option<Res<MapTree>>, spatial_query: avian3d::prelude::SpatialQuery, mut pending_traffic: ResMut<PendingTrafficPeds>,)
+pub fn adopt_traffic_pedestrians(mut commands: Commands, mut pending: ResMut<PendingTrafficPeds>, q_new_ai: Query<(Entity, &Transform)
+pub fn drive_traffic_pedestrians(time: Res<Time>, graph: Res<TrafficRoadGraph>, mut q_peds: Query<( Entity, &GlobalTransform, &AiState, &mut TrafficPedestrian, &mut LocomotionInput, Option<&LinearVelocity>,)
+pub fn despawn_traffic_pedestrians(time: Res<Time>, config: Res<TrafficConfig>, mut q_peds: Query<(Entity, &Transform, &mut TrafficPedestrian)
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/traffic/road_graph.rs
 ```
 pub struct TrafficRoadGraph
 pub struct RoadSegment
+pub enum RerouteMode
 pub fn quantize(p: Vec3) → IVec2
 pub fn build_road_graph(database: Res<crate::plugins::geojson::GeoJsonDatabase>, mut graph: ResMut<TrafficRoadGraph>,)
+pub fn pick_continuation(graph: &TrafficRoadGraph, node: IVec2, from_seg: usize, mode: RerouteMode,) → Option<(usize, Vec<Vec3>)>
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/traffic/spawn.rs
@@ -495,13 +505,6 @@ impl UiState
   pub fn with_physics_debug() → Self
 impl UiState
 pub fn web_set_loading_status(_show: bool, _message: &str)
-```
-
-### crack_demo/demo_resolution_selector_web_bevy/src/utils/setup_debug_scene.rs
-```
-pub struct SetupDebugScenePlugin
-pub struct DebugSceneGroundComponent
-impl SetupDebugScenePlugin
 ```
 
 ### crack_demo/AGENTS.md
@@ -576,6 +579,13 @@ impl CarsAndDrivingPlugin
 pub struct CameraControlsPlugin
 pub struct ActiveCameraAnimation
 impl CameraControlsPlugin
+```
+
+### crack_demo/demo_resolution_selector_web_bevy/src/plugins/main_scene_plugin.rs
+```
+pub struct MainScenePlugin
+pub struct SkyboxState
+impl MainScenePlugin
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/map_plugin/map_lod.rs
@@ -708,6 +718,13 @@ pub fn load_weapon_manifest_system(bootstrap: Option<Res<WeaponManifestBootstrap
 ### crack_demo/demo_resolution_selector_web_bevy/src/utils/create_texture.rs
 ```
 pub fn create_grayscale_texture(gray1: u8, gray2: u8) → Image
+```
+
+### crack_demo/demo_resolution_selector_web_bevy/src/utils/setup_debug_scene.rs
+```
+pub struct SetupDebugScenePlugin
+pub struct DebugSceneGroundComponent
+impl SetupDebugScenePlugin
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/Trunk.toml

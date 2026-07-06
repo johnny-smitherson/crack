@@ -182,7 +182,7 @@ pub fn apply_speed_cap(
             }
         } else if modifiers.sprint {
             let t = modifiers.sprint_secs / SPRINT_RAMP_TIME;
-            JOG_SPEED * (2.0 + (SPRINT_MAX_MULT - 2.0) * t)
+            JOG_SPEED * (1.0 + (SPRINT_MAX_MULT - 1.0) * t)
         } else {
             JOG_SPEED
         } as Scalar;

@@ -27,10 +27,10 @@ use super::{
 const SHOT_INTERVAL: f32 = 0.25;
 const AIM_SPREAD_DEG: f32 = 3.0;
 const MELEE_RANGE: f32 = 2.0;
-const SWORD_DAMAGE: f32 = 35.0;
+pub const SWORD_DAMAGE: f32 = 35.0;
 const SWING_INTERVAL: f32 = 0.8;
 const PUNCH_RANGE: f32 = 1.5;
-const PUNCH_DAMAGE: f32 = 12.0;
+pub const PUNCH_DAMAGE: f32 = 12.0;
 const PUNCH_INTERVAL: f32 = 0.6;
 /// How long a shot tracer stays visible.
 const TRACER_TTL: f32 = 0.05;

@@ -14,8 +14,8 @@ use super::{AiAnim, AiModel, AiPedestrian, AiState};
 
 // Speed thresholds matching the player animation driver.
 const MOVE_ANIM_THRESHOLD: f32 = 0.25;
-const WALK_MAX_SPEED: f32 = 2.2;
-const JOG_MAX_SPEED: f32 = 6.0;
+const WALK_MAX_SPEED: f32 = 2.0;
+const JOG_MAX_SPEED: f32 = 4.5;
 
 /// Picks a base locomotion clip for each AI ped and triggers the animation event when it changes.
 pub fn ai_animation(

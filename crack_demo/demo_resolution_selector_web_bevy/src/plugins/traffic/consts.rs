@@ -5,6 +5,8 @@ pub const CAR_SPAWN_SPACING: f32         = 8.0;   // min dist to any existing ca
 pub const PED_SPAWN_SPACING: f32         = 4.0;   // min dist to any existing traffic ped
 pub const SPAWN_BEHIND_MAX_DOT: f32      = 0.15;  // dot(cam_fwd, dir_to_point) must be < this
                                                   // (i.e. at/behind the camera side plane)
+pub const FAST_FILL_FRACTION: f32       = 0.4;   // density threshold for fast fill mode
+
 // --- despawn ---
 pub const OUT_OF_RANGE_FACTOR: f32       = 1.25;  // * spawn_radius, hysteresis
 pub const OUT_OF_VIEW_DESPAWN_S: f32     = 4.0;   // secs occluded/out-of-frustum before despawn
@@ -24,6 +26,8 @@ pub const LOOKAHEAD_XZ: f32              = 8.0;
 // --- pedestrian traffic ---
 pub const PED_ROAD_OFFSET: f32           = 5.0;   // metres from road centre
 pub const PED_WALK_SPEED: f32            = 1.6;   // informational; AI walk speed governs
+pub const PED_STUCK_REROUTE_S: f32       = 1.0;   // secs still before random reroute
+
 
 // --- collision damage ---
 pub const CAR_HIT_KMH_TO_DAMAGE: f32     = 1.0;   // 100 km/h -> 100 dmg
