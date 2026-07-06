@@ -11,7 +11,7 @@ pub use rk4_prediction::{
 
 use crate::plugins::cars_driving::driving_plugin::{
     camera_follow::camera_follows_car,
-    collision_sparks::{handle_car_collisions, update_and_draw_collision_effects},
+    collision_sparks::{handle_car_collisions, update_and_draw_collision_effects, car_pedestrian_damage},
     spawn_car::Car,
 };
 use avian3d::prelude::{
@@ -55,6 +55,7 @@ impl<S: States> Plugin for DrivingPlugin<S> {
                 apply_car_steering_and_drive,
                 detect_gear_shifts,
                 handle_car_collisions,
+                car_pedestrian_damage,
                 update_and_draw_collision_effects,
                 draw_car_gizmos,
                 cap_car_velocities,

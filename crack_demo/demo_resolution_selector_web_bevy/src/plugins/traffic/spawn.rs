@@ -13,8 +13,11 @@ use crate::plugins::{
     pedestrians::pedestrian_controller_plugin::{DriverMesh, CarSeatOffset},
 };
 
-use super::{TrafficConfig, TrafficCar, SpawnTrafficCarEvent};
-use super::road_graph::{TrafficRoadGraph, quantize};
+use super::{
+    TrafficConfig, TrafficCar, SpawnTrafficCarEvent,
+    SPAWN_INTERVAL_S, SPAWN_MIN_CAMERA_DIST, CAR_SPAWN_SPACING, SPAWN_BEHIND_MAX_DOT,
+};
+use super::road_graph::{TrafficRoadGraph, quantize, pick_continuation, RerouteMode};
 
 pub fn get_ground_y(
     pos: Vec3,
@@ -57,7 +60,7 @@ pub fn traffic_network_spawner(
     }
 
     let now = time.elapsed_secs();
-    if now - *last_spawn < 0.1 {
+    if now - *last_spawn < SPAWN_INTERVAL_S {
         return;
     }
 
@@ -70,6 +73,7 @@ pub fn traffic_network_spawner(
     };
 
     let camera_pos = cam_gt.translation();
+    let cam_fwd = cam_gt.forward();
     let num_segments = graph.segments.len();
     if num_segments == 0 {
         return;
@@ -86,7 +90,13 @@ pub fn traffic_network_spawner(
         let candidate_point = seg.points[pt_idx];
 
         let dist = camera_pos.distance(candidate_point);
-        if dist > config.spawn_radius || dist < 20.0 {
+        if dist > config.spawn_radius || dist < SPAWN_MIN_CAMERA_DIST {
+            continue;
+        }
+
+        // Reject if candidate is in front of the camera (behind/side check)
+        let to_pt = (candidate_point - camera_pos).normalize_or_zero();
+        if cam_fwd.dot(to_pt) >= SPAWN_BEHIND_MAX_DOT {
             continue;
         }
 
@@ -104,7 +114,7 @@ pub fn traffic_network_spawner(
         // Check distance to existing cars
         let mut too_close = false;
         for car_tf in q_all_cars.iter() {
-            if car_tf.translation.distance(candidate_point) < 8.0 {
+            if car_tf.translation.distance(candidate_point) < CAR_SPAWN_SPACING {
                 too_close = true;
                 break;
             }
@@ -177,26 +187,14 @@ pub fn spawn_traffic_car_observer(
     // 3. OSM continuation: append one next segment
     if path_points.len() >= 2 {
         let end_node = quantize(*path_points.last().unwrap());
-        if let Some(matching_segs) = graph.node_index.get(&end_node) {
-            let mut next_seg_found = None;
-            for &next_idx in matching_segs {
-                if next_idx != closest_seg_idx {
-                    next_seg_found = Some(next_idx);
-                    break;
-                }
-            }
-            if let Some(next_idx) = next_seg_found {
-                let next_seg = &graph.segments[next_idx];
-                if next_seg.points.len() >= 2 {
-                    let start_quant = quantize(next_seg.points[0]);
-                    let end_quant = quantize(*next_seg.points.last().unwrap());
-                    if start_quant == end_node {
-                        path_points.extend(next_seg.points[1..].iter().cloned());
-                    } else if end_quant == end_node {
-                        path_points.extend(next_seg.points[..next_seg.points.len() - 1].iter().cloned().rev());
-                    }
-                }
-            }
+        let car_dir = (path_points[1] - path_points[0]).normalize_or_zero();
+        if let Some((_next_idx, next_points)) = pick_continuation(
+            &graph,
+            end_node,
+            closest_seg_idx,
+            RerouteMode::ClosestAngle(car_dir),
+        ) {
+            path_points.extend(next_points[1..].iter().cloned());
         }
     }
 
@@ -229,6 +227,9 @@ pub fn spawn_traffic_car_observer(
             stuck_timer: 0.0,
             out_of_view_timer: 0.0,
             half_height: 0.5,
+            current_seg: closest_seg_idx,
+            mode: super::TrafficDriveMode::Normal,
+            last_visible: true,
         },
     ));
 

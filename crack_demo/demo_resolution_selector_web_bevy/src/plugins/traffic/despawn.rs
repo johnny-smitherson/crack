@@ -4,7 +4,10 @@ use avian3d::prelude::{SpatialQuery, SpatialQueryFilter};
 use crate::plugins::{
     cars_driving::driving_plugin::{CarDriveState},
 };
-use super::{TrafficConfig, TrafficCar};
+use super::{
+    TrafficConfig, TrafficCar,
+    OUT_OF_RANGE_FACTOR, OUT_OF_VIEW_DESPAWN_S, VIEW_RAYCAST_HZ, CAR_TOP_FUDGE, STUCK_HARD_DESPAWN_S,
+};
 
 pub fn despawn_traffic_cars(
     time: Res<Time>,
@@ -22,7 +25,7 @@ pub fn despawn_traffic_cars(
     }
 
     *raycast_timer += dt;
-    let run_raycasts = if *raycast_timer >= 0.25 {
+    let run_raycasts = if *raycast_timer >= 1.0 / VIEW_RAYCAST_HZ {
         *raycast_timer = 0.0;
         true
     } else {
@@ -38,31 +41,23 @@ pub fn despawn_traffic_cars(
         let car_pos = transform.translation;
         traffic_car.half_height = drive_state.car_half_height;
 
-        // 1. End of path check
-        if traffic_car.next_idx >= traffic_car.path.len() {
-            commands.entity(entity).despawn();
-            continue;
-        }
-
         let dist_to_camera = car_pos.distance(camera_pos);
 
-        // 2. Out of range check (with 1.25 hysteresis)
-        if dist_to_camera > config.spawn_radius * 1.25 {
+        // 1. Out of range check (visibility gated)
+        if dist_to_camera > config.spawn_radius * OUT_OF_RANGE_FACTOR && !traffic_car.last_visible {
             commands.entity(entity).despawn();
             continue;
         }
 
-        // 3. Stuck check
-        if traffic_car.stuck_timer > 6.0 {
+        // 2. Stuck check (visibility gated)
+        if traffic_car.stuck_timer > STUCK_HARD_DESPAWN_S && !traffic_car.last_visible {
             commands.entity(entity).despawn();
             continue;
         }
 
-        // 4. Out of view timer update
-        traffic_car.out_of_view_timer += dt;
-
+        // 3. Out of view timer check
         if run_raycasts {
-            let car_top = car_pos + Vec3::Y * (traffic_car.half_height * 2.0 * 0.95);
+            let car_top = car_pos + Vec3::Y * (traffic_car.half_height * 2.0 * CAR_TOP_FUDGE);
             
             // Check frustum first
             let in_frustum = if let Some(ndc) = camera.world_to_ndc(cam_gt, car_top) {
@@ -71,9 +66,8 @@ pub fn despawn_traffic_cars(
                 false
             };
 
-            if !in_frustum {
-                // Not in frustum -> count as out of view
-            } else {
+            let mut visible = false;
+            if in_frustum {
                 // In frustum, run occlusion raycast
                 let cam_to_car = car_top - camera_pos;
                 let dist = cam_to_car.length();
@@ -91,14 +85,25 @@ pub fn despawn_traffic_cars(
                             // Hit something else (occluded)
                         } else {
                             // Line of sight clear -> visible!
-                            traffic_car.out_of_view_timer = 0.0;
+                            visible = true;
                         }
                     }
                 }
             }
+
+            traffic_car.last_visible = visible;
+            if visible {
+                traffic_car.out_of_view_timer = 0.0;
+            }
         }
 
-        if traffic_car.out_of_view_timer > 4.0 {
+        if !traffic_car.last_visible {
+            traffic_car.out_of_view_timer += dt;
+        } else {
+            traffic_car.out_of_view_timer = 0.0;
+        }
+
+        if traffic_car.out_of_view_timer > OUT_OF_VIEW_DESPAWN_S {
             commands.entity(entity).despawn();
         }
     }

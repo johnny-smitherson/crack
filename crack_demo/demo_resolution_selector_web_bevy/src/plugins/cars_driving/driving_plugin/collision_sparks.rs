@@ -312,3 +312,88 @@ pub fn update_and_draw_collision_effects(
         }
     }
 }
+
+pub fn car_pedestrian_damage(
+    mut commands: Commands,
+    mut collision_events: MessageReader<CollisionStart>,
+    q_car: Query<&Car>,
+    q_parent: Query<&ChildOf>,
+    q_lin_vel: Query<&LinearVelocity>,
+    q_controller: Query<(), With<crate::plugins::pedestrians::pedestrian_controller_plugin::CharacterController>>,
+    healths: Query<&crate::plugins::pedestrian_ai::faction::Health>,
+    time: Res<Time>,
+    mut recently_hit: Local<HashMap<(Entity, Entity), f32>>,
+) {
+    let current_time = time.elapsed_secs();
+
+    // Clean up expired hit cooldowns
+    recently_hit.retain(|_, last_time| current_time - *last_time <= crate::plugins::traffic::CAR_HIT_COOLDOWN_S);
+
+    for ev in collision_events.read() {
+        let car1_opt = find_car_entity(ev.collider1, &q_car, &q_parent)
+            .or_else(|| ev.body1.and_then(|b| find_car_entity(b, &q_car, &q_parent)));
+        let car2_opt = find_car_entity(ev.collider2, &q_car, &q_parent)
+            .or_else(|| ev.body2.and_then(|b| find_car_entity(b, &q_car, &q_parent)));
+
+        if car1_opt.is_none() && car2_opt.is_none() {
+            continue;
+        }
+
+        let (car_entity, possible_victim) = if let Some(c1) = car1_opt {
+            let other = ev.body2.unwrap_or(ev.collider2);
+            (c1, other)
+        } else {
+            let other = ev.body1.unwrap_or(ev.collider1);
+            (car2_opt.unwrap(), other)
+        };
+
+        // Walk ChildOf up to a CharacterController
+        let mut cur = possible_victim;
+        let victim_entity = loop {
+            if q_controller.contains(cur) {
+                break Some(cur);
+            }
+            if let Ok(child_of) = q_parent.get(cur) {
+                cur = child_of.parent();
+            } else {
+                break None;
+            }
+        };
+
+        let Some(victim) = victim_entity else {
+            continue;
+        };
+
+        // Check if victim has Health
+        if healths.get(victim).is_err() {
+            continue;
+        }
+
+        // Calculate speed in km/h
+        let car_vel = q_lin_vel.get(car_entity).map(|v| v.0).unwrap_or(Vec3::ZERO);
+        let kmh = car_vel.length() * 3.6;
+
+        if kmh < crate::plugins::traffic::CAR_HIT_MIN_KMH {
+            continue;
+        }
+
+        let pair = (car_entity, victim);
+        if recently_hit.contains_key(&pair) {
+            continue;
+        }
+
+        recently_hit.insert(pair, current_time);
+
+        let dmg = kmh * crate::plugins::traffic::CAR_HIT_KMH_TO_DAMAGE;
+        info!(
+            "🚗 CAR HIT PEDESTRIAN! Car {:?} hit victim {:?} at {:.1} km/h, inflicting {:.1} damage.",
+            car_entity, victim, kmh, dmg
+        );
+
+        commands.trigger(crate::plugins::pedestrian_ai::combat::DamageEvent {
+            target: victim,
+            amount: dmg,
+            source: car_entity,
+        });
+    }
+}

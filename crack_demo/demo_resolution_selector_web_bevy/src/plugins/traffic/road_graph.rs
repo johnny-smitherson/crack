@@ -88,3 +88,75 @@ fn process_points(
     node_index.entry(first_node).or_default().push(seg_idx);
     node_index.entry(last_node).or_default().push(seg_idx);
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RerouteMode {
+    ClosestAngle(Vec3), // incoming forward dir
+    Random,
+}
+
+/// Given the node we arrived at, the segment we came from, and a reroute mode,
+/// pick a connected segment (excluding `from_seg`) and return its points oriented *away* from `node`.
+pub fn pick_continuation(
+    graph: &TrafficRoadGraph,
+    node: IVec2,
+    from_seg: usize,
+    mode: RerouteMode,
+) -> Option<(usize, Vec<Vec3>)> {
+    let matching_segs = graph.node_index.get(&node)?;
+    let candidates: Vec<usize> = matching_segs
+        .iter()
+        .copied()
+        .filter(|&idx| idx != from_seg)
+        .collect();
+
+    if candidates.is_empty() {
+        return None;
+    }
+
+    let chosen_seg_idx = match mode {
+        RerouteMode::Random => {
+            use rand::seq::IndexedRandom;
+            *candidates.choose(&mut rand::rng())?
+        }
+        RerouteMode::ClosestAngle(incoming_dir) => {
+            let mut best_seg = candidates[0];
+            let mut best_dot = f32::MIN;
+
+            for &seg_idx in &candidates {
+                let seg = &graph.segments[seg_idx];
+                if seg.points.len() < 2 {
+                    continue;
+                }
+                let start_quant = quantize(seg.points[0]);
+                let dir_out = if start_quant == node {
+                    (seg.points[1] - seg.points[0]).normalize_or_zero()
+                } else {
+                    let len = seg.points.len();
+                    (seg.points[len - 2] - seg.points[len - 1]).normalize_or_zero()
+                };
+
+                let dot = dir_out.dot(incoming_dir);
+                if dot > best_dot {
+                    best_dot = dot;
+                    best_seg = seg_idx;
+                }
+            }
+            best_seg
+        }
+    };
+
+    let seg = &graph.segments[chosen_seg_idx];
+    if seg.points.len() < 2 {
+        return None;
+    }
+
+    let start_quant = quantize(seg.points[0]);
+    let points = if start_quant == node {
+        seg.points.clone()
+    } else {
+        seg.points.iter().cloned().rev().collect()
+    };
+
+    Some((chosen_seg_idx, points))
+}
