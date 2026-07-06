@@ -1,4 +1,5 @@
 pub mod camera_follow;
+pub mod collision_sparks;
 pub mod keybinds_control;
 pub mod rk4_prediction;
 pub mod spawn_car;
@@ -9,7 +10,9 @@ pub use rk4_prediction::{
 };
 
 use crate::plugins::cars_driving::driving_plugin::{
-    camera_follow::camera_follows_car, spawn_car::Car,
+    camera_follow::camera_follows_car,
+    collision_sparks::{handle_car_collisions, update_and_draw_collision_effects},
+    spawn_car::Car,
 };
 use avian3d::prelude::{
     AngularInertia, AngularVelocity, CenterOfMass, ComputeMassProperties3d, LinearVelocity, Mass,
@@ -41,6 +44,7 @@ pub struct DrivingPlugin<S: States> {
 
 impl<S: States> Plugin for DrivingPlugin<S> {
     fn build(&self, app: &mut App) {
+        app.init_resource::<collision_sparks::SparkRateLimiter>();
         app.add_systems(Startup, configure_gizmo_depth);
         // World-wide car physics & visuals run in all states so cars stay grounded and gizmos show
         app.add_systems(
@@ -49,6 +53,8 @@ impl<S: States> Plugin for DrivingPlugin<S> {
                 update_wheel_contact_normals,
                 update_speculative_contacts_system,
                 apply_car_steering_and_drive,
+                handle_car_collisions,
+                update_and_draw_collision_effects,
                 draw_car_gizmos,
                 cap_car_velocities,
                 update_vehicle_physics_from_tuning,

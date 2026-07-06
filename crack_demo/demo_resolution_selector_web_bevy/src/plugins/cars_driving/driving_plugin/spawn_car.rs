@@ -8,8 +8,9 @@ use crate::plugins::{
 use avian3d::{
     dynamics::ccd::SweptCcd,
     prelude::{
-        AngularVelocity, ColliderConstructor, ColliderConstructorHierarchy, CollisionLayers,
-        LinearVelocity, MassPropertiesBundle, RigidBody, SleepingDisabled,
+        AngularVelocity, ColliderConstructor, ColliderConstructorHierarchy,
+        CollisionEventsEnabled, CollisionLayers, LinearVelocity, MassPropertiesBundle, RigidBody,
+        SleepingDisabled,
     },
 };
 use bevy::prelude::*;
@@ -106,6 +107,7 @@ pub fn spawn_car_request_event_observer(
                     [GamePhysicsLayer::Car],
                     [GamePhysicsLayer::Map, GamePhysicsLayer::Car],
                 ),
+                CollisionEventsEnabled,
                 SleepingDisabled,
                 SweptCcd::default(),
             ),

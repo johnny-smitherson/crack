@@ -6,6 +6,7 @@ pub struct PhysicsPlugin;
 
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
+        app.register_required_components::<Collider, CollisionEventsEnabled>();
         app.add_plugins(PhysicsPlugins::default())
             .add_plugins(PhysicsDebugPlugin::default())
             .insert_resource(Time::<Fixed>::from_hz(40.0))

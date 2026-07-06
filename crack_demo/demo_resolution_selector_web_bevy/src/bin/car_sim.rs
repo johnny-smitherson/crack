@@ -1,7 +1,9 @@
 use avian3d::prelude::{
-    CoefficientCombine, Collider, CollisionLayers, LinearVelocity, Restitution, RigidBody,
+    CoefficientCombine, Collider, CollisionEventsEnabled, CollisionLayers, LinearVelocity,
+    MassPropertiesBundle, Restitution, RigidBody,
 };
 use bevy::prelude::*;
+use demo_resolution_selector_web_bevy::plugins::cars_driving::car_info::get_car_asset;
 use demo_resolution_selector_web_bevy::plugins::cars_driving::driving_plugin::GamePhysicsLayer;
 use demo_resolution_selector_web_bevy::plugins::cars_driving::driving_plugin::{
     CarDriveState, CarWheelsContactData, SimState,
@@ -18,6 +20,9 @@ use demo_resolution_selector_web_bevy::{
     },
     ui_egui::UiState,
 };
+
+const CAR_SIZE: Vec3 = Vec3::new(1.8, 1.0, 3.04);
+const CAR_MASS: f32 = 1200.0;
 
 #[derive(Resource)]
 struct SimLogTimer {
@@ -48,7 +53,10 @@ fn main() {
         .add_plugins(GameStatesPlugin)
         .add_plugins(CarsAndDrivingPlugin)
         .add_plugins(SetupDebugScenePlugin)
-        .add_systems(Startup, spawn_bumpy_heightmap)
+        .add_systems(
+            Startup,
+            (spawn_bumpy_heightmap, spawn_physics_cubes, spawn_random_cars),
+        )
         .add_systems(
             Update,
             (update_sim_control, log_car_state, set_car_initial_speed),
@@ -269,3 +277,81 @@ fn log_car_state(
         }
     }
 }
+
+/// Scatter non-drivable prop cars over the demo area and along the sim path.
+fn spawn_random_cars(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let volume = CAR_SIZE.x * CAR_SIZE.y * CAR_SIZE.z;
+    let density = CAR_MASS / volume;
+
+    // Spawn prop cars near origin and directly on the car_sim path (~x: 200, z: 195)
+    let positions = [
+        Vec3::new(0.0, 3.0, 0.0),
+        Vec3::new(10.0, 3.0, -10.0),
+        Vec3::new(-10.0, 3.0, 10.0),
+        Vec3::new(205.0, 3.0, 200.0), // On sim trajectory!
+        Vec3::new(185.0, 3.0, 175.0), // On sim trajectory!
+    ];
+
+    for (i, pos) in positions.iter().enumerate() {
+        let rot = Quat::from_rotation_y((i as f32) * 1.2);
+        let car_asset = get_car_asset(get_random_car_type(), &asset_server);
+
+        commands.spawn((
+            Name::new(format!("PropCar_{}", i)),
+            Car {
+                _car_type: "prop".to_string(),
+            },
+            Transform::from_translation(*pos).with_rotation(rot),
+            RigidBody::Dynamic,
+            Collider::cuboid(CAR_SIZE.x, CAR_SIZE.y, CAR_SIZE.z),
+            MassPropertiesBundle::from_shape(
+                &Cuboid::new(CAR_SIZE.x, CAR_SIZE.y, CAR_SIZE.z),
+                density,
+            ),
+            bevy::world_serialization::WorldAssetRoot(car_asset),
+            CollisionLayers::new(
+                [GamePhysicsLayer::Car],
+                [GamePhysicsLayer::Map, GamePhysicsLayer::Car],
+            ),
+            CollisionEventsEnabled,
+            Visibility::default(),
+            InheritedVisibility::default(),
+        ));
+    }
+}
+
+/// Dynamic cubes along the sim path to collide with.
+fn spawn_physics_cubes(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let mesh = meshes.add(Cuboid::new(1.5, 1.5, 1.5));
+    let material = materials.add(Color::srgb_u8(124, 144, 255));
+
+    let positions = [
+        Vec3::new(0.0, 4.0, 5.0),
+        Vec3::new(-5.0, 4.0, 0.0),
+        Vec3::new(212.0, 4.0, 208.0), // On sim trajectory!
+        Vec3::new(195.0, 4.0, 188.0), // On sim trajectory!
+    ];
+
+    for (i, pos) in positions.iter().enumerate() {
+        commands.spawn((
+            Name::new(format!("PhysicsCube_{}", i)),
+            Mesh3d(mesh.clone()),
+            MeshMaterial3d(material.clone()),
+            Transform::from_translation(*pos),
+            RigidBody::Dynamic,
+            Collider::cuboid(1.5, 1.5, 1.5),
+            CollisionLayers::new(
+                GamePhysicsLayer::Car,
+                [GamePhysicsLayer::Map, GamePhysicsLayer::Car],
+            ),
+            CollisionEventsEnabled,
+        ));
+    }
+}
+
+
+
