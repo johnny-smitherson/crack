@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v8.9.1 on 2026-07-07T14:44:30.775Z.
+The following code signatures were extracted by SigMap v8.9.1 on 2026-07-07T15:27:12.031Z.
 <!-- sigmap: version=8.9.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -23,30 +23,17 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## crack_demo
 
+### crack_demo/demo_resolution_selector_web_bevy/src/bin/pedestrian_v2.rs
+```
+impl ViewerAnimSelection
+```
+
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/map_plugin/mod.rs
 ```
 pub struct MapPlugin
 pub struct MapTree
 pub struct MapLODState
 impl MapPlugin
-```
-
-### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrian_ai/mod.rs
-```
-pub struct PedestrianDied
-pub struct AiPedestrian
-pub struct AiPerception
-pub struct AiCombatTimers
-pub struct AiSteer
-pub struct AiModel
-pub struct AiAnim
-pub struct AiThink
-pub struct PedestrianAiPlugin
-pub enum AiState
-impl AiThink
-impl PedestrianAiPlugin
-pub fn tick_ai_think(time: Res<Time>, mut q: Query<&mut AiThink>)
-pub fn prune_enemies_on_death(mut deaths: MessageReader<PedestrianDied>, mut q_enemies: Query<&mut Enemies>,)
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/pedestrian_ai/movement_ai.rs
@@ -187,7 +174,9 @@ pub struct PedestrianGltf
 pub struct NeedAlignment
 pub struct ModelController
 pub struct PedestrianSpawnCounter
-pub fn spawn_pedestrian_observer(trigger: On<SpawnPedestrianEvent>, mut commands: Commands, asset_server: Res<AssetServer>, mut counter: ResMut<PedestrianSpawnCounter>,)
+pub struct PendingPedestrianGlbFetch
+pub fn spawn_pedestrian_observer(trigger: On<SpawnPedestrianEvent>, mut commands: Commands, client: Option<Res<crate::plugins::crack_plugin::CrackClient>>,)
+pub fn poll_pedestrian_glb_fetches(mut commands: Commands, mut q_fetches: Query<(Entity, &mut PendingPedestrianGlbFetch)
 pub fn link_pedestrian_model(mut commands: Commands, mut controlled: Option< ResMut<crate::plugins::pedestrians::pedestrian_controller_plugin::ControlledCharacter>, >, q_models: Query<(Entity, &ModelController)
 pub fn init_pedestrians_system(mut commands: Commands, query: Query<(Entity, &NeedAlignment, &Children)
 ```
@@ -258,7 +247,7 @@ pub fn pick_continuation(graph: &TrafficRoadGraph, node: IVec2, from_seg: usize,
 ```
 pub fn get_ground_y(pos: Vec3, map_tree: Option<&MapTree>, spatial_query: &avian3d::prelude::SpatialQuery,) → f32
 pub fn traffic_network_spawner(time: Res<Time>, mut last_spawn: Local<f32>, config: Res<TrafficConfig>, graph: Res<TrafficRoadGraph>, q_camera: Query<(&Camera, &GlobalTransform)
-pub fn spawn_traffic_car_observer(trigger: On<SpawnTrafficCarEvent>, mut commands: Commands, graph: Res<TrafficRoadGraph>, asset_server: Res<AssetServer>, map_tree: Option<Res<MapTree>>, spatial_query: avian3d::prelude::SpatialQuery, manifest: Option<Res<PedestrianManifest>>,)
+pub fn spawn_traffic_car_observer(trigger: On<SpawnTrafficCarEvent>, mut commands: Commands, graph: Res<TrafficRoadGraph>, asset_server: Res<AssetServer>, map_tree: Option<Res<MapTree>>, spatial_query: avian3d::prelude::SpatialQuery, manifest: Option<Res<PedestrianManifest>>, wheel_assets: Res<WheelAssets>,)
 ```
 
 ### crack_demo/demo_resolution_selector_web_bevy/src/plugins/weapons/weapon_attach.rs
@@ -270,10 +259,12 @@ pub struct WeaponModelState
 pub struct WeaponModel
 pub struct PendingWeaponExtents
 pub struct WeaponExtents
+pub struct PendingWeaponModelFetch
 pub enum WeaponKind
 impl WeaponGripOffset
 pub fn equip_weapon_observer(trigger: On<EquipWeaponEvent>, mut commands: Commands, transforms: Query<&GlobalTransform>,)
-pub fn reconcile_weapon_model(mut commands: Commands, asset_server: Res<AssetServer>, mut characters: Query<(Entity, &EquippedWeapon, Option<&mut WeaponModelState>)
+pub fn reconcile_weapon_model(mut commands: Commands, client: Option<Res<crate::plugins::crack_plugin::CrackClient>>, mut characters: Query<(Entity, &EquippedWeapon, Option<&mut WeaponModelState>)
+pub fn poll_weapon_model_fetches(mut commands: Commands, mut q_fetches: Query<(Entity, &mut PendingWeaponModelFetch)
 pub fn finalize_weapon_extents(mut commands: Commands, pending: Query<(Entity, &Children)
 pub fn update_weapon_transforms(grip: Res<WeaponGripOffset>, camera: Query<&GlobalTransform, With<Camera3d>>, spatial: SpatialQuery, parents: Query<&ChildOf>, global_transforms: Query<&GlobalTransform>, mut weapons: Query<(Entity, &mut Transform, &WeaponKind)
 ```
@@ -293,18 +284,6 @@ pub fn reload_gun_observer(trigger: On<ReloadGunEvent>, mut shooters: Query<(&mu
 pub fn draw_shot_tracers(time: Res<Time>, mut gizmos: Gizmos, mut tracers: ResMut<ShotTracers>)
 pub fn draw_bullet_sparks(time: Res<Time>, mut gizmos: Gizmos, mut sparks: ResMut<BulletSparks>)
 pub fn tick_pending_melee_hits(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &GlobalTransform, &mut PendingMeleeHit)
-```
-
-### crack_demo/demo_resolution_selector_web_bevy/src/ui_egui.rs
-```
-pub struct UiEguiPlugin
-pub struct UiState
-impl UiEguiPlugin
-impl UiState
-impl UiState
-  pub fn with_physics_debug() → Self
-impl UiState
-pub fn web_set_loading_status(_show: bool, _message: &str)
 ```
 
 ### crack_demo/game_logic/Cargo.toml
@@ -378,6 +357,13 @@ pub enum RawFeatureGeometry
 pub enum FeatureGeometry
 ```
 
+### crack_demo/game_logic/src/tile.rs
+```
+pub struct MeshColliderData
+pub struct FetchTileRequest
+pub struct FetchTileResponse
+```
+
 ### crack_demo/game_logic/src/worker/http.rs
 ```
 pub async fn http_get_bytes(url: &str) → anyhow::Result<bytes::Bytes>
@@ -400,6 +386,11 @@ pub async fn run_game_migrations(_: () → anyhow::Result<()>
 ### crack_demo/game_logic/src/worker/osm_impl.rs
 ```
 pub async fn fetch_osm_data(args: FetchArgs) → anyhow::Result<OsmDataResult>
+```
+
+### crack_demo/game_logic/src/worker/tile_impl.rs
+```
+pub async fn fetch_map_tile(req: FetchTileRequest) → anyhow::Result<FetchTileRes...
 ```
 
 ### crack_demo/thread_worker/Cargo.toml

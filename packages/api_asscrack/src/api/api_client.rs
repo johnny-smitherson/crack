@@ -94,7 +94,7 @@ impl ApiClient {
         let start_deserialize = _crack_utils::get_timestamp_now_ms();
         let ret: Result<<T as ApiMethodDecl>::Ret, String> = postcard::from_bytes(&ret)?;
         let elapsed_deserialize = _crack_utils::get_timestamp_now_ms() - start_deserialize;
-        tracing::info!(
+        tracing::debug!(
             "ApiClient: call {} took {} ms, deserialization took {} ms",
             T::fullname(),
             elapsed_call,

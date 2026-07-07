@@ -177,8 +177,8 @@ pub fn start_tile_swap_requests(
         return;
     }
 
-    const PARALLEL_SPLIT_FETCH: i32 = 3;
-    const PARALLEL_MERGE_FETCH: i32 = 3;
+    const PARALLEL_SPLIT_FETCH: i32 = 12;
+    const PARALLEL_MERGE_FETCH: i32 = 8;
     let current_splits = q_split.iter().len() as i32;
     let current_merges = q_merge.iter().len() as i32;
     let current_fetches = q_fetch.iter().len() as i32;

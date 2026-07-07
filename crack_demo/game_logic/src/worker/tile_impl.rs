@@ -1,55 +1,7 @@
 use crate::tile::*;
-use std::collections::HashMap;
+use super::lru::LruCache;
 
-/// LRU cache entry
-#[derive(Clone)]
-struct CachedTile {
-    response: FetchTileResponse,
-    last_access_ms: i64,
-}
-
-struct TileCache {
-    entries: HashMap<String, CachedTile>,
-    max_entries: usize,
-}
-
-impl TileCache {
-    fn new(max_entries: usize) -> Self {
-        Self {
-            entries: HashMap::new(),
-            max_entries,
-        }
-    }
-
-    fn get(&mut self, key: &str) -> Option<FetchTileResponse> {
-        let now = _crack_utils::get_timestamp_now_ms();
-        if let Some(entry) = self.entries.get_mut(key) {
-            entry.last_access_ms = now;
-            Some(entry.response.clone())
-        } else {
-            None
-        }
-    }
-
-    fn insert(&mut self, key: String, response: FetchTileResponse) {
-        let now = _crack_utils::get_timestamp_now_ms();
-        if self.entries.len() >= self.max_entries {
-            // Find the oldest entry to evict
-            let oldest_key = self.entries.iter()
-                .min_by_key(|(_, v)| v.last_access_ms)
-                .map(|(k, _)| k.clone());
-            if let Some(old_key) = oldest_key {
-                self.entries.remove(&old_key);
-            }
-        }
-        self.entries.insert(key, CachedTile {
-            response,
-            last_access_ms: now,
-        });
-    }
-}
-
-static TILE_CACHE: tokio::sync::RwLock<Option<TileCache>> =
+static TILE_CACHE: tokio::sync::RwLock<Option<LruCache<FetchTileResponse>>> =
     tokio::sync::RwLock::const_new(None);
 
 fn extract_collider_data(glb_bytes: &[u8]) -> anyhow::Result<MeshColliderData> {
@@ -107,11 +59,11 @@ pub async fn fetch_map_tile(req: FetchTileRequest) -> anyhow::Result<FetchTileRe
     // Check cache
     {
         let mut guard = TILE_CACHE.write().await;
-        let cache = guard.get_or_insert_with(|| TileCache::new(512));
+        let cache = guard.get_or_insert_with(|| LruCache::new(512));
         if let Some(mut cached) = cache.get(&req.tile_id) {
             cached.from_cache = true;
             let t1 = _crack_utils::get_timestamp_now_ms();
-            tracing::info!("Tile cache HIT: {} (took {} ms)", req.tile_id, t1 - t0);
+            tracing::debug!("Tile cache HIT: {} (took {} ms)", req.tile_id, t1 - t0);
             return Ok(cached);
         }
     }
@@ -146,12 +98,12 @@ pub async fn fetch_map_tile(req: FetchTileRequest) -> anyhow::Result<FetchTileRe
     // Store in cache
     {
         let mut guard = TILE_CACHE.write().await;
-        let cache = guard.get_or_insert_with(|| TileCache::new(512));
+        let cache = guard.get_or_insert_with(|| LruCache::new(512));
         cache.insert(req.tile_id.clone(), response.clone());
     }
 
     let t1 = _crack_utils::get_timestamp_now_ms();
-    tracing::info!(
+    tracing::debug!(
         "Tile fetch completed: {} (fetch: {} ms, parse: {} ms, total: {} ms, bytes: {})",
         req.tile_id,
         t_fetch - t0,

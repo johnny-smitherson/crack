@@ -67,13 +67,13 @@ async fn get_js_worker() -> anyhow::Result<WorkerHandlesJs> {
     tracing::info!("set onmessage.");
 
     let closure = move |message| {
-        tracing::info!("GOT MESSAGE BCK! {message:?}");
+        tracing::debug!("GOT MESSAGE BCK! {message:?}");
     };
     let closure = Closure::new(Box::new(closure) as Box<dyn FnMut(JsValue)>);
     let closure = closure.into_js_value();
 
     js_handles.set_onmessage(closure);
-    tracing::info!("Sending message");
+    tracing::debug!("Sending message");
     // js_handles.send_message(&"penis 2".to_string().into());
 
     Ok(js_handles)
@@ -118,10 +118,10 @@ async fn make_worker() -> anyhow::Result<WorkerPipe> {
                 let _r = one_tx.send(()).await;
                 match _r {
                     Ok(_r) => {
-                        tracing::info!("reply ok.");
+                        tracing::debug!("reply ok.");
                     }
                     Err(e) => {
-                        tracing::info!("error sending pong! err => {e:#?}")
+                        tracing::debug!("error sending pong! err => {e:#?}")
                     }
                 }
             });
@@ -165,7 +165,7 @@ async fn make_worker() -> anyhow::Result<WorkerPipe> {
         js_handles.send_message(&js_ping.into());
 
         // wait for response
-        tracing::info!("waiting for response from worker...");
+        tracing::debug!("waiting for response from worker...");
         let _o = n0_future::time::timeout(std::time::Duration::from_millis(333), one_rx.recv());
         let _o = _o.await;
         let _o_is_ok = _o.ok().flatten().is_some();

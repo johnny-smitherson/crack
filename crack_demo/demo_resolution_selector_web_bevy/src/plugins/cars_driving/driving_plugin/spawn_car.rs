@@ -22,6 +22,20 @@ pub struct SpawnCarRequestEvent {
     pub rotation: Option<Quat>,
 }
 
+#[derive(Resource)]
+pub struct WheelAssets {
+    pub wheels: Vec<Handle<WorldAsset>>,
+}
+
+pub fn preload_wheels(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let wheel_names = ["car-wheel_00003_", "car-wheel_00005_"];
+    let wheels = wheel_names
+        .iter()
+        .map(|name| get_wheel_asset(name, &asset_server))
+        .collect::<Vec<_>>();
+    commands.insert_resource(WheelAssets { wheels });
+}
+
 #[derive(Component)]
 pub struct Car {
     pub _car_type: String,
@@ -44,6 +58,7 @@ pub const CAR_DISABLE_HP: f32 = 100.0;
 pub fn spawn_physics_car(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
+    wheel_assets: &Res<WheelAssets>,
     pos: Vec3,
     car_rot: Quat,
     car_type: &str,
@@ -109,13 +124,13 @@ pub fn spawn_physics_car(
         ))
         .id();
 
-    let wheel_names = ["car-wheel_00003_", "car-wheel_00005_"];
-    let selected_wheel_name = if rand::random::<bool>() {
-        wheel_names[0]
+    let wheel_handle = if rand::random::<bool>() && wheel_assets.wheels.len() > 1 {
+        wheel_assets.wheels[0].clone()
+    } else if !wheel_assets.wheels.is_empty() {
+        wheel_assets.wheels[wheel_assets.wheels.len() - 1].clone()
     } else {
-        wheel_names[1]
+        get_wheel_asset("car-wheel_00003_", asset_server)
     };
-    let wheel_handle = get_wheel_asset(selected_wheel_name, asset_server);
 
     for i in 0..4 {
         commands.spawn((
@@ -142,6 +157,7 @@ pub fn spawn_car_request_event_observer(
     mut next_state: ResMut<NextState<GameControlState>>,
     spatial_query: avian3d::prelude::SpatialQuery,
     asset_server: Res<AssetServer>,
+    wheel_assets: Res<WheelAssets>,
     q_active_cars: Query<Entity, With<ActivePlayerVehicle>>,
 ) {
     if current_state.get() != &GameControlState::MapFreecam {
@@ -173,7 +189,7 @@ pub fn spawn_car_request_event_observer(
     });
 
     let car_type = get_random_car_type();
-    let car_entity = spawn_physics_car(&mut commands, &asset_server, pos, car_rot, car_type);
+    let car_entity = spawn_physics_car(&mut commands, &asset_server, &wheel_assets, pos, car_rot, car_type);
 
     // Remove ActivePlayerVehicle from any existing cars
     for old_car in q_active_cars.iter() {

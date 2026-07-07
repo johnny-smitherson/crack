@@ -1,12 +1,28 @@
 #[cfg(not(target_family = "wasm"))]
+use std::sync::OnceLock;
+
+#[cfg(not(target_family = "wasm"))]
+static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+#[cfg(not(target_family = "wasm"))]
+fn get_client() -> &'static reqwest::Client {
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .pool_max_idle_per_host(64)
+            .build()
+            .unwrap()
+    })
+}
+
+#[cfg(not(target_family = "wasm"))]
 pub async fn http_get_bytes(url: &str) -> anyhow::Result<bytes::Bytes> {
-    let resp = reqwest::get(url).await?.error_for_status()?;
+    let resp = get_client().get(url).send().await?.error_for_status()?;
     Ok(resp.bytes().await?)
 }
 
 #[cfg(not(target_family = "wasm"))]
 pub async fn http_get_text(url: &str) -> anyhow::Result<String> {
-    let resp = reqwest::get(url).await?.error_for_status()?;
+    let resp = get_client().get(url).send().await?.error_for_status()?;
     Ok(resp.text().await?)
 }
 
@@ -41,3 +57,4 @@ pub async fn http_get_text(url: &str) -> anyhow::Result<String> {
     });
     rx.await?
 }
+

@@ -69,7 +69,7 @@ async fn _compute_payload_2(msg: JsValue) -> anyhow::Result<JsValue> {
     if &data.msg_type == "ping" {
         let client_version = data.msg_content;
 
-        tracing::info!("Create message type=pong");
+        tracing::debug!("Create message type=pong");
         let js_response = js_sys::Object::new();
         let _ = js_sys::Reflect::set(&js_response, &"msg_id".into(), &JsValue::from(0));
         let _ = js_sys::Reflect::set(&js_response, &"msg_type".into(), &JsValue::from("pong"));
@@ -80,7 +80,7 @@ async fn _compute_payload_2(msg: JsValue) -> anyhow::Result<JsValue> {
         
         return Ok(js_response.into());
     } else {
-        tracing::info!("Got App Message, type = {}({})", data.msg_type, data.msg_id);
+        tracing::debug!("Got App Message, type = {}({})", data.msg_type, data.msg_id);
         let mapping = mapping.clone();
 
         let t_start_func = _crack_utils::get_timestamp_now_ms();
@@ -97,7 +97,7 @@ async fn _compute_payload_2(msg: JsValue) -> anyhow::Result<JsValue> {
         let _ = js_sys::Reflect::set(&js_response, &"msg_content".into(), &uint8_array);
         let t_serialize = _crack_utils::get_timestamp_now_ms();
 
-        tracing::info!(
+        tracing::debug!(
             "Worker handler loops: extract={} ms, func={} ms, serialize={} ms (size={} bytes)",
             t_extract - t0,
             t_end_func - t_start_func,

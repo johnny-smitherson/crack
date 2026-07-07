@@ -9,6 +9,7 @@ use crate::plugins::pedestrians::manifest::PedestrianUrl;
 use crate::plugins::pedestrians::skeleton::{
     JointData, PedestrianSkeleton, classify_skeleton, traverse_hierarchy_raw,
 };
+use crate::basic_app::MemoryDir;
 
 /// Public spawn request: spawn the pedestrian at `url` at `position`.
 #[derive(Event, Clone)]
@@ -41,51 +42,131 @@ pub struct ModelController(pub Entity);
 #[derive(Resource, Default)]
 pub struct PedestrianSpawnCounter(pub usize);
 
+fn parse_url_to_rpc_args(url: &str) -> (String, String) {
+    let base_url = crate::config::DATA_BASE_URL.trim_end_matches('/');
+    let glb_path = if url.starts_with(base_url) {
+        url[base_url.len()..].trim_start_matches('/').to_string()
+    } else {
+        if let Some(pos) = url.find("/3d_data/") {
+            url[pos..].trim_start_matches('/').to_string()
+        } else {
+            url.to_string()
+        }
+    };
+    let asset_id = url.split('/').last().unwrap_or(url).to_string();
+    (glb_path, asset_id)
+}
+
+#[derive(Component)]
+pub struct PendingPedestrianGlbFetch {
+    pub task: bevy::tasks::Task<anyhow::Result<game_logic::glb::FetchGlbResponse>>,
+    pub controller: Entity,
+    pub model_name: String,
+}
+
 pub fn spawn_pedestrian_observer(
     trigger: On<SpawnPedestrianEvent>,
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut counter: ResMut<PedestrianSpawnCounter>,
+    client: Option<Res<crate::plugins::crack_plugin::CrackClient>>,
 ) {
     let req = trigger.event();
     let url = &req.url.0;
 
-    let scene_url = GltfAssetLabel::Scene(0).from_asset(url.clone());
-    let handle = asset_server.load::<WorldAsset>(scene_url);
-    let gltf_handle = asset_server.load::<bevy::gltf::Gltf>(url.clone());
+    let Some(client) = client else {
+        tracing::error!("Cannot spawn pedestrian: CrackClient not available");
+        return;
+    };
 
-    let index = counter.0;
-    counter.0 += 1;
+    let (glb_path, asset_id) = parse_url_to_rpc_args(url);
+    let api_client = client.0.clone();
+    let base_url = crate::config::DATA_BASE_URL.to_string();
+
+    let task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
+        api_client
+            .call::<game_logic::api::FetchPedestrianModel>(game_logic::glb::FetchGlbRequest {
+                base_url,
+                glb_path,
+                asset_id,
+            })
+            .await
+    });
 
     let model_name = url.split('/').last().unwrap_or(url).replace(".glb", "");
 
-    commands
-        .spawn((
-            ChildOf(req.parent),
-            Transform::IDENTITY,
-            Visibility::default(),
-            InheritedVisibility::default(),
-            ModelRoot {
-                index,
-                name: model_name,
-                size: Vec3::ZERO,
-            },
-            PedestrianGltf {
-                handle: gltf_handle,
-            },
-            NeedAlignment,
-            ModelController(req.controller),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                WorldAssetRoot(handle),
-                // Do not enable physics on mesh - it would need to be reinterpolated!
-                //  ColliderConstructorHierarchy::new(ColliderConstructor::TrimeshFromMesh),
-                Transform::IDENTITY,
-                Visibility::default(),
-                InheritedVisibility::default(),
-            ));
-        });
+    commands.spawn((
+        ChildOf(req.parent),
+        Transform::IDENTITY,
+        Visibility::default(),
+        InheritedVisibility::default(),
+        PendingPedestrianGlbFetch {
+            task,
+            controller: req.controller,
+            model_name,
+        },
+    ));
+}
+
+pub fn poll_pedestrian_glb_fetches(
+    mut commands: Commands,
+    mut q_fetches: Query<(Entity, &mut PendingPedestrianGlbFetch)>,
+    memory_dir: ResMut<MemoryDir>,
+    asset_server: Res<AssetServer>,
+    mut counter: ResMut<PedestrianSpawnCounter>,
+) {
+    for (entity, mut fetch) in q_fetches.iter_mut() {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut fetch.task)) {
+            match res {
+                Ok(response) => {
+                    let sanitized_id = response.asset_id.replace('/', "_").replace('\\', "_").replace('.', "_");
+                    let memory_path = format!("ped_{}.glb", sanitized_id);
+
+                    // Insert bytes into MemoryDir
+                    memory_dir.dir.insert_asset(std::path::Path::new(&memory_path), response.glb_bytes.clone());
+
+                    // Build memory URLs
+                    let scene_url = GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", memory_path));
+                    let gltf_url = format!("memory://{}", memory_path);
+
+                    let handle = asset_server.load::<WorldAsset>(scene_url);
+                    let gltf_handle = asset_server.load::<bevy::gltf::Gltf>(gltf_url);
+
+                    let index = counter.0;
+                    counter.0 += 1;
+
+                    // Add the components to the existing parent entity
+                    commands.entity(entity)
+                        .insert((
+                            ModelRoot {
+                                index,
+                                name: fetch.model_name.clone(),
+                                size: Vec3::ZERO,
+                            },
+                            PedestrianGltf {
+                                handle: gltf_handle,
+                            },
+                            NeedAlignment,
+                            ModelController(fetch.controller),
+                        ))
+                        .with_children(|parent| {
+                            parent.spawn((
+                                WorldAssetRoot(handle),
+                                Transform::IDENTITY,
+                                Visibility::default(),
+                                InheritedVisibility::default(),
+                            ));
+                        });
+                    
+                    // Remove the fetch component
+                    commands.entity(entity).remove::<PendingPedestrianGlbFetch>();
+                }
+                Err(e) => {
+                    tracing::error!("Pedestrian model fetch RPC error: {e:?}");
+                    // Despawn parent entity if fetch failed
+                    commands.entity(entity).despawn();
+                }
+            }
+        }
+    }
 }
 
 pub fn link_pedestrian_model(

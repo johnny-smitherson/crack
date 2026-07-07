@@ -12,4 +12,8 @@ declare_api_group2! { GameLogicApiGroup, [
     (ComputeLodChanges, crate::lod::LodComputeRequest, crate::lod::LodComputeResponse),
     (RunGameMigrations, (), ()),
     (FetchMapTile, crate::tile::FetchTileRequest, crate::tile::FetchTileResponse),
+    (FetchPedestrianManifest, FetchArgs, crate::pedestrian::PedestrianManifestResult),
+    (FetchPedestrianModel, crate::glb::FetchGlbRequest, crate::glb::FetchGlbResponse),
+    (FetchWeaponManifest, FetchArgs, crate::weapon::WeaponManifestResult),
+    (FetchWeaponModel, crate::glb::FetchGlbRequest, crate::glb::FetchGlbResponse),
 ] }

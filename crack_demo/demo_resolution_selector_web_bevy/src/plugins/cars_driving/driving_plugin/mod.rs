@@ -48,7 +48,7 @@ pub struct DrivingPlugin<S: States> {
 impl<S: States> Plugin for DrivingPlugin<S> {
     fn build(&self, app: &mut App) {
         app.init_resource::<collision_sparks::SparkRateLimiter>();
-        app.add_systems(Startup, configure_gizmo_depth);
+        app.add_systems(Startup, (configure_gizmo_depth, spawn_car::preload_wheels));
         // World-wide car physics & visuals run in all states so cars stay grounded and gizmos show
         app.add_systems(
             Update,

@@ -74,7 +74,7 @@ pub trait ApiMethodDecl {
                 }
             };
             let elapsed_serialize = _crack_utils::get_timestamp_now_ms() - start_serialize;
-            tracing::info!(
+            tracing::debug!(
                 "Worker: API call {} took run={} ms, serialize={} ms (size={} bytes)",
                 Self::fullname(),
                 elapsed_func,

@@ -20,9 +20,9 @@ pub use weapon_shooting::{
 
 use weapon_attach::{
     equip_weapon_observer, finalize_weapon_extents, reconcile_weapon_model,
-    update_weapon_transforms,
+    update_weapon_transforms, poll_weapon_model_fetches,
 };
-use weapon_manifest::{load_weapon_manifest_system, start_weapon_manifest_load};
+use weapon_manifest::{spawn_weapon_manifest_task, poll_weapon_manifest_task, start_weapon_manifest_load};
 use weapon_shooting::{
     draw_bullet_sparks, draw_shot_tracers, fire_gun_observer, reload_gun_observer,
     tick_pending_melee_hits,
@@ -45,8 +45,10 @@ impl Plugin for WeaponsPlugin {
             .add_systems(
                 Update,
                 (
-                    load_weapon_manifest_system,
+                    spawn_weapon_manifest_task,
+                    poll_weapon_manifest_task,
                     reconcile_weapon_model,
+                    poll_weapon_model_fetches,
                     finalize_weapon_extents,
                     update_weapon_transforms,
                     tick_pending_melee_hits,

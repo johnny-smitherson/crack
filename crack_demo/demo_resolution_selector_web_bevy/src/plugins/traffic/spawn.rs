@@ -3,7 +3,7 @@ use rand::seq::IndexedRandom;
 
 use crate::plugins::{
     cars_driving::car_info::get_random_car_type,
-    cars_driving::driving_plugin::spawn_car::{Car, spawn_physics_car},
+    cars_driving::driving_plugin::spawn_car::{Car, spawn_physics_car, WheelAssets},
     geojson::query_point_ground_y,
     map_plugin::MapTree,
     pedestrian_ai::faction::{DEFAULT_HP, Faction, Health},
@@ -103,6 +103,7 @@ pub fn spawn_traffic_car_observer(
     map_tree: Option<Res<MapTree>>,
     spatial_query: avian3d::prelude::SpatialQuery,
     manifest: Option<Res<PedestrianManifest>>,
+    wheel_assets: Res<WheelAssets>,
 ) {
     if !graph.built || graph.segments.is_empty() {
         warn!("SpawnTrafficCarEvent: road graph is not built or empty.");
@@ -134,6 +135,7 @@ pub fn spawn_traffic_car_observer(
     let car_entity = spawn_physics_car(
         &mut commands,
         &asset_server,
+        &wheel_assets,
         car_spawn_pos,
         car_rot,
         car_type,

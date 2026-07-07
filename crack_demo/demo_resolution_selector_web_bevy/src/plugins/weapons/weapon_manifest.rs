@@ -1,23 +1,11 @@
-//! Weapon manifest parsing.
-//!
-//! The manifest at `{DATA_BASE_URL}/3d_data/3d_weapons/out2/manifest.txt` is a CSV with a header
-//! line and columns `path,is_gun,clip_size,bullet_type,damage,range`, e.g.
-//! `gun/ak47.glb,1,30,7.62x39,42,150`. Melee rows have `0` in every column after the path.
-//! The path's first segment is the class folder (`gun` or `melee`).
-//!
-//! # Weapon-local coordinate conventions
-//! Every weapon has its **grip point at the origin `(0,0,0)`**.
-//! - Guns are **aimed toward +X** (barrel along +X), so `max(x)` of a gun ≈ its length.
-//! - Swords / melee weapons have their **blade pointing straight up (+Y)**, so `max(y)` ≈ length.
+//! Weapon manifest parsing via RPC.
 
 use bevy::prelude::*;
 
-use crate::plugins::pedestrians::manifest::TextAsset;
-
-/// Gun stats parsed from the manifest CSV.
+/// Gun stats parsed from the manifest.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GunInfo {
-    /// Full loadable URL of the model.
+    /// Full loadable URL/Path of the model.
     pub path: String,
     pub clip_size: u32,
     pub bullet_type: String,
@@ -25,7 +13,7 @@ pub struct GunInfo {
     pub range: f32,
 }
 
-/// A selectable weapon. The `String`/`GunInfo.path` is the full loadable URL.
+/// A selectable weapon.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WeaponId {
     Unarmed,
@@ -77,81 +65,79 @@ pub struct WeaponManifest {
     pub loaded: bool,
 }
 
-/// Internal bootstrap state for loading the weapon manifest text.
-#[derive(Resource)]
-pub struct WeaponManifestBootstrap {
-    folder: String,
-    handle: Handle<TextAsset>,
+#[derive(Resource, Default)]
+pub struct WeaponManifestTasks {
+    pub manifest_task: Option<bevy::tasks::Task<anyhow::Result<game_logic::weapon::WeaponManifestResult>>>,
 }
 
-pub fn start_weapon_manifest_load(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let base_url = crate::config::DATA_BASE_URL.trim_end_matches('/');
-    let folder = format!("{}/3d_data/3d_weapons/out2/", base_url);
-    let manifest_url = format!("{}manifest.txt", folder);
-    let handle = asset_server.load::<TextAsset>(manifest_url);
-    commands.insert_resource(WeaponManifestBootstrap { folder, handle });
+pub fn start_weapon_manifest_load(mut commands: Commands) {
+    commands.init_resource::<WeaponManifestTasks>();
 }
 
-pub fn load_weapon_manifest_system(
-    bootstrap: Option<Res<WeaponManifestBootstrap>>,
-    text_assets: Res<Assets<TextAsset>>,
+pub fn spawn_weapon_manifest_task(
+    mut tasks: ResMut<WeaponManifestTasks>,
+    manifest: Res<WeaponManifest>,
+    client: Option<Res<crate::plugins::crack_plugin::CrackClient>>,
+) {
+    let Some(client) = client else {
+        return;
+    };
+    if !manifest.loaded && tasks.manifest_task.is_none() {
+        let api_client = client.0.clone();
+        let base_url = crate::config::DATA_BASE_URL.to_string();
+        let task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
+            api_client
+                .call::<game_logic::api::FetchWeaponManifest>(game_logic::api::FetchArgs { base_url })
+                .await
+        });
+        tasks.manifest_task = Some(task);
+    }
+}
+
+pub fn poll_weapon_manifest_task(
+    mut tasks: ResMut<WeaponManifestTasks>,
     mut manifest: ResMut<WeaponManifest>,
 ) {
-    if manifest.loaded {
-        return;
-    }
-    let Some(bootstrap) = bootstrap else {
-        return;
-    };
-    let Some(text) = text_assets.get(&bootstrap.handle) else {
-        return;
-    };
+    if let Some(mut task) = tasks.manifest_task.take() {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut task)) {
+            match res {
+                Ok(result) => {
+                    let mut guns = Vec::new();
+                    let mut melee = Vec::new();
+                    for entry in result.weapons {
+                        if entry.is_gun {
+                            guns.push(WeaponId::Gun(GunInfo {
+                                path: entry.path,
+                                clip_size: entry.clip_size,
+                                bullet_type: entry.bullet_type,
+                                damage: entry.damage,
+                                range: entry.range,
+                            }));
+                        } else {
+                            melee.push(WeaponId::Melee(entry.path));
+                        }
+                    }
 
-    let mut guns = Vec::new();
-    let mut melee = Vec::new();
-    for line in text.text.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        // CSV columns: path,is_gun,clip_size,bullet_type,damage,range (header line skipped).
-        let cols: Vec<&str> = line.split(',').map(str::trim).collect();
-        let rel_path = cols[0];
-        if rel_path == "path" {
-            continue; // header
-        }
-        // Full loadable path, prefixed with the manifest folder.
-        let full = format!("{}{}", bootstrap.folder, rel_path);
-        let is_gun = cols
-            .get(1)
-            .and_then(|c| c.parse::<u32>().ok())
-            .map(|v| v == 1)
-            // Fallback for malformed rows: classify by folder.
-            .unwrap_or_else(|| rel_path.starts_with("gun/"));
-        if is_gun {
-            guns.push(WeaponId::Gun(GunInfo {
-                path: full,
-                clip_size: cols.get(2).and_then(|c| c.parse().ok()).unwrap_or(10),
-                bullet_type: cols.get(3).unwrap_or(&"9mm").to_string(),
-                damage: cols.get(4).and_then(|c| c.parse().ok()).unwrap_or(20.0),
-                range: cols.get(5).and_then(|c| c.parse().ok()).unwrap_or(50.0),
-            }));
+                    let mut all = vec![WeaponId::Unarmed];
+                    all.extend(guns.iter().cloned());
+                    all.extend(melee.iter().cloned());
+                    manifest.guns = guns;
+                    manifest.melee = melee;
+                    manifest.all = all;
+                    manifest.loaded = true;
+
+                    info!(
+                        "Weapon manifest loaded: {} guns, {} melee.",
+                        manifest.guns.len(),
+                        manifest.melee.len()
+                    );
+                }
+                Err(e) => {
+                    tracing::error!("Weapon manifest RPC error: {e:?}");
+                }
+            }
         } else {
-            melee.push(WeaponId::Melee(full));
+            tasks.manifest_task = Some(task);
         }
     }
-
-    let mut all = vec![WeaponId::Unarmed];
-    all.extend(guns.iter().cloned());
-    all.extend(melee.iter().cloned());
-    manifest.guns = guns;
-    manifest.melee = melee;
-    manifest.all = all;
-    manifest.loaded = true;
-
-    info!(
-        "Weapon manifest loaded: {} guns, {} melee.",
-        manifest.guns.len(),
-        manifest.melee.len()
-    );
 }

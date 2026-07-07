@@ -6,6 +6,9 @@ pub mod manifest_impl;
 pub mod models;
 pub mod osm_impl;
 pub mod tile_impl;
+pub mod lru;
+pub mod pedestrian_impl;
+pub mod weapon_impl;
 
 implement_api_group2! { GameLogicApiGroup, [
     (FetchMapManifest, manifest_impl::fetch_map_manifest),
@@ -13,6 +16,10 @@ implement_api_group2! { GameLogicApiGroup, [
     (ComputeLodChanges, compute_lod_changes_api),
     (RunGameMigrations, models::run_game_migrations),
     (FetchMapTile, tile_impl::fetch_map_tile),
+    (FetchPedestrianManifest, pedestrian_impl::fetch_pedestrian_manifest),
+    (FetchPedestrianModel, pedestrian_impl::fetch_pedestrian_model),
+    (FetchWeaponManifest, weapon_impl::fetch_weapon_manifest),
+    (FetchWeaponModel, weapon_impl::fetch_weapon_model),
 ] }
 
 

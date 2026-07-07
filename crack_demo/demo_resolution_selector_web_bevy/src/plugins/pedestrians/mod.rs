@@ -31,19 +31,20 @@ use animation::{
     pedestrian_animation_control_observer, play_animations_system, setup_animation_players_system,
 };
 use draw_skel_debug::draw_skeletons_system;
-use manifest::{TextAsset, TextAssetLoader, load_pedestrian_manifest_system, start_manifest_load};
+use manifest::{
+    start_manifest_load, spawn_pedestrian_manifest_task, poll_pedestrian_manifest_task,
+    poll_pedestrian_first_glb_task, load_pedestrian_manifest_system,
+};
 use spawn_pedestrian::{
     PedestrianSpawnCounter, init_pedestrians_system, link_pedestrian_model,
-    spawn_pedestrian_observer,
+    spawn_pedestrian_observer, poll_pedestrian_glb_fetches,
 };
 
 pub struct PedestriansPlugin;
 
 impl Plugin for PedestriansPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<TextAsset>()
-            .init_asset_loader::<TextAssetLoader>()
-            .init_resource::<PedestrianManifest>()
+        app.init_resource::<PedestrianManifest>()
             .init_resource::<PedestrianAnimations>()
             .init_resource::<PedestrianSpawnCounter>()
             .init_resource::<SkeletonDebug>()
@@ -53,7 +54,11 @@ impl Plugin for PedestriansPlugin {
             .add_systems(
                 Update,
                 (
+                    spawn_pedestrian_manifest_task,
+                    poll_pedestrian_manifest_task,
+                    poll_pedestrian_first_glb_task,
                     load_pedestrian_manifest_system,
+                    poll_pedestrian_glb_fetches,
                     init_pedestrians_system,
                     link_pedestrian_model,
                     setup_animation_players_system,

@@ -1,18 +1,8 @@
-//! Manifest loading + animation-catalog bootstrap.
-//!
-//! On startup the plugin loads a `.txt` manifest listing pedestrian GLB filenames, recombines
-//! each with the manifest folder into a [`PedestrianUrl`], and populates [`PedestrianManifest`].
-//! It then loads only the *first* asset to extract the animation catalog (see
-//! [`crate::plugins::pedestrians::animation::PedestrianAnimations`]) and drops it — the animation
-//! clips stay alive via the shared [`AnimationGraph`]'s strong handles.
+//! Manifest loading + animation-catalog bootstrap via RPC.
 
-use bevy::{
-    asset::{Asset, AssetLoader, LoadContext, io::Reader},
-    prelude::*,
-    reflect::TypePath,
-};
-
+use bevy::prelude::*;
 use crate::plugins::pedestrians::animation::{AnimationInfo, PedestrianAnimations};
+use crate::basic_app::MemoryDir;
 
 /// A fully-recombined pedestrian asset URL (manifest folder + inner manifest line).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -25,103 +15,133 @@ pub struct PedestrianManifest {
     pub loaded: bool,
 }
 
-/// Internal bootstrap state driving the manifest -> first-asset -> catalog pipeline.
-#[derive(Resource)]
-pub struct ManifestBootstrap {
-    /// Folder prefix used to recombine manifest lines into full URLs.
-    folder: String,
-    /// Handle to the manifest text asset.
-    manifest_handle: Handle<TextAsset>,
-    /// True once the manifest text was parsed into `PedestrianManifest.urls`.
-    urls_parsed: bool,
-    /// Handle to the first pedestrian GLB, loaded only to extract the animation catalog.
-    first_gltf: Option<Handle<bevy::gltf::Gltf>>,
+#[derive(Resource, Default)]
+pub struct PedestrianManifestTasks {
+    pub manifest_task: Option<bevy::tasks::Task<anyhow::Result<game_logic::pedestrian::PedestrianManifestResult>>>,
+    pub first_glb_task: Option<bevy::tasks::Task<anyhow::Result<game_logic::glb::FetchGlbResponse>>>,
+    pub first_gltf: Option<Handle<bevy::gltf::Gltf>>,
 }
 
-#[derive(Asset, TypePath, Debug, Clone)]
-pub struct TextAsset {
-    pub text: String,
-}
-
-#[derive(Default, TypePath)]
-pub struct TextAssetLoader;
-
-impl AssetLoader for TextAssetLoader {
-    type Asset = TextAsset;
-    type Settings = ();
-    type Error = std::io::Error;
-
-    async fn load(
-        &self,
-        reader: &mut dyn Reader,
-        _settings: &Self::Settings,
-        _load_context: &mut LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-        let text = String::from_utf8(bytes)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        Ok(TextAsset { text })
-    }
-
-    fn extensions(&self) -> &[&str] {
-        &["txt"]
-    }
-}
-
-pub fn start_manifest_load(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn parse_url_to_rpc_args(url: &str) -> (String, String) {
     let base_url = crate::config::DATA_BASE_URL.trim_end_matches('/');
-    let folder = format!("{}/3d_data/pedestrian_3d_gen/", base_url);
-    let manifest_url = format!("{}manifest.txt", folder);
-    let manifest_handle = asset_server.load::<TextAsset>(manifest_url);
+    let glb_path = if url.starts_with(base_url) {
+        url[base_url.len()..].trim_start_matches('/').to_string()
+    } else {
+        if let Some(pos) = url.find("/3d_data/") {
+            url[pos..].trim_start_matches('/').to_string()
+        } else {
+            url.to_string()
+        }
+    };
+    let asset_id = url.split('/').last().unwrap_or(url).to_string();
+    (glb_path, asset_id)
+}
 
-    commands.insert_resource(ManifestBootstrap {
-        folder,
-        manifest_handle,
-        urls_parsed: false,
-        first_gltf: None,
-    });
+pub fn start_manifest_load(mut commands: Commands) {
+    commands.init_resource::<PedestrianManifestTasks>();
+}
+
+pub fn spawn_pedestrian_manifest_task(
+    mut tasks: ResMut<PedestrianManifestTasks>,
+    manifest: Res<PedestrianManifest>,
+    client: Option<Res<crate::plugins::crack_plugin::CrackClient>>,
+) {
+    let Some(client) = client else {
+        return;
+    };
+    if !manifest.loaded && tasks.manifest_task.is_none() && tasks.first_glb_task.is_none() && tasks.first_gltf.is_none() {
+        let api_client = client.0.clone();
+        let base_url = crate::config::DATA_BASE_URL.to_string();
+        let task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
+            api_client
+                .call::<game_logic::api::FetchPedestrianManifest>(game_logic::api::FetchArgs { base_url })
+                .await
+        });
+        tasks.manifest_task = Some(task);
+    }
+}
+
+pub fn poll_pedestrian_manifest_task(
+    mut tasks: ResMut<PedestrianManifestTasks>,
+    mut manifest: ResMut<PedestrianManifest>,
+    client: Option<Res<crate::plugins::crack_plugin::CrackClient>>,
+) {
+    let Some(client) = client else {
+        return;
+    };
+    if let Some(mut task) = tasks.manifest_task.take() {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut task)) {
+            match res {
+                Ok(result) => {
+                    info!("Parsed pedestrian manifest: {} entries.", result.urls.len());
+                    manifest.urls = result.urls.iter().map(|u| PedestrianUrl(u.clone())).collect();
+
+                    if let Some(first_url) = result.urls.first() {
+                        let (glb_path, asset_id) = parse_url_to_rpc_args(first_url);
+                        let api_client = client.0.clone();
+                        let base_url = crate::config::DATA_BASE_URL.to_string();
+                        let glb_task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
+                            api_client
+                                .call::<game_logic::api::FetchPedestrianModel>(game_logic::glb::FetchGlbRequest {
+                                    base_url,
+                                    glb_path,
+                                    asset_id,
+                                })
+                                .await
+                        });
+                        tasks.first_glb_task = Some(glb_task);
+                    } else {
+                        manifest.loaded = true;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Pedestrian manifest RPC error: {e:?}");
+                }
+            }
+        } else {
+            tasks.manifest_task = Some(task);
+        }
+    }
+}
+
+pub fn poll_pedestrian_first_glb_task(
+    mut tasks: ResMut<PedestrianManifestTasks>,
+    memory_dir: ResMut<MemoryDir>,
+    asset_server: Res<AssetServer>,
+) {
+    if let Some(mut task) = tasks.first_glb_task.take() {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut task)) {
+            match res {
+                Ok(response) => {
+                    let memory_path = "first_pedestrian.glb";
+                    memory_dir.dir.insert_asset(std::path::Path::new(memory_path), response.glb_bytes.clone());
+
+                    let gltf_url = format!("memory://{}", memory_path);
+                    let gltf_handle = asset_server.load::<bevy::gltf::Gltf>(gltf_url);
+                    tasks.first_gltf = Some(gltf_handle);
+                }
+                Err(e) => {
+                    tracing::error!("First pedestrian GLB fetch RPC error: {e:?}");
+                }
+            }
+        } else {
+            tasks.first_glb_task = Some(task);
+        }
+    }
 }
 
 pub fn load_pedestrian_manifest_system(
-    asset_server: Res<AssetServer>,
-    mut bootstrap: ResMut<ManifestBootstrap>,
+    mut bootstrap: ResMut<PedestrianManifestTasks>,
     mut manifest: ResMut<PedestrianManifest>,
     mut anims: ResMut<PedestrianAnimations>,
-    text_assets: Res<Assets<TextAsset>>,
     gltf_assets: Res<Assets<bevy::gltf::Gltf>>,
     clip_assets: Res<Assets<AnimationClip>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
-    // Stage 1: parse the manifest text into recombined URLs, kick off the first asset load.
-    if !bootstrap.urls_parsed {
-        if let Some(text_asset) = text_assets.get(&bootstrap.manifest_handle) {
-            let mut urls = Vec::new();
-            for line in text_asset.text.lines() {
-                let line = line.trim();
-                if line.is_empty() {
-                    continue;
-                }
-                urls.push(PedestrianUrl(format!("{}{}", bootstrap.folder, line)));
-            }
-            info!("Parsed pedestrian manifest: {} entries.", urls.len());
-
-            if let Some(first) = urls.first() {
-                bootstrap.first_gltf = Some(asset_server.load::<bevy::gltf::Gltf>(first.0.clone()));
-            }
-            manifest.urls = urls;
-            bootstrap.urls_parsed = true;
-        }
-        return;
-    }
-
-    // Stage 2: once the first asset is loaded, build the shared animation graph + catalog.
     if manifest.loaded {
         return;
     }
     let Some(first_gltf) = bootstrap.first_gltf.clone() else {
-        // No assets in the manifest; mark loaded to unblock consumers.
-        manifest.loaded = true;
         return;
     };
     let Some(gltf) = gltf_assets.get(&first_gltf) else {
@@ -155,7 +175,6 @@ pub fn load_pedestrian_manifest_system(
             .get(clip_handle)
             .map(|c| c.duration())
             .unwrap_or(0.0);
-        // Frame count is not stored on the clip; approximate at 30 fps for display purposes.
         let frames = (duration * 30.0).round() as u32;
         catalog.insert(
             name.clone(),
@@ -178,7 +197,37 @@ pub fn load_pedestrian_manifest_system(
     anims.catalog = catalog;
     anims.ready = true;
 
-    // Drop the first-asset handle; the graph keeps the clips alive.
     bootstrap.first_gltf = None;
     manifest.loaded = true;
+}
+
+#[derive(Asset, bevy::reflect::TypePath, Debug, Clone)]
+pub struct TextAsset {
+    pub text: String,
+}
+
+#[derive(Default, bevy::reflect::TypePath)]
+pub struct TextAssetLoader;
+
+impl bevy::asset::AssetLoader for TextAssetLoader {
+    type Asset = TextAsset;
+    type Settings = ();
+    type Error = std::io::Error;
+
+    async fn load(
+        &self,
+        reader: &mut dyn bevy::asset::io::Reader,
+        _settings: &Self::Settings,
+        _load_context: &mut bevy::asset::LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let text = String::from_utf8(bytes)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        Ok(TextAsset { text })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["txt"]
+    }
 }

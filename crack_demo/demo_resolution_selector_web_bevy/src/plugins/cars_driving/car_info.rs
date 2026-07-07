@@ -16,7 +16,6 @@ pub fn get_wheel_asset(wheel_name: &str, asset_server: &AssetServer) -> Handle<W
         "{}/3d_data/3d_slop_models_clean/cars/{}.glb",
         DATA_BASE_URL, wheel_name
     );
-    tracing::info!("loading wheel {}", path);
     asset_server.load(GltfAssetLabel::Scene(0).from_asset(path))
 }
 

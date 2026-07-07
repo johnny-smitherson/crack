@@ -8,6 +8,7 @@ use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 
 use super::weapon_manifest::WeaponId;
 use crate::plugins::pedestrians::skeleton::PedestrianSkeleton;
+use crate::basic_app::MemoryDir;
 
 /// The local axis (in wrist-bone space) along which the grip offset is applied.
 const GRIP_OFFSET_AXIS: Vec3 = Vec3::Y;
@@ -130,14 +131,36 @@ fn find_right_hand(
     None
 }
 
+fn parse_url_to_rpc_args(url: &str) -> (String, String) {
+    let base_url = crate::config::DATA_BASE_URL.trim_end_matches('/');
+    let glb_path = if url.starts_with(base_url) {
+        url[base_url.len()..].trim_start_matches('/').to_string()
+    } else {
+        if let Some(pos) = url.find("/3d_data/") {
+            url[pos..].trim_start_matches('/').to_string()
+        } else {
+            url.to_string()
+        }
+    };
+    let asset_id = url.split('/').last().unwrap_or(url).to_string();
+    (glb_path, asset_id)
+}
+
+#[derive(Component)]
+pub struct PendingWeaponModelFetch {
+    pub task: bevy::tasks::Task<anyhow::Result<game_logic::glb::FetchGlbResponse>>,
+    pub kind: WeaponKind,
+}
+
 /// Spawns/despawns the weapon model to match each character's `EquippedWeapon`.
 pub fn reconcile_weapon_model(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    client: Option<Res<crate::plugins::crack_plugin::CrackClient>>,
     mut characters: Query<(Entity, &EquippedWeapon, Option<&mut WeaponModelState>)>,
     children_query: Query<&Children>,
     skeletons: Query<&PedestrianSkeleton>,
     pending: Query<(), With<PendingWeaponExtents>>,
+    q_fetches_pending: Query<(), With<PendingWeaponModelFetch>>,
 ) {
     for (character, equipped, state) in &mut characters {
         let equipped_id = equipped.0.clone();
@@ -147,11 +170,11 @@ pub fn reconcile_weapon_model(
             if state.spawned_for.as_ref() == Some(&equipped_id) {
                 continue;
             }
-            // The previous switch is still in flight (model loading / extents pending): wait for
+            // The previous switch is still in flight (model loading / extents pending or RPC fetch pending): wait for
             // it to finish before switching again. This prevents despawning an entity that
             // `finalize_weapon_extents` is concurrently working on (fast mouse-wheel panic).
             if let Some(current) = state.entity {
-                if pending.get(current).is_ok() {
+                if pending.get(current).is_ok() || q_fetches_pending.get(current).is_ok() {
                     continue;
                 }
             }
@@ -161,6 +184,10 @@ pub fn reconcile_weapon_model(
         let wrist = if equipped_id.is_unarmed() {
             None
         } else {
+            // For real weapon, we need CrackClient to fetch it!
+            if client.is_none() {
+                continue;
+            }
             match find_right_hand(character, &children_query, &skeletons) {
                 Some(w) => Some(w),
                 None => continue, // skeleton not ready yet — retry next frame
@@ -181,23 +208,36 @@ pub fn reconcile_weapon_model(
         };
 
         // Spawn the new model (Unarmed has none).
-        let new_entity = match (equipped_id.path().map(str::to_string), wrist) {
-            (Some(url), Some(wrist)) => {
-                let handle =
-                    asset_server.load::<WorldAsset>(GltfAssetLabel::Scene(0).from_asset(url));
+        let new_entity = match (equipped_id.path().map(str::to_string), wrist, client.as_ref()) {
+            (Some(url), Some(wrist), Some(client)) => {
                 let entity = commands
                     .spawn((
-                        Name::new("Weapon"),
+                        Name::new("WeaponPlaceholder"),
                         ChildOf(wrist),
-                        WorldAssetRoot(handle),
                         Transform::IDENTITY,
                         Visibility::default(),
                         InheritedVisibility::default(),
-                        WeaponModel,
-                        kind,
-                        PendingWeaponExtents,
                     ))
                     .id();
+
+                let (glb_path, asset_id) = parse_url_to_rpc_args(&url);
+                let api_client = client.0.clone();
+                let base_url = crate::config::DATA_BASE_URL.to_string();
+                let task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
+                    api_client
+                        .call::<game_logic::api::FetchWeaponModel>(game_logic::glb::FetchGlbRequest {
+                            base_url,
+                            glb_path,
+                            asset_id,
+                        })
+                        .await
+                });
+
+                commands.entity(entity).insert(PendingWeaponModelFetch {
+                    task,
+                    kind,
+                });
+
                 Some(entity)
             }
             _ => None,
@@ -211,6 +251,47 @@ pub fn reconcile_weapon_model(
             Some(mut s) => *s = new_state,
             None => {
                 commands.entity(character).insert(new_state);
+            }
+        }
+    }
+}
+
+pub fn poll_weapon_model_fetches(
+    mut commands: Commands,
+    mut q_fetches: Query<(Entity, &mut PendingWeaponModelFetch)>,
+    memory_dir: ResMut<MemoryDir>,
+    asset_server: Res<AssetServer>,
+) {
+    for (entity, mut fetch) in q_fetches.iter_mut() {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut fetch.task)) {
+            match res {
+                Ok(response) => {
+                    let sanitized_id = response.asset_id.replace('/', "_").replace('\\', "_").replace('.', "_");
+                    let memory_path = format!("wpn_{}.glb", sanitized_id);
+
+                    // Insert bytes into MemoryDir
+                    memory_dir.dir.insert_asset(std::path::Path::new(&memory_path), response.glb_bytes.clone());
+
+                    // Build memory URL for WorldAsset
+                    let scene_url = GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", memory_path));
+                    let handle = asset_server.load::<WorldAsset>(scene_url);
+
+                    // Replace components to make it a fully realized weapon model
+                    commands.entity(entity)
+                        .insert((
+                            Name::new("Weapon"),
+                            WorldAssetRoot(handle),
+                            WeaponModel,
+                            fetch.kind,
+                            PendingWeaponExtents,
+                        ))
+                        .remove::<PendingWeaponModelFetch>();
+                }
+                Err(e) => {
+                    tracing::error!("Weapon model fetch RPC error: {e:?}");
+                    // Despawn if failed
+                    commands.entity(entity).despawn();
+                }
             }
         }
     }
