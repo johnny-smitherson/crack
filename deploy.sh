@@ -1,11 +1,13 @@
 #!/bin/bash
 set -ex
-./build_worker.sh
 
 (
     cd crack_demo/demo_resolution_selector_web_bevy
+    trunk clean
     trunk build --release true
 )
+
+./build_worker.sh
 
 rsync -av --exclude 'target' --exclude '.git' --exclude ".venv" --exclude _data/3d_data_v2/data_cache/ --exclude '*.bytes' ./ dj-vaslui:crack/
 
