@@ -1,0 +1,19 @@
+[
+  {
+    "viewpoint_id": 668,
+    "glb_path": "data_out/20/403/30436272704361425403.glb",
+    "class_name": "car",
+    "confidence": 0.95,
+    "distance_meters": 14.3,
+    "pos_blender": [
+      -1090.53,
+      20195.15,
+      3362.41
+    ],
+    "pos_enu": [
+      -1090.53,
+      -1197.05,
+      3362.41
+    ]
+  }
+]

@@ -317,9 +317,9 @@ pub fn check_and_parse_parquet(
             "Placing camera at center {:?} looking south-east at {:?}",
             camera_pos, target
         );
-        for mut cam_transform in &mut camera_query {
-            *cam_transform = Transform::from_translation(camera_pos).looking_at(target, Vec3::Y);
-        }
+        // for mut cam_transform in &mut camera_query {
+        //     *cam_transform = Transform::from_translation(camera_pos).looking_at(target, Vec3::Y);
+        // }
 
         data_res.bbox = bbox;
     }

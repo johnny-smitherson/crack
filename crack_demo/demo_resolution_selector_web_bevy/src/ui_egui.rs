@@ -77,11 +77,16 @@ fn ui_example_system(
     loading_status: Option<Res<crate::plugins::geojson::GameLoadingStatus>>,
     tooltip_state: Option<Res<crate::plugins::geojson::TooltipNotificationState>>,
     mut osm_overlay: Option<ResMut<crate::plugins::geojson::OsmOverlayState>>,
+    camera_query: Single<&Transform, With<Camera3d>>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         tracing::error!("no ctx in ui_example_system");
         return;
     };
+
+    // Get camera position string
+    let pos = camera_query.translation;
+    let camera_pos_str = format!("X: {:.1}, Y: {:.1}, Z: {:.1}", pos.x, pos.y, pos.z);
 
     // --- FPS (EMA over ~30 frames) ---
     let dt = time.delta_secs();
@@ -297,17 +302,25 @@ fn ui_example_system(
         }
     }
 
-    // --- FPS overlay (top-right corner) ---
+    // --- FPS and Coordinates overlay (top-right corner) ---
     egui::Area::new(egui::Id::new("fps_overlay"))
-        .fixed_pos(egui::pos2(screen_rect.max.x - 160.0, 8.0))
+        .fixed_pos(egui::pos2(screen_rect.max.x - 220.0, 8.0))
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
-            ui.label(
-                egui::RichText::new(format!("FPS: {:.0}", *fps))
-                    .color(egui::Color32::from_rgb(0, 220, 80))
-                    .size(18.0)
-                    .strong(),
-            );
+            ui.vertical(|ui| {
+                ui.label(
+                    egui::RichText::new(format!("FPS: {:.0}", *fps))
+                        .color(egui::Color32::from_rgb(0, 220, 80))
+                        .size(18.0)
+                        .strong(),
+                );
+                ui.label(
+                    egui::RichText::new(camera_pos_str)
+                        .color(egui::Color32::from_rgb(255, 165, 0))
+                        .size(12.0)
+                        .strong(),
+                );
+            });
         });
 
     // --- Text Overlay ---

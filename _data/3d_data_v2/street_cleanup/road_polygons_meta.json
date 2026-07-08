@@ -1,0 +1,44 @@
+{
+  "total_features": 5088,
+  "accepted_features": 2464,
+  "rejected_features": 2624,
+  "total_segments": 2464,
+  "total_length_km": 281.87,
+  "total_area_m2": 2334114.4,
+  "bounds_enu": {
+    "east_min": -2201.98,
+    "north_min": -1849.96,
+    "east_max": 2043.49,
+    "north_max": 2097.82
+  },
+  "highway_type_counts": {
+    "primary": 199,
+    "residential": 892,
+    "tertiary": 108,
+    "secondary": 145,
+    "tertiary_link": 12,
+    "service": 1007,
+    "primary_link": 21,
+    "construction": 35,
+    "secondary_link": 20,
+    "unclassified": 3,
+    "living_street": 22
+  },
+  "road_widths_used": {
+    "motorway": 12.0,
+    "trunk": 12.0,
+    "primary": 10.0,
+    "secondary": 8.0,
+    "tertiary": 7.0,
+    "residential": 6.0,
+    "living_street": 6.0,
+    "service": 4.0,
+    "unclassified": 5.0,
+    "construction": 6.0,
+    "motorway_link": 4.0,
+    "trunk_link": 4.0,
+    "primary_link": 4.0,
+    "secondary_link": 4.0,
+    "tertiary_link": 4.0
+  }
+}
