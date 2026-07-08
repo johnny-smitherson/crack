@@ -18,14 +18,21 @@ pub struct AiDebug {
 pub fn ai_debug_ui(
     mut contexts: EguiContexts,
     mut ai_debug: ResMut<AiDebug>,
+    mut ui_state: ResMut<crate::ui_egui::UiState>,
     query: Query<(&Faction, &Health), With<AiPedestrian>>,
 ) {
+    // Hidden by default; toggled from the Debug menu.
+    if !ui_state.show_pedestrian_ai {
+        return;
+    }
+
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
 
+    let mut open = ui_state.show_pedestrian_ai;
     bevy_egui::egui::Window::new("Pedestrian AI")
-        .default_open(false)
+        .open(&mut open)
         .show(ctx, |ui| {
             ui.checkbox(&mut ai_debug.show_rays, "Show AI rays");
             ui.separator();
@@ -49,6 +56,9 @@ pub fn ai_debug_ui(
                 );
             }
         });
+
+    // Reflect the window's close button back into the shared UI state.
+    ui_state.show_pedestrian_ai = open;
 }
 
 fn faction_to_egui_color(f: Faction) -> bevy_egui::egui::Color32 {

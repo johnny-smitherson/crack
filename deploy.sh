@@ -3,7 +3,7 @@ set -ex
 
 (
     cd crack_demo/demo_resolution_selector_web_bevy
-    trunk clean
+    find dist -type f -delete
     trunk build --release true
 )
 

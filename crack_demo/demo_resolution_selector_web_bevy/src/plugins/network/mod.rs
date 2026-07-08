@@ -26,6 +26,9 @@ pub struct ChatState {
     pub input_buffer: String,
     pub outgoing_tx: async_channel::Sender<String>,
     pub incoming_rx: async_channel::Receiver<ChatEvent>,
+    /// Number of chat messages that have arrived since the user last had the
+    /// chat window open. Reset to 0 by the chat UI while the window is visible.
+    pub unread_count: u32,
 }
 
 pub enum ChatEvent {
@@ -82,6 +85,7 @@ fn start_network(
         input_buffer: String::new(),
         outgoing_tx,
         incoming_rx,
+        unread_count: 0,
     });
 
     let future = chat_main_task(secrets, incoming_tx, outgoing_rx, proxy_wrapper.clone());
@@ -107,6 +111,7 @@ fn start_network(mut commands: Commands, proxy_wrapper: Res<EventLoopProxyWrappe
         input_buffer: String::new(),
         outgoing_tx,
         incoming_rx,
+        unread_count: 0,
     });
 
     let future = chat_main_task(secrets, incoming_tx, outgoing_rx, proxy_wrapper.clone());
@@ -163,6 +168,10 @@ async fn chat_main_task(
     let presence_list = presence.get_presence_list().await;
     let mut list = Vec::new();
     for item in presence_list.0 {
+        // Hide bootstrap nodes from the presence list; only show real users.
+        if item.identity.bootstrap_idx().is_some() {
+            continue;
+        }
         list.push((
             item.identity.nickname().to_string(),
             item.identity.rgb_color(),
@@ -185,6 +194,10 @@ async fn chat_main_task(
             let presence_list = presence_clone.get_presence_list().await;
             let mut list = Vec::new();
             for item in presence_list.0 {
+                // Hide bootstrap nodes from the presence list; only show real users.
+                if item.identity.bootstrap_idx().is_some() {
+                    continue;
+                }
                 list.push((
                     item.identity.nickname().to_string(),
                     item.identity.rgb_color(),
@@ -283,6 +296,8 @@ fn drain_chat_events(
                 color,
             } => {
                 state.msg_history.push((nickname, text, color));
+                // Badge counter; cleared by the chat UI while the window is open.
+                state.unread_count = state.unread_count.saturating_add(1);
             }
             ChatEvent::PresenceUpdate(list) => {
                 state.presence_list = list;

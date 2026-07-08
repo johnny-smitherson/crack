@@ -57,6 +57,10 @@ fn draw_chat_ui_system(
         return;
     };
 
+    // The window is being shown this frame, so the user is looking at the chat:
+    // clear the unread notification badge.
+    state.unread_count = 0;
+
     let mut show_window = chat_ui_state.show_window;
 
     let mut window = egui::Window::new("Global Chat")

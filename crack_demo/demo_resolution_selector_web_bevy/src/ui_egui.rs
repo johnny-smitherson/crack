@@ -10,6 +10,7 @@ impl Plugin for UiEguiPlugin {
         info!("loading: UiEguiPlugin...");
         web_set_loading_status(true, "Loading UiEguiPlugin...");
         app.add_plugins(EguiPlugin::default())
+            .add_plugins(crate::egui_theme::EguiThemePlugin)
             .init_resource::<UiState>()
             .add_systems(EguiPrimaryContextPass, ui_example_system)
             .add_systems(Update, update_web_loading_status);
@@ -31,6 +32,8 @@ pub struct UiState {
     pub show_lod_configurator: bool,
     pub show_geojson_database: bool,
     pub show_traffic_debug: bool,
+    pub show_pedestrian_ai: bool,
+    pub show_vehicle_tuning: bool,
 }
 impl Default for UiState {
     fn default() -> Self {
@@ -47,6 +50,8 @@ impl Default for UiState {
             show_lod_configurator: false,
             show_geojson_database: false,
             show_traffic_debug: false,
+            show_pedestrian_ai: false,
+            show_vehicle_tuning: false,
         }
     }
 }
@@ -65,6 +70,8 @@ impl UiState {
             show_lod_configurator: false,
             show_geojson_database: false,
             show_traffic_debug: false,
+            show_pedestrian_ai: false,
+            show_vehicle_tuning: false,
         }
     }
 }
@@ -90,6 +97,7 @@ fn ui_example_system(
     tooltip_state: Option<Res<crate::plugins::geojson::TooltipNotificationState>>,
     mut osm_overlay: Option<ResMut<crate::plugins::geojson::OsmOverlayState>>,
     mut global_chat: Option<ResMut<crate::plugins::network::global_chat_ui::GlobalChatUiState>>,
+    chat_state: Option<Res<crate::plugins::network::ChatState>>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         tracing::error!("no ctx in ui_example_system");
@@ -230,15 +238,29 @@ fn ui_example_system(
                     ui.close();
                 }
             });
-            egui::menu::menu_button(ui, "Online", |ui| {
+            let unread = chat_state.as_ref().map(|c| c.unread_count).unwrap_or(0);
+            let online_resp = egui::menu::menu_button(ui, "Online", |ui| {
                 if let Some(ref mut chat) = global_chat {
-                    if ui.button("Global Chat").clicked() {
+                    let chat_resp = ui.button("Global Chat");
+                    // Badge on the sub-entry that produced the notification.
+                    crate::egui_theme::draw_notification_badge(ui, chat_resp.rect, unread);
+                    if chat_resp.clicked() {
                         chat.show_window = !chat.show_window;
                         ui.close();
                     }
                 }
             });
+            // Badge on the top-level "Online" menu button.
+            crate::egui_theme::draw_notification_badge(ui, online_resp.response.rect, unread);
             egui::menu::menu_button(ui, "Debug", |ui| {
+                if ui.button("Pedestrian AI").clicked() {
+                    ui_state.show_pedestrian_ai = !ui_state.show_pedestrian_ai;
+                    ui.close();
+                }
+                if ui.button("Vehicle Tuning").clicked() {
+                    ui_state.show_vehicle_tuning = !ui_state.show_vehicle_tuning;
+                    ui.close();
+                }
                 if ui.button("Lod Configurator & Tree Navigator").clicked() {
                     ui_state.show_lod_configurator = !ui_state.show_lod_configurator;
                     ui.close();
