@@ -101,6 +101,7 @@ pub fn spawn_controlled_pedestrian_observer(
                 Transform::from_translation(controller_pos)
                     .with_rotation(event.rotation.unwrap_or(Quat::IDENTITY)),
             ),
+            PlayerDriven,
             AnimState::default(),
             CombatState::default(),
             crate::plugins::weapons::WeaponCooldown::default(),
@@ -254,6 +255,8 @@ pub fn escape_to_freecam(
         if let Some(ped) = ped {
             commands.entity(ped).remove::<ManualAnimation>();
         }
+
+        commands.entity(controller).remove::<PlayerDriven>();
 
         let pos = transforms
             .get(controller)

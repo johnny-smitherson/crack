@@ -17,6 +17,28 @@
 //!
 //! The plugin does not add `PhysicsPlugins`, `EguiPlugin`, or `PedestriansPlugin` — the host app is
 //! expected to provide those (the main game does via its physics/egui/states plugins).
+//!
+//! ## Entity / driver boundary
+//!
+//! A pedestrian *entity* is the shared capsule body + model; a *driver* decides what it should do
+//! each frame. Drivers are tagged with marker components so systems can filter without reading
+//! global resources:
+//!
+//! | Driver | Marker | Input source |
+//! |--------|--------|--------------|
+//! | Player | [`PlayerDriven`] | keyboard / mouse via [`character_input`] |
+//! | NPC AI | `AiPedestrian` | `ai_movement` brain |
+//! | Network | `NetworkDriven` | remote state interpolation |
+//! | Traffic | `TrafficPedestrian` (overlay on AI) | road-graph path follower |
+//!
+//! **Entity interface (shared):** drivers write to [`LocomotionInput`], [`MovementModifiers`],
+//! animation targets / control events, and weapon events (`FireGunEvent`, `ReloadGunEvent`,
+//! `PendingMeleeHit`, `EquipWeaponEvent`). Cars use the `Drive` event the same way.
+//!
+//! **Entity behavior (shared):** [`CharacterLocomotionPlugin`] consumes locomotion input,
+//! `play_animations_system` plays clips, weapon observers handle firing, and car observers handle
+//! steering. Drivers never touch physics or animation playback directly (the player animation
+//! driver is a deliberate exception for combat-overlay blending).
 
 mod animation;
 mod camera;
@@ -159,6 +181,10 @@ pub struct LocomotionInput {
     SpeculativeMargin(0.0)
 )]
 pub struct CharacterController;
+
+/// Marker: this pedestrian is driven by local player input (keyboard / mouse).
+#[derive(Component)]
+pub struct PlayerDriven;
 
 /// The random mesh scale chosen for this character (in `[SCALE_MIN, SCALE_MAX]`). Used to speed up
 /// locomotion animations for shorter characters and to size climb-height thresholds.
@@ -385,12 +411,29 @@ pub fn no_one_climbing(q: Query<(), With<Climbing>>) -> bool {
     q.is_empty()
 }
 
+/// Shared capsule collider + collision layers for every pedestrian-shaped body (player, AI,
+/// ejected driver, network remote). Keeps dimensions and layer masks in one place.
+pub fn character_collision_bundle() -> impl Bundle {
+    use crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer;
+    (
+        Collider::capsule(CAPSULE_RADIUS, CAPSULE_LENGTH),
+        CollisionLayers::new(
+            GamePhysicsLayer::Car,
+            [
+                GamePhysicsLayer::Map,
+                GamePhysicsLayer::Car,
+                GamePhysicsLayer::Wheel,
+            ],
+        ),
+        CollisionEventsEnabled,
+    )
+}
+
 /// The shared physics/locomotion core for every capsule character (player, AI ped, ejected
 /// driver). Callers add their role-specific components on top: the player adds
 /// [`AnimState`]/[`CombatState`], the AI adds its `Ai*` components. Keeping this in one place stops
 /// the three spawn sites from drifting apart (e.g. wrong `RigidBody`, missing collision layers).
 pub fn character_physics_bundle(scale: f32, transform: Transform) -> impl Bundle {
-    use crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer;
     (
         // `CharacterController` requires `RigidBody::Kinematic` + custom position integration, so
         // no explicit `RigidBody` is added here (a `Dynamic` body would fight move-and-slide).
@@ -404,16 +447,7 @@ pub fn character_physics_bundle(scale: f32, transform: Transform) -> impl Bundle
             cast_shape: Some(Collider::capsule(CAPSULE_RADIUS * 0.99, CAPSULE_LENGTH)),
             ..default()
         },
-        Collider::capsule(CAPSULE_RADIUS, CAPSULE_LENGTH),
-        CollisionLayers::new(
-            GamePhysicsLayer::Car,
-            [
-                GamePhysicsLayer::Map,
-                GamePhysicsLayer::Car,
-                GamePhysicsLayer::Wheel,
-            ],
-        ),
-        CollisionEventsEnabled,
+        character_collision_bundle(),
         transform,
         Visibility::default(),
     )

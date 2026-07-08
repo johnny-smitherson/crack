@@ -16,7 +16,7 @@ use crate::plugins::pedestrians::animation::{
 };
 use crate::plugins::pedestrians::pedestrian_controller_plugin::{
     CharacterController, CharacterScale, Climbing, ControlledCharacter, Grounded, LocomotionInput,
-    Rolling,
+    Rolling, character_collision_bundle,
 };
 use crate::plugins::pedestrians::{
     ModelRoot, PedestrianAnimations, PedestrianUrl, SpawnPedestrianEvent, locomotion_clip,
@@ -658,14 +658,8 @@ fn reconcile_remote_avatars(
                         // Kinematic capsule matching the local character's physics
                         // footprint (root = capsule center), so the local car and
                         // player collide with remote pedestrians.
-                        (
-                            RigidBody::Kinematic,
-                            Collider::capsule(
-                                crate::plugins::pedestrians::pedestrian_controller_plugin::CAPSULE_RADIUS,
-                                crate::plugins::pedestrians::pedestrian_controller_plugin::CAPSULE_LENGTH,
-                            ),
-                            CollisionLayers::new([GamePhysicsLayer::Car], [GamePhysicsLayer::Car]),
-                        ),
+                        RigidBody::Kinematic,
+                        character_collision_bundle(),
                     )).id();
 
                     // Intermediate scale node
