@@ -1,6 +1,5 @@
 pub extern crate dioxus_logger;
 pub extern crate wasm_bindgen;
-use anyhow::Context;
 pub use wasm_bindgen_futures::spawn_local;
 
 use std::sync::{Arc, OnceLock};

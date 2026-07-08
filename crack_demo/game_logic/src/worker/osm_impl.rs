@@ -5,7 +5,7 @@ use crate::geo::{
 use crate::osm::{
     FeatureGeometry, GeoJsonFeature, OsmDataResult, RawFeatureGeometry, RawGeoJsonFeature,
 };
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
