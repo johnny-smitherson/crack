@@ -5,9 +5,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 static MANIFEST_CACHE: RwLock<Option<Arc<PedestrianManifestResult>>> = RwLock::const_new(None);
-static CHARACTER_CACHE: RwLock<Option<super::lru::LruCache<FetchGlbResponse>>> = RwLock::const_new(None);
+static CHARACTER_CACHE: RwLock<Option<super::lru::LruCache<FetchGlbResponse>>> =
+    RwLock::const_new(None);
 
-pub async fn fetch_pedestrian_manifest(args: FetchArgs) -> anyhow::Result<PedestrianManifestResult> {
+pub async fn fetch_pedestrian_manifest(
+    args: FetchArgs,
+) -> anyhow::Result<PedestrianManifestResult> {
     {
         let guard = MANIFEST_CACHE.read().await;
         if let Some(cache) = &*guard {
@@ -37,11 +40,14 @@ pub async fn fetch_pedestrian_manifest(args: FetchArgs) -> anyhow::Result<Pedest
 
     let mut animations = Vec::new();
     if let Some(first_url) = urls.first() {
-        tracing::info!("Worker fetching first GLB for animation bootstrap from {}", first_url);
+        tracing::info!(
+            "Worker fetching first GLB for animation bootstrap from {}",
+            first_url
+        );
         let glb_bytes = super::http::http_get_bytes(first_url).await?;
         let gltf = gltf::Gltf::from_slice(&glb_bytes)
             .map_err(|e| anyhow::anyhow!("Failed to parse GLB: {:?}", e))?;
-        
+
         for animation in gltf.animations() {
             let name = animation.name().unwrap_or("").to_string();
             if name.is_empty() {
@@ -73,13 +79,14 @@ pub async fn fetch_pedestrian_manifest(args: FetchArgs) -> anyhow::Result<Pedest
                 frames,
             });
         }
-        tracing::info!("Worker parsed {} animations from GLB {}", animations.len(), first_url);
+        tracing::info!(
+            "Worker parsed {} animations from GLB {}",
+            animations.len(),
+            first_url
+        );
     }
 
-    let result = PedestrianManifestResult {
-        urls,
-        animations,
-    };
+    let result = PedestrianManifestResult { urls, animations };
     let arc = Arc::new(result);
     *guard = Some(arc.clone());
     Ok((*arc).clone())
@@ -95,13 +102,21 @@ pub async fn fetch_pedestrian_model(req: FetchGlbRequest) -> anyhow::Result<Fetc
         if let Some(mut cached) = cache.get(&req.asset_id) {
             cached.from_cache = true;
             let t1 = _crack_utils::get_timestamp_now_ms();
-            tracing::debug!("Character cache HIT: {} (took {} ms)", req.asset_id, t1 - t0);
+            tracing::debug!(
+                "Character cache HIT: {} (took {} ms)",
+                req.asset_id,
+                t1 - t0
+            );
             return Ok(cached);
         }
     }
 
     // Cache miss: fetch from url
-    let url = format!("{}/{}", req.base_url.trim_end_matches('/'), req.glb_path.trim_start_matches('/'));
+    let url = format!(
+        "{}/{}",
+        req.base_url.trim_end_matches('/'),
+        req.glb_path.trim_start_matches('/')
+    );
     let glb_bytes = super::http::http_get_bytes(&url).await?;
 
     let response = FetchGlbResponse {

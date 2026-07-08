@@ -3,7 +3,7 @@ use rand::seq::IndexedRandom;
 
 use crate::plugins::{
     cars_driving::car_info::get_random_car_type,
-    cars_driving::driving_plugin::spawn_car::{Car, spawn_physics_car, WheelAssets},
+    cars_driving::driving_plugin::spawn_car::{Car, WheelAssets, spawn_physics_car},
     geojson::query_point_ground_y,
     map_plugin::MapTree,
     pedestrian_ai::faction::{DEFAULT_HP, Faction, Health},

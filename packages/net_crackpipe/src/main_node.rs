@@ -15,9 +15,7 @@ use crate::{
     chat::{
         chat_const::get_relay_domain,
         chat_controller::ChatController,
-        direct_message::{
-            ChatDirectMessage, DirectMessageProtocol, CHAT_DIRECT_MESSAGE_ALPN,
-        },
+        direct_message::{ChatDirectMessage, DirectMessageProtocol, CHAT_DIRECT_MESSAGE_ALPN},
         room_raw::GossipChatRoom,
     },
     echo::Echo,
@@ -38,9 +36,7 @@ pub struct MainNode {
     pub(crate) chat_direct_message: DirectMessageProtocol<ChatDirectMessage>,
 }
 
-async fn create_endpoint(
-    node_secret_key: Arc<SecretKey>,
-) -> anyhow::Result<Endpoint> {
+async fn create_endpoint(node_secret_key: Arc<SecretKey>) -> anyhow::Result<Endpoint> {
     let (relay_url, pkarr_url) = get_relay_domain();
     let relay_map = RelayMap::from_nodes([RelayNode {
         url: relay_url.parse().unwrap(),
@@ -49,14 +45,11 @@ async fn create_endpoint(
         quic: None,
     }])
     .unwrap();
-    let pkarr_publisher = PkarrPublisher::new(
-        node_secret_key.as_ref().clone(),
-        pkarr_url.parse().unwrap(),
-    );
+    let pkarr_publisher =
+        PkarrPublisher::new(node_secret_key.as_ref().clone(), pkarr_url.parse().unwrap());
 
     // #[cfg(target_arch = "wasm32")]
-    let discovery2 =
-        iroh::discovery::pkarr::PkarrResolver::new(pkarr_url.parse().unwrap());
+    let discovery2 = iroh::discovery::pkarr::PkarrResolver::new(pkarr_url.parse().unwrap());
     // #[cfg(not(target_arch = "wasm32"))]
     // let discovery2 = iroh::discovery::dns::DnsDiscovery::new(
     //     "127.0.0.1".parse().unwrap()
@@ -86,9 +79,7 @@ impl MainNode {
         sleep_manager: SleepManager,
     ) -> Result<Self> {
         assert!(node_secret_key.public() == *node_identity.node_id());
-        assert!(
-            node_identity.user_id() == user_secrets.user_identity().user_id()
-        );
+        assert!(node_identity.user_id() == user_secrets.user_identity().user_id());
         assert!(*node_identity.user_id() == user_secrets.secret_key().public());
         let message_signer = MessageSigner {
             node_secret_key: node_secret_key.clone(),
@@ -102,17 +93,15 @@ impl MainNode {
             own_endpoint_node_id.unwrap_or(endpoint.node_id()),
             sleep_manager.clone(),
         );
-        let (mut direct_message_send, mut direct_message_recv) =
-            async_broadcast::broadcast(2048);
+        let (mut direct_message_send, mut direct_message_recv) = async_broadcast::broadcast(2048);
         direct_message_send.set_overflow(true);
         direct_message_recv.set_overflow(true);
 
-        let chat_direct_message =
-            DirectMessageProtocol::<ChatDirectMessage>::new(
-                direct_message_send,
-                sleep_manager.clone(),
-                endpoint.clone(),
-            );
+        let chat_direct_message = DirectMessageProtocol::<ChatDirectMessage>::new(
+            direct_message_send,
+            sleep_manager.clone(),
+            endpoint.clone(),
+        );
         let router = Router::builder(endpoint.clone())
             .accept(Echo::ALPN, echo)
             .accept(GOSSIP_ALPN, gossip.clone())
@@ -161,10 +150,7 @@ impl MainNode {
     ///
     /// Returns a [`ChatSender`] to send messages or change our nickname
     /// and a stream of [`Event`] items for incoming messages and other event.s
-    pub async fn join_chat<T>(
-        &self,
-        ticket: &ChatTicket,
-    ) -> Result<ChatController<T>>
+    pub async fn join_chat<T>(&self, ticket: &ChatTicket) -> Result<ChatController<T>>
     where
         T: IChatRoomType,
     {

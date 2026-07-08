@@ -1,8 +1,8 @@
 //! Manifest loading + animation-catalog bootstrap via RPC.
 
-use bevy::prelude::*;
-use crate::plugins::pedestrians::animation::{AnimationInfo, PedestrianAnimations};
 use crate::basic_app::MemoryDir;
+use crate::plugins::pedestrians::animation::{AnimationInfo, PedestrianAnimations};
+use bevy::prelude::*;
 
 /// A fully-recombined pedestrian asset URL (manifest folder + inner manifest line).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -17,8 +17,10 @@ pub struct PedestrianManifest {
 
 #[derive(Resource, Default)]
 pub struct PedestrianManifestTasks {
-    pub manifest_task: Option<bevy::tasks::Task<anyhow::Result<game_logic::pedestrian::PedestrianManifestResult>>>,
-    pub first_glb_task: Option<bevy::tasks::Task<anyhow::Result<game_logic::glb::FetchGlbResponse>>>,
+    pub manifest_task:
+        Option<bevy::tasks::Task<anyhow::Result<game_logic::pedestrian::PedestrianManifestResult>>>,
+    pub first_glb_task:
+        Option<bevy::tasks::Task<anyhow::Result<game_logic::glb::FetchGlbResponse>>>,
     pub first_gltf: Option<Handle<bevy::gltf::Gltf>>,
 }
 
@@ -49,12 +51,18 @@ pub fn spawn_pedestrian_manifest_task(
     let Some(client) = client else {
         return;
     };
-    if !manifest.loaded && tasks.manifest_task.is_none() && tasks.first_glb_task.is_none() && tasks.first_gltf.is_none() {
+    if !manifest.loaded
+        && tasks.manifest_task.is_none()
+        && tasks.first_glb_task.is_none()
+        && tasks.first_gltf.is_none()
+    {
         let api_client = client.0.clone();
         let base_url = crate::config::DATA_BASE_URL.to_string();
         let task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
             api_client
-                .call::<game_logic::api::FetchPedestrianManifest>(game_logic::api::FetchArgs { base_url })
+                .call::<game_logic::api::FetchPedestrianManifest>(game_logic::api::FetchArgs {
+                    base_url,
+                })
                 .await
         });
         tasks.manifest_task = Some(task);
@@ -70,11 +78,17 @@ pub fn poll_pedestrian_manifest_task(
         return;
     };
     if let Some(mut task) = tasks.manifest_task.take() {
-        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut task)) {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(
+            bevy::tasks::futures_lite::future::poll_once(&mut task),
+        ) {
             match res {
                 Ok(result) => {
                     info!("Parsed pedestrian manifest: {} entries.", result.urls.len());
-                    manifest.urls = result.urls.iter().map(|u| PedestrianUrl(u.clone())).collect();
+                    manifest.urls = result
+                        .urls
+                        .iter()
+                        .map(|u| PedestrianUrl(u.clone()))
+                        .collect();
 
                     if let Some(first_url) = result.urls.first() {
                         let (glb_path, asset_id) = parse_url_to_rpc_args(first_url);
@@ -82,11 +96,13 @@ pub fn poll_pedestrian_manifest_task(
                         let base_url = crate::config::DATA_BASE_URL.to_string();
                         let glb_task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
                             api_client
-                                .call::<game_logic::api::FetchPedestrianModel>(game_logic::glb::FetchGlbRequest {
-                                    base_url,
-                                    glb_path,
-                                    asset_id,
-                                })
+                                .call::<game_logic::api::FetchPedestrianModel>(
+                                    game_logic::glb::FetchGlbRequest {
+                                        base_url,
+                                        glb_path,
+                                        asset_id,
+                                    },
+                                )
                                 .await
                         });
                         tasks.first_glb_task = Some(glb_task);
@@ -110,11 +126,16 @@ pub fn poll_pedestrian_first_glb_task(
     asset_server: Res<AssetServer>,
 ) {
     if let Some(mut task) = tasks.first_glb_task.take() {
-        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut task)) {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(
+            bevy::tasks::futures_lite::future::poll_once(&mut task),
+        ) {
             match res {
                 Ok(response) => {
                     let memory_path = "first_pedestrian.glb";
-                    memory_dir.dir.insert_asset(std::path::Path::new(memory_path), response.glb_bytes.clone());
+                    memory_dir.dir.insert_asset(
+                        std::path::Path::new(memory_path),
+                        response.glb_bytes.clone(),
+                    );
 
                     let gltf_url = format!("memory://{}", memory_path);
                     let gltf_handle = asset_server.load::<bevy::gltf::Gltf>(gltf_url);

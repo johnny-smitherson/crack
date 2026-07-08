@@ -1,5 +1,5 @@
-use crate::tile::*;
 use super::lru::LruCache;
+use crate::tile::*;
 
 static TILE_CACHE: tokio::sync::RwLock<Option<LruCache<FetchTileResponse>>> =
     tokio::sync::RwLock::const_new(None);
@@ -7,7 +7,9 @@ static TILE_CACHE: tokio::sync::RwLock<Option<LruCache<FetchTileResponse>>> =
 fn extract_collider_data(glb_bytes: &[u8]) -> anyhow::Result<MeshColliderData> {
     let gltf = gltf::Gltf::from_slice(glb_bytes)
         .map_err(|e| anyhow::anyhow!("Failed to parse GLB: {:?}", e))?;
-    let blob = gltf.blob.as_ref()
+    let blob = gltf
+        .blob
+        .as_ref()
         .ok_or_else(|| anyhow::anyhow!("GLB has no binary blob"))?;
 
     let mut combined_vertices = Vec::new();
@@ -15,18 +17,18 @@ fn extract_collider_data(glb_bytes: &[u8]) -> anyhow::Result<MeshColliderData> {
 
     for mesh in gltf.meshes() {
         for primitive in mesh.primitives() {
-            let reader = primitive.reader(|buffer| {
-                match buffer.source() {
-                    gltf::buffer::Source::Bin => Some(&blob[..]),
-                    _ => None,
-                }
+            let reader = primitive.reader(|buffer| match buffer.source() {
+                gltf::buffer::Source::Bin => Some(&blob[..]),
+                _ => None,
             });
 
-            let positions: Vec<[f32; 3]> = reader.read_positions()
+            let positions: Vec<[f32; 3]> = reader
+                .read_positions()
                 .map(|iter| iter.collect())
                 .unwrap_or_default();
 
-            let indices: Vec<u32> = reader.read_indices()
+            let indices: Vec<u32> = reader
+                .read_indices()
                 .map(|iter| iter.into_u32().collect())
                 .unwrap_or_default();
 
@@ -69,7 +71,11 @@ pub async fn fetch_map_tile(req: FetchTileRequest) -> anyhow::Result<FetchTileRe
     }
 
     // Cache miss: fetch from url
-    let url = format!("{}/3d_data_v2/{}", req.base_url.trim_end_matches('/'), req.glb_path.trim_start_matches('/'));
+    let url = format!(
+        "{}/3d_data_v2/{}",
+        req.base_url.trim_end_matches('/'),
+        req.glb_path.trim_start_matches('/')
+    );
     let glb_bytes = super::http::http_get_bytes(&url).await?;
     let t_fetch = _crack_utils::get_timestamp_now_ms();
 
@@ -82,7 +88,11 @@ pub async fn fetch_map_tile(req: FetchTileRequest) -> anyhow::Result<FetchTileRe
             }
         }
         Err(e) => {
-            tracing::error!("Failed to extract collider data for GLB {}: {:?}", req.tile_id, e);
+            tracing::error!(
+                "Failed to extract collider data for GLB {}: {:?}",
+                req.tile_id,
+                e
+            );
             None
         }
     };

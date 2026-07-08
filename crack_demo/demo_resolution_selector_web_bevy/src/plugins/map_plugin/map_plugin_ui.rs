@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
 
-use crate::plugins::map_plugin::{
-    MapLODState, MapTree, MapTreeNodePath, map_lod::TreeMapTile,
-};
+use crate::plugins::map_plugin::{MapLODState, MapTree, MapTreeNodePath, map_lod::TreeMapTile};
 
 pub fn draw_tree_bboxes(
     _gizmos: Gizmos,

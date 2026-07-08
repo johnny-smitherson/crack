@@ -15,9 +15,7 @@ impl IChatRoomType for GlobalChatRoomType {
         GlobalChatPresence::default()
     }
 }
-#[derive(
-    Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize, Default,
-)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize, Default)]
 pub struct GlobalChatPresence {
     pub url: String,
     pub platform: String,

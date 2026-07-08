@@ -67,7 +67,8 @@ pub struct WeaponManifest {
 
 #[derive(Resource, Default)]
 pub struct WeaponManifestTasks {
-    pub manifest_task: Option<bevy::tasks::Task<anyhow::Result<game_logic::weapon::WeaponManifestResult>>>,
+    pub manifest_task:
+        Option<bevy::tasks::Task<anyhow::Result<game_logic::weapon::WeaponManifestResult>>>,
 }
 
 pub fn start_weapon_manifest_load(mut commands: Commands) {
@@ -87,7 +88,9 @@ pub fn spawn_weapon_manifest_task(
         let base_url = crate::config::DATA_BASE_URL.to_string();
         let task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
             api_client
-                .call::<game_logic::api::FetchWeaponManifest>(game_logic::api::FetchArgs { base_url })
+                .call::<game_logic::api::FetchWeaponManifest>(game_logic::api::FetchArgs {
+                    base_url,
+                })
                 .await
         });
         tasks.manifest_task = Some(task);
@@ -99,7 +102,9 @@ pub fn poll_weapon_manifest_task(
     mut manifest: ResMut<WeaponManifest>,
 ) {
     if let Some(mut task) = tasks.manifest_task.take() {
-        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut task)) {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(
+            bevy::tasks::futures_lite::future::poll_once(&mut task),
+        ) {
             match res {
                 Ok(result) => {
                     let mut guns = Vec::new();

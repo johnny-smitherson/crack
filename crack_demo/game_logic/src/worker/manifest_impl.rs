@@ -43,7 +43,12 @@ fn map_tree_to_manifest_result(tree: &MapTreeData) -> MapManifestResult {
         });
     }
 
-    let lod_budget = (tree.roots.iter().map(|i| tree.all_nodes.get(i).unwrap().assets.len()).sum::<usize>() + 320) as u32;
+    let lod_budget = (tree
+        .roots
+        .iter()
+        .map(|i| tree.all_nodes.get(i).unwrap().assets.len())
+        .sum::<usize>()
+        + 320) as u32;
 
     MapManifestResult {
         bbox: tree.bbox,
@@ -59,7 +64,10 @@ pub async fn fetch_map_manifest(args: FetchArgs) -> anyhow::Result<MapManifestRe
         if let Some(cache) = &*guard {
             let res = map_tree_to_manifest_result(&**cache);
             let t2 = _crack_utils::get_timestamp_now_ms();
-            tracing::info!("fetch_map_manifest (cached): read guard and map took {} ms", t2 - t0);
+            tracing::info!(
+                "fetch_map_manifest (cached): read guard and map took {} ms",
+                t2 - t0
+            );
             return Ok(res);
         }
     }
@@ -86,7 +94,10 @@ pub async fn fetch_map_manifest(args: FetchArgs) -> anyhow::Result<MapManifestRe
 
     let res = map_tree_to_manifest_result(&*arc);
     let t_clone = _crack_utils::get_timestamp_now_ms();
-    tracing::info!("Worker construct of manifest result took {} ms", t_clone - t_build);
+    tracing::info!(
+        "Worker construct of manifest result took {} ms",
+        t_clone - t_build
+    );
 
     Ok(res)
 }
@@ -185,7 +196,11 @@ fn build_map_tree(bytes: &[u8]) -> anyhow::Result<MapTreeData> {
     let t_parse = _crack_utils::get_timestamp_now_ms();
     parsed_nodes.sort_by(|a, b| a.name.cmp(&b.name));
 
-    tracing::info!("Worker parsed {} raw assets in {} ms.", parsed_nodes.len(), t_parse - t0);
+    tracing::info!(
+        "Worker parsed {} raw assets in {} ms.",
+        parsed_nodes.len(),
+        t_parse - t0
+    );
 
     let mut assets = BTreeMap::new();
     for asset in parsed_nodes {

@@ -1,14 +1,14 @@
 use bevy::prelude::*;
-use bevy::winit::{EventLoopProxyWrapper, WinitUserEvent, EventLoopProxy};
+use bevy::winit::{EventLoopProxy, EventLoopProxyWrapper, WinitUserEvent};
 use std::sync::Arc;
 
+use crate::plugins::states::NetworkConnectionState;
 use net_crackpipe::{
     chat::chat_controller::{IChatController, IChatReceiver, IChatSender},
     chat::global_chat::{GlobalChatMessageContent, GlobalChatPresence},
     global_matchmaker::GlobalMatchmaker,
     user_identity::UserIdentitySecrets,
 };
-use crate::plugins::states::NetworkConnectionState;
 
 pub mod global_chat_ui;
 
@@ -89,10 +89,7 @@ fn start_network(
 }
 
 #[cfg(target_family = "wasm")]
-fn start_network(
-    mut commands: Commands,
-    proxy_wrapper: Res<EventLoopProxyWrapper>,
-) {
+fn start_network(mut commands: Commands, proxy_wrapper: Res<EventLoopProxyWrapper>) {
     let secrets = UserIdentitySecrets::generate();
     let user_id = secrets.user_identity();
     let own_nickname = user_id.nickname().to_string();
@@ -148,11 +145,13 @@ async fn chat_main_task(
     let presence = controller.chat_presence();
     let sender = controller.sender();
 
-    sender.set_presence(&GlobalChatPresence {
-        url: "".to_string(),
-        platform: "Bevy Egui Chat".to_string(),
-        is_server: None,
-    }).await;
+    sender
+        .set_presence(&GlobalChatPresence {
+            url: "".to_string(),
+            platform: "Bevy Egui Chat".to_string(),
+            is_server: None,
+        })
+        .await;
 
     send_status("Waiting to join chat room...".to_string());
     let _ = controller.wait_joined().await;
@@ -164,7 +163,10 @@ async fn chat_main_task(
     let presence_list = presence.get_presence_list().await;
     let mut list = Vec::new();
     for item in presence_list.0 {
-        list.push((item.identity.nickname().to_string(), item.identity.rgb_color()));
+        list.push((
+            item.identity.nickname().to_string(),
+            item.identity.rgb_color(),
+        ));
     }
     let _ = incoming_tx.try_send(ChatEvent::PresenceUpdate(list));
     let _ = proxy.send_event(WinitUserEvent::WakeUp);
@@ -183,9 +185,15 @@ async fn chat_main_task(
             let presence_list = presence_clone.get_presence_list().await;
             let mut list = Vec::new();
             for item in presence_list.0 {
-                list.push((item.identity.nickname().to_string(), item.identity.rgb_color()));
+                list.push((
+                    item.identity.nickname().to_string(),
+                    item.identity.rgb_color(),
+                ));
             }
-            if incoming_tx_presence.try_send(ChatEvent::PresenceUpdate(list)).is_err() {
+            if incoming_tx_presence
+                .try_send(ChatEvent::PresenceUpdate(list))
+                .is_err()
+            {
                 break;
             }
             let _ = proxy_presence.send_event(WinitUserEvent::WakeUp);
@@ -203,7 +211,11 @@ async fn chat_main_task(
                 Ok(sent_preview) => {
                     let nickname = sent_preview.from.nickname().to_string();
                     let color = sent_preview.from.rgb_color();
-                    let _ = incoming_tx_msg.try_send(ChatEvent::Message { nickname, text, color });
+                    let _ = incoming_tx_msg.try_send(ChatEvent::Message {
+                        nickname,
+                        text,
+                        color,
+                    });
                     let _ = proxy_outgoing.send_event(WinitUserEvent::WakeUp);
                 }
                 Err(e) => {
@@ -223,7 +235,14 @@ async fn chat_main_task(
                 tracing::info!("Bevy received message from {}: {:?}", nickname, msg.message);
                 match msg.message {
                     GlobalChatMessageContent::TextMessage { text } => {
-                        if incoming_tx.try_send(ChatEvent::Message { nickname, text, color }).is_err() {
+                        if incoming_tx
+                            .try_send(ChatEvent::Message {
+                                nickname,
+                                text,
+                                color,
+                            })
+                            .is_err()
+                        {
                             tracing::warn!("incoming_tx send error, exiting loop");
                             break;
                         }
@@ -258,7 +277,11 @@ fn drain_chat_events(
                 state.status_message = "Connected!".to_string();
                 next_state.set(NetworkConnectionState::Connected);
             }
-            ChatEvent::Message { nickname, text, color } => {
+            ChatEvent::Message {
+                nickname,
+                text,
+                color,
+            } => {
                 state.msg_history.push((nickname, text, color));
             }
             ChatEvent::PresenceUpdate(list) => {

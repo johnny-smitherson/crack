@@ -5,7 +5,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 static MANIFEST_CACHE: RwLock<Option<Arc<WeaponManifestResult>>> = RwLock::const_new(None);
-static WEAPON_CACHE: RwLock<Option<super::lru::LruCache<FetchGlbResponse>>> = RwLock::const_new(None);
+static WEAPON_CACHE: RwLock<Option<super::lru::LruCache<FetchGlbResponse>>> =
+    RwLock::const_new(None);
 
 pub async fn fetch_weapon_manifest(args: FetchArgs) -> anyhow::Result<WeaponManifestResult> {
     {
@@ -79,7 +80,11 @@ pub async fn fetch_weapon_model(req: FetchGlbRequest) -> anyhow::Result<FetchGlb
     }
 
     // Cache miss: fetch from url
-    let url = format!("{}/{}", req.base_url.trim_end_matches('/'), req.glb_path.trim_start_matches('/'));
+    let url = format!(
+        "{}/{}",
+        req.base_url.trim_end_matches('/'),
+        req.glb_path.trim_start_matches('/')
+    );
     let glb_bytes = super::http::http_get_bytes(&url).await?;
 
     let response = FetchGlbResponse {

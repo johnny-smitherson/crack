@@ -10,6 +10,8 @@ fn main() {
         .add_plugins(EguiPlugin::default())
         .add_plugins(SetupDebugScenePlugin)
         .add_plugins(NetworkPlugin)
-        .add_plugins(GlobalChatPlugin { always_visible: true })
+        .add_plugins(GlobalChatPlugin {
+            always_visible: true,
+        })
         .run();
 }

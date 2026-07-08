@@ -1,16 +1,7 @@
 use iroh::{PublicKey, SecretKey};
 
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    serde::Serialize,
-    serde::Deserialize,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
+    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 pub struct UserIdentity {
     user_id: PublicKey,
@@ -50,8 +41,7 @@ pub struct UserIdentitySecrets {
 impl PartialEq for UserIdentitySecrets {
     fn eq(&self, other: &Self) -> bool {
         self.user_identity == other.user_identity
-            && self._user_private_key.public()
-                == other._user_private_key.public()
+            && self._user_private_key.public() == other._user_private_key.public()
     }
 }
 
@@ -74,16 +64,7 @@ impl UserIdentitySecrets {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    serde::Serialize,
-    serde::Deserialize,
-    PartialEq,
-    PartialOrd,
-    Ord,
-    Eq,
-    Hash,
+    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd, Ord, Eq, Hash,
 )]
 pub struct NodeIdentity {
     user_identity: UserIdentity,

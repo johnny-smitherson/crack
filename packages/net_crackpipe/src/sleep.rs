@@ -38,9 +38,7 @@ impl SleepManagerInner {
         while millis_left > 0 {
             let now = Instant::now();
             n0_future::future::race(
-                n0_future::time::sleep(Duration::from_micros(
-                    millis_left as u64,
-                )),
+                n0_future::time::sleep(Duration::from_micros(millis_left as u64)),
                 self.trigger.notified(),
             )
             .await;

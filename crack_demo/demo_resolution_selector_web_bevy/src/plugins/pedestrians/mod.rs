@@ -32,12 +32,12 @@ use animation::{
 };
 use draw_skel_debug::draw_skeletons_system;
 use manifest::{
-    start_manifest_load, spawn_pedestrian_manifest_task, poll_pedestrian_manifest_task,
-    poll_pedestrian_first_glb_task, load_pedestrian_manifest_system,
+    load_pedestrian_manifest_system, poll_pedestrian_first_glb_task, poll_pedestrian_manifest_task,
+    spawn_pedestrian_manifest_task, start_manifest_load,
 };
 use spawn_pedestrian::{
     PedestrianSpawnCounter, init_pedestrians_system, link_pedestrian_model,
-    spawn_pedestrian_observer, poll_pedestrian_glb_fetches,
+    poll_pedestrian_glb_fetches, spawn_pedestrian_observer,
 };
 
 pub struct PedestriansPlugin;

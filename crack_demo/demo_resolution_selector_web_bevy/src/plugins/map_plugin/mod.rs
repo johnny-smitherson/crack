@@ -9,8 +9,7 @@ use bevy_egui::EguiPrimaryContextPass;
 
 use crate::plugins::map_plugin::map_lod::{
     TileSwapRequests, check_map_loaded_status, do_merge_requests, do_split_requests,
-    reveal_pending_tiles, spawn_root_map_tiles, start_tile_swap_requests,
-    poll_tile_group_fetches,
+    poll_tile_group_fetches, reveal_pending_tiles, spawn_root_map_tiles, start_tile_swap_requests,
 };
 use crate::plugins::map_plugin::map_plugin_ui::{
     draw_reference_points_gizmos, draw_tree_bboxes, tree_navigator_ui,
@@ -46,8 +45,8 @@ impl Plugin for MapPlugin {
 }
 
 pub use game_logic::map::{
-    BBox, MapTileAssetId, MapTreeAssetInfo, MapTreeData, MapTreeNodeInfo, MapTreeNodePath,
-    MapRootNodeSummary, MapTileAssetInfoSummary,
+    BBox, MapRootNodeSummary, MapTileAssetId, MapTileAssetInfoSummary, MapTreeAssetInfo,
+    MapTreeData, MapTreeNodeInfo, MapTreeNodePath,
 };
 
 #[derive(Resource, Default, Debug)]

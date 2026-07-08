@@ -1,12 +1,12 @@
+use crate::basic_app::MemoryDir;
 use crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer;
 use crate::plugins::map_plugin::{MapLODState, MapTileAssetId, MapTree, MapTreeNodePath};
 use crate::plugins::states::{InitialMapLoadFinished, OsmDatabaseLoadFinished};
-use crate::basic_app::MemoryDir;
 use avian3d::collision::collider::CollisionMargin;
 use avian3d::prelude::CollisionLayers;
 use bevy::prelude::*;
-use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 use bevy::tasks::futures_lite::future;
+use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 use std::collections::{BTreeSet, HashMap};
 
 #[derive(Component)]
@@ -17,7 +17,11 @@ pub struct TreeMapTile {
 
 fn spawn_node_tiles(
     commands: &mut Commands,
-    assets: &[(MapTileAssetId, Handle<WorldAsset>, Option<avian3d::prelude::Collider>)],
+    assets: &[(
+        MapTileAssetId,
+        Handle<WorldAsset>,
+        Option<avian3d::prelude::Collider>,
+    )],
     node_path: &MapTreeNodePath,
     hidden: bool,
 ) -> Vec<Entity> {
@@ -28,29 +32,28 @@ fn spawn_node_tiles(
     };
     let mut spawned = Vec::with_capacity(assets.len());
     for (asset_id, handle, collider_opt) in assets {
-        let mut entity_cmds = commands
-            .spawn((
-                WorldAssetRoot(handle.clone()),
-                visibility,
-                Transform::from_xyz(0.0, 0.0, 0.0),
-                TreeMapTile {
-                    node_path: node_path.clone(),
-                    asset_id: asset_id.clone(),
-                },
-                avian3d::prelude::RigidBody::Static,
-                CollisionMargin(0.2),
-                avian3d::prelude::Restitution::ZERO
-                    .with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
-                avian3d::prelude::Friction::new(0.9),
-                CollisionLayers::new(
-                    [GamePhysicsLayer::Map],
-                    [
-                        // GamePhysicsLayer::Map,
-                        GamePhysicsLayer::Car,
-                        GamePhysicsLayer::Wheel,
-                    ],
-                ),
-            ));
+        let mut entity_cmds = commands.spawn((
+            WorldAssetRoot(handle.clone()),
+            visibility,
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            TreeMapTile {
+                node_path: node_path.clone(),
+                asset_id: asset_id.clone(),
+            },
+            avian3d::prelude::RigidBody::Static,
+            CollisionMargin(0.2),
+            avian3d::prelude::Restitution::ZERO
+                .with_combine_rule(avian3d::prelude::CoefficientCombine::Min),
+            avian3d::prelude::Friction::new(0.9),
+            CollisionLayers::new(
+                [GamePhysicsLayer::Map],
+                [
+                    // GamePhysicsLayer::Map,
+                    GamePhysicsLayer::Car,
+                    GamePhysicsLayer::Wheel,
+                ],
+            ),
+        ));
         if let Some(collider) = collider_opt {
             entity_cmds.insert(collider.clone());
         }
@@ -114,12 +117,26 @@ pub fn spawn_root_map_tiles(
 #[derive(Component, Debug)]
 pub struct TileShouldMerge {
     pub drop_children: BTreeSet<MapTreeNodePath>,
-    pub load_parent: (MapTreeNodePath, Vec<(MapTileAssetId, Handle<WorldAsset>, Option<avian3d::prelude::Collider>)>),
+    pub load_parent: (
+        MapTreeNodePath,
+        Vec<(
+            MapTileAssetId,
+            Handle<WorldAsset>,
+            Option<avian3d::prelude::Collider>,
+        )>,
+    ),
 }
 
 #[derive(Component, Debug)]
 pub struct TileShouldSplit {
-    pub load_children: Vec<(MapTreeNodePath, Vec<(MapTileAssetId, Handle<WorldAsset>, Option<avian3d::prelude::Collider>)>)>,
+    pub load_children: Vec<(
+        MapTreeNodePath,
+        Vec<(
+            MapTileAssetId,
+            Handle<WorldAsset>,
+            Option<avian3d::prelude::Collider>,
+        )>,
+    )>,
     pub drop_parent: MapTreeNodePath,
 }
 
@@ -217,7 +234,9 @@ pub fn start_tile_swap_requests(
         }
 
         commands.spawn(PendingTileGroupFetch {
-            purpose: TileGroupFetchPurpose::Split { split_summary: split.clone() },
+            purpose: TileGroupFetchPurpose::Split {
+                split_summary: split.clone(),
+            },
             tasks,
             asset_ids,
             results: Vec::new(),
@@ -268,8 +287,12 @@ pub fn start_tile_swap_requests(
         merge_done.push(merge.parent_path.clone());
     }
 
-    res_tiles.split_requests.retain(|x| !split_done.contains(&x.parent_path));
-    res_tiles.merge_requests.retain(|x| !merge_done.contains(&x.parent_path));
+    res_tiles
+        .split_requests
+        .retain(|x| !split_done.contains(&x.parent_path));
+    res_tiles
+        .merge_requests
+        .retain(|x| !merge_done.contains(&x.parent_path));
 }
 
 pub fn poll_tile_group_fetches(
@@ -301,23 +324,38 @@ pub fn poll_tile_group_fetches(
         if all_done {
             let mut loaded_assets = Vec::new();
             for (asset_id, response) in &fetch.results {
-                let sanitized_id = response.tile_id.replace('/', "_").replace('\\', "_").replace('.', "_");
+                let sanitized_id = response
+                    .tile_id
+                    .replace('/', "_")
+                    .replace('\\', "_")
+                    .replace('.', "_");
                 let memory_path = format!("{}.glb", sanitized_id);
 
-                memory_dir.dir.insert_asset(std::path::Path::new(&memory_path), response.glb_bytes.clone());
+                memory_dir.dir.insert_asset(
+                    std::path::Path::new(&memory_path),
+                    response.glb_bytes.clone(),
+                );
 
-                let asset_path = GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", memory_path));
+                let asset_path =
+                    GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", memory_path));
                 let handle = asset_server.load(asset_path);
 
                 let mut collider_opt = None;
                 if let Some(mesh_data) = &response.collider_mesh {
-                    let vertices: Vec<Vec3> = mesh_data.vertices.iter()
+                    let vertices: Vec<Vec3> = mesh_data
+                        .vertices
+                        .iter()
                         .map(|v| Vec3::new(v[0], v[1], v[2]))
                         .collect();
-                    if let Ok(trimesh) = avian3d::prelude::Collider::try_trimesh(vertices, mesh_data.indices.clone()) {
+                    if let Ok(trimesh) =
+                        avian3d::prelude::Collider::try_trimesh(vertices, mesh_data.indices.clone())
+                    {
                         collider_opt = Some(trimesh);
                     } else {
-                        tracing::warn!("Failed to build trimesh collider for tile {}", response.tile_id);
+                        tracing::warn!(
+                            "Failed to build trimesh collider for tile {}",
+                            response.tile_id
+                        );
                     }
                 }
 
@@ -329,7 +367,8 @@ pub fn poll_tile_group_fetches(
                     let mut node_to_assets = HashMap::new();
                     for (asset_id, handle, collider) in loaded_assets {
                         if let Some(node_path) = asset_to_node.get(&asset_id) {
-                            node_to_assets.entry(node_path.clone())
+                            node_to_assets
+                                .entry(node_path.clone())
                                 .or_insert_with(Vec::new)
                                 .push((asset_id, handle, collider));
                         }
@@ -360,7 +399,11 @@ pub fn poll_tile_group_fetches(
                         let mut child_assets = Vec::new();
                         for (asset_id, handle, collider) in &loaded_assets {
                             if child_summary.assets.iter().any(|a| &a.name == asset_id) {
-                                child_assets.push((asset_id.clone(), handle.clone(), collider.clone()));
+                                child_assets.push((
+                                    asset_id.clone(),
+                                    handle.clone(),
+                                    collider.clone(),
+                                ));
                             }
                         }
                         children_data.push((child_summary.path.clone(), child_assets));
@@ -371,7 +414,11 @@ pub fn poll_tile_group_fetches(
                         drop_parent: split_summary.parent_path.clone(),
                     });
                 }
-                TileGroupFetchPurpose::Merge { drop_children, parent_path, merge_summary: _ } => {
+                TileGroupFetchPurpose::Merge {
+                    drop_children,
+                    parent_path,
+                    merge_summary: _,
+                } => {
                     commands.spawn(TileShouldMerge {
                         drop_children: drop_children.clone(),
                         load_parent: (parent_path.clone(), loaded_assets),

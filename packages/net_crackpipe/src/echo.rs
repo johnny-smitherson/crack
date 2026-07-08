@@ -13,10 +13,7 @@ pub struct Echo {
 
 impl Echo {
     pub const ALPN: &[u8] = b"sparganothis/global-matchmaker-echo/0";
-    pub fn new(
-        own_endpoint_node_id: NodeId,
-        sleep_manager: SleepManager,
-    ) -> Self {
+    pub fn new(own_endpoint_node_id: NodeId, sleep_manager: SleepManager) -> Self {
         Self {
             own_endpoint_node_id,
             sleep_manager,
@@ -54,24 +51,18 @@ impl Echo {
         let (mut send, mut recv) = connection.accept_bi().await?;
 
         let mut recv_buf = vec![0; 32];
-        n0_future::time::timeout(
-            CONNECT_TIMEOUT,
-            recv.read_exact(&mut recv_buf),
-        )
-        .await
-        .context("echo")?
-        .context("echo")?;
+        n0_future::time::timeout(CONNECT_TIMEOUT, recv.read_exact(&mut recv_buf))
+            .await
+            .context("echo")?
+            .context("echo")?;
         if recv_buf != connection.remote_node_id()?.as_bytes().to_vec() {
             return Err(anyhow::anyhow!("Invalid node id"));
         }
 
-        n0_future::time::timeout(
-            CONNECT_TIMEOUT,
-            send.write_all(&response_own_node_id),
-        )
-        .await
-        .context("echo")?
-        .context("echo")?;
+        n0_future::time::timeout(CONNECT_TIMEOUT, send.write_all(&response_own_node_id))
+            .await
+            .context("echo")?
+            .context("echo")?;
 
         // By calling `finish` on the send stream we signal that we will not send anything
         // further, which makes the receive stream on the other end terminate.

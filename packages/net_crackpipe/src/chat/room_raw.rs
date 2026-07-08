@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::chat::chat_controller::IChatRoomRaw;
 use crate::chat::direct_message::{ChatDirectMessage, DirectMessageProtocol};
 use crate::{
-    chat::chat_const::CONNECT_TIMEOUT, chat::chat_ticket::ChatTicket,
-    main_node::MainNode, user_identity::NodeIdentity,
+    chat::chat_const::CONNECT_TIMEOUT, chat::chat_ticket::ChatTicket, main_node::MainNode,
+    user_identity::NodeIdentity,
 };
 use anyhow::{Context, Result};
 use futures::{FutureExt, StreamExt};
@@ -39,19 +39,13 @@ impl GossipChatRoom {
         bootstrap.remove(&node.node_id());
         let bootstrap = bootstrap.into_iter().collect::<Vec<_>>();
         let have_bootstrap = !bootstrap.is_empty();
-        let mut gossip_topic =
-            node.gossip.subscribe(ticket.topic_id, bootstrap)?;
+        let mut gossip_topic = node.gossip.subscribe(ticket.topic_id, bootstrap)?;
         if have_bootstrap {
-            let _ = n0_future::time::timeout(
-                CONNECT_TIMEOUT,
-                gossip_topic.joined(),
-            )
-            .await;
+            let _ = n0_future::time::timeout(CONNECT_TIMEOUT, gossip_topic.joined()).await;
         }
         let (gossip_send, gossip_recv) = gossip_topic.split();
         let gossip_send = Arc::new(RwLock::new(Some(gossip_send)));
-        let (msg_send, msg_recv) =
-            tokio::sync::mpsc::channel::<Arc<Vec<u8>>>(2048);
+        let (msg_send, msg_recv) = tokio::sync::mpsc::channel::<Arc<Vec<u8>>>(2048);
         let room = Self {
             own_node_id: node.node_id(),
             direct_message: node.chat_direct_message.clone(),
@@ -62,13 +56,7 @@ impl GossipChatRoom {
         };
         {
             let task = Some(AbortOnDropHandle::new(spawn(async move {
-                let _r = task_loop(
-                    room.topic_id,
-                    gossip_recv,
-                    direct_message_recv,
-                    msg_send,
-                )
-                .await;
+                let _r = task_loop(room.topic_id, gossip_recv, direct_message_recv, msg_send).await;
                 warn!("ZZZ: chat room task loop closed: {:?}", _r);
             })));
             *room.task.write().await = task;
@@ -80,10 +68,7 @@ impl GossipChatRoom {
 async fn task_loop(
     topic_id: TopicId,
     mut gossip_recv: GossipReceiver,
-    mut direct_message_recv: async_broadcast::Receiver<(
-        PublicKey,
-        ChatDirectMessage,
-    )>,
+    mut direct_message_recv: async_broadcast::Receiver<(PublicKey, ChatDirectMessage)>,
     msg_send: tokio::sync::mpsc::Sender<Arc<Vec<u8>>>,
 ) -> Result<()> {
     loop {
@@ -151,11 +136,7 @@ impl IChatRoomRaw for GossipChatRoom {
         Ok(())
     }
 
-    async fn direct_message(
-        &self,
-        to: NodeIdentity,
-        message: Vec<u8>,
-    ) -> anyhow::Result<()> {
+    async fn direct_message(&self, to: NodeIdentity, message: Vec<u8>) -> anyhow::Result<()> {
         let message = ChatDirectMessage(self.topic_id, Arc::new(message));
         self.direct_message
             .send_direct_message(*to.node_id(), message)

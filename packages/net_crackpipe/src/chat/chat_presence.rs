@@ -68,11 +68,7 @@ impl<T: IChatRoomType> ChatPresence<T> {
         self.notify.notified()
     }
     /// returns true if the presence was added to list
-    pub async fn add_presence(
-        &self,
-        identity: &NodeIdentity,
-        payload: &Option<T::P>,
-    ) -> bool {
+    pub async fn add_presence(&self, identity: &NodeIdentity, payload: &Option<T::P>) -> bool {
         let identity = *identity;
         let now = get_timestamp_now_ms();
         let mut w = self.presence.write().await;
@@ -126,15 +122,15 @@ impl<T: IChatRoomType> ChatPresence<T> {
         });
         let v: Vec<_> = p
             .into_iter()
-            .map(|(_node_id, (last_seen, identity, payload, rtt))| {
-                PresenceListItem {
+            .map(
+                |(_node_id, (last_seen, identity, payload, rtt))| PresenceListItem {
                     presence_flag: PresenceFlag::from_instant(last_seen),
                     last_seen,
                     identity,
                     payload,
                     rtt,
-                }
-            })
+                },
+            )
             .collect();
 
         PresenceList(v)

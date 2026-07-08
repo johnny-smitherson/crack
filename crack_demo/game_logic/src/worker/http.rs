@@ -57,4 +57,3 @@ pub async fn http_get_text(url: &str) -> anyhow::Result<String> {
     });
     rx.await?
 }
-

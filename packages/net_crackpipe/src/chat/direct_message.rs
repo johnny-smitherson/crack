@@ -3,13 +3,10 @@ use std::sync::Arc;
 
 use crate::chat::chat_const::PRESENCE_EXPIRATION;
 use crate::{
-    chat::chat_const::CONNECT_TIMEOUT, signed_message::AcceptableType,
-    sleep::SleepManager,
+    chat::chat_const::CONNECT_TIMEOUT, signed_message::AcceptableType, sleep::SleepManager,
 };
 use anyhow::Context;
-use iroh::{
-    endpoint::Connection, protocol::ProtocolHandler, Endpoint, PublicKey,
-};
+use iroh::{endpoint::Connection, protocol::ProtocolHandler, Endpoint, PublicKey};
 use iroh_gossip::proto::TopicId;
 use n0_future::task::spawn;
 use n0_future::task::AbortOnDropHandle;
@@ -51,9 +48,7 @@ impl<T: AcceptableType> DirectMessageProtocol<T> {
         let _msg_d2 = msg_d.clone();
         let task = async move {
             while let Some((iroh_target, payload)) = sender_rx.recv().await {
-                if let Err(_e) =
-                    _msg_d2.send_message(iroh_target, payload).await
-                {
+                if let Err(_e) = _msg_d2.send_message(iroh_target, payload).await {
                     // warn!("failed to send direct message: {:?}", _e);
                     // warn!("dropping dispatcher for {}", iroh_target);
                     _msg_d2.drop_dispatcher(iroh_target).await;
@@ -73,10 +68,7 @@ impl<T: AcceptableType> DirectMessageProtocol<T> {
         }
     }
 
-    async fn handle_connection(
-        self,
-        connection: Connection,
-    ) -> anyhow::Result<()> {
+    async fn handle_connection(self, connection: Connection) -> anyhow::Result<()> {
         let _remote_node_id = connection.remote_node_id()?;
         let mut recv = connection.accept_uni().await?;
         loop {
@@ -104,10 +96,7 @@ impl<T: AcceptableType> DirectMessageProtocol<T> {
 }
 
 impl<T: AcceptableType> ProtocolHandler for DirectMessageProtocol<T> {
-    fn accept(
-        &self,
-        connection: Connection,
-    ) -> n0_future::boxed::BoxFuture<anyhow::Result<()>> {
+    fn accept(&self, connection: Connection) -> n0_future::boxed::BoxFuture<anyhow::Result<()>> {
         Box::pin(self.clone().handle_connection(connection))
     }
 }
@@ -131,17 +120,13 @@ impl<T: AcceptableType> MessageDispatchers<T> {
         let mut dispatchers = self.dispatchers.write().await;
         dispatchers.clear();
     }
-    async fn ensure_dispatcher(
-        &self,
-        target: PublicKey,
-    ) -> Arc<MessageDispatcher<T>> {
+    async fn ensure_dispatcher(&self, target: PublicKey) -> Arc<MessageDispatcher<T>> {
         let mut dispatchers = self.dispatchers.write().await;
         if let Some(dispatcher) = dispatchers.get_mut(&target) {
             return dispatcher.clone();
         }
 
-        let dispatcher =
-            Arc::new(MessageDispatcher::new(target, self.endpoint.clone()));
+        let dispatcher = Arc::new(MessageDispatcher::new(target, self.endpoint.clone()));
         dispatchers.insert(target, dispatcher.clone());
         dispatcher
     }
@@ -149,11 +134,7 @@ impl<T: AcceptableType> MessageDispatchers<T> {
         let mut dispatchers = self.dispatchers.write().await;
         dispatchers.remove(&target);
     }
-    pub async fn send_message(
-        &self,
-        target: PublicKey,
-        payload: T,
-    ) -> anyhow::Result<()> {
+    pub async fn send_message(&self, target: PublicKey, payload: T) -> anyhow::Result<()> {
         let dispatcher = self.ensure_dispatcher(target).await;
         dispatcher.send_message(payload).await
     }
@@ -175,29 +156,18 @@ impl<T: AcceptableType> MessageDispatcher<T> {
                 endpoint.connect(target, CHAT_DIRECT_MESSAGE_ALPN),
             )
             .await??;
-            let mut send_stream = n0_future::time::timeout(
-                CONNECT_TIMEOUT,
-                connection.open_uni(),
-            )
-            .await??;
+            let mut send_stream =
+                n0_future::time::timeout(CONNECT_TIMEOUT, connection.open_uni()).await??;
 
-            while let Some(payload) =
-                n0_future::time::timeout(PRESENCE_EXPIRATION, receiver.recv())
-                    .await
-                    .context("no direct message requested, exiting")?
+            while let Some(payload) = n0_future::time::timeout(PRESENCE_EXPIRATION, receiver.recv())
+                .await
+                .context("no direct message requested, exiting")?
             {
                 let payload = postcard::to_stdvec(&payload)?;
                 let len = (payload.len() as u32).to_le_bytes();
-                n0_future::time::timeout(
-                    CONNECT_TIMEOUT,
-                    send_stream.write_all(&len),
-                )
-                .await??;
-                n0_future::time::timeout(
-                    CONNECT_TIMEOUT,
-                    send_stream.write_all(&payload),
-                )
-                .await??;
+                n0_future::time::timeout(CONNECT_TIMEOUT, send_stream.write_all(&len)).await??;
+                n0_future::time::timeout(CONNECT_TIMEOUT, send_stream.write_all(&payload))
+                    .await??;
             }
 
             n0_future::time::timeout(CONNECT_TIMEOUT, async move {

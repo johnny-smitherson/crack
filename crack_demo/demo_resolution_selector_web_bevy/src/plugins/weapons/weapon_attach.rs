@@ -7,8 +7,8 @@ use bevy::render::mesh::VertexAttributeValues;
 use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 
 use super::weapon_manifest::WeaponId;
-use crate::plugins::pedestrians::skeleton::PedestrianSkeleton;
 use crate::basic_app::MemoryDir;
+use crate::plugins::pedestrians::skeleton::PedestrianSkeleton;
 
 /// The local axis (in wrist-bone space) along which the grip offset is applied.
 const GRIP_OFFSET_AXIS: Vec3 = Vec3::Y;
@@ -208,7 +208,11 @@ pub fn reconcile_weapon_model(
         };
 
         // Spawn the new model (Unarmed has none).
-        let new_entity = match (equipped_id.path().map(str::to_string), wrist, client.as_ref()) {
+        let new_entity = match (
+            equipped_id.path().map(str::to_string),
+            wrist,
+            client.as_ref(),
+        ) {
             (Some(url), Some(wrist), Some(client)) => {
                 let entity = commands
                     .spawn((
@@ -225,18 +229,19 @@ pub fn reconcile_weapon_model(
                 let base_url = crate::config::DATA_BASE_URL.to_string();
                 let task = bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
                     api_client
-                        .call::<game_logic::api::FetchWeaponModel>(game_logic::glb::FetchGlbRequest {
-                            base_url,
-                            glb_path,
-                            asset_id,
-                        })
+                        .call::<game_logic::api::FetchWeaponModel>(
+                            game_logic::glb::FetchGlbRequest {
+                                base_url,
+                                glb_path,
+                                asset_id,
+                            },
+                        )
                         .await
                 });
 
-                commands.entity(entity).insert(PendingWeaponModelFetch {
-                    task,
-                    kind,
-                });
+                commands
+                    .entity(entity)
+                    .insert(PendingWeaponModelFetch { task, kind });
 
                 Some(entity)
             }
@@ -263,21 +268,32 @@ pub fn poll_weapon_model_fetches(
     asset_server: Res<AssetServer>,
 ) {
     for (entity, mut fetch) in q_fetches.iter_mut() {
-        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut fetch.task)) {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(
+            bevy::tasks::futures_lite::future::poll_once(&mut fetch.task),
+        ) {
             match res {
                 Ok(response) => {
-                    let sanitized_id = response.asset_id.replace('/', "_").replace('\\', "_").replace('.', "_");
+                    let sanitized_id = response
+                        .asset_id
+                        .replace('/', "_")
+                        .replace('\\', "_")
+                        .replace('.', "_");
                     let memory_path = format!("wpn_{}.glb", sanitized_id);
 
                     // Insert bytes into MemoryDir
-                    memory_dir.dir.insert_asset(std::path::Path::new(&memory_path), response.glb_bytes.clone());
+                    memory_dir.dir.insert_asset(
+                        std::path::Path::new(&memory_path),
+                        response.glb_bytes.clone(),
+                    );
 
                     // Build memory URL for WorldAsset
-                    let scene_url = GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", memory_path));
+                    let scene_url =
+                        GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", memory_path));
                     let handle = asset_server.load::<WorldAsset>(scene_url);
 
                     // Replace components to make it a fully realized weapon model
-                    commands.entity(entity)
+                    commands
+                        .entity(entity)
                         .insert((
                             Name::new("Weapon"),
                             WorldAssetRoot(handle),

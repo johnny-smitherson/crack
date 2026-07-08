@@ -189,7 +189,14 @@ pub fn spawn_car_request_event_observer(
     });
 
     let car_type = get_random_car_type();
-    let car_entity = spawn_physics_car(&mut commands, &asset_server, &wheel_assets, pos, car_rot, car_type);
+    let car_entity = spawn_physics_car(
+        &mut commands,
+        &asset_server,
+        &wheel_assets,
+        pos,
+        car_rot,
+        car_type,
+    );
 
     // Remove ActivePlayerVehicle from any existing cars
     for old_car in q_active_cars.iter() {

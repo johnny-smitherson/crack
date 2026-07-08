@@ -5,11 +5,11 @@ use bevy::ecs::relationship::Relationship;
 use bevy::prelude::*;
 use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 
+use crate::basic_app::MemoryDir;
 use crate::plugins::pedestrians::manifest::PedestrianUrl;
 use crate::plugins::pedestrians::skeleton::{
     JointData, PedestrianSkeleton, classify_skeleton, traverse_hierarchy_raw,
 };
-use crate::basic_app::MemoryDir;
 
 /// Public spawn request: spawn the pedestrian at `url` at `position`.
 #[derive(Event, Clone)]
@@ -114,17 +114,27 @@ pub fn poll_pedestrian_glb_fetches(
     mut counter: ResMut<PedestrianSpawnCounter>,
 ) {
     for (entity, mut fetch) in q_fetches.iter_mut() {
-        if let Some(res) = bevy::tasks::futures_lite::future::block_on(bevy::tasks::futures_lite::future::poll_once(&mut fetch.task)) {
+        if let Some(res) = bevy::tasks::futures_lite::future::block_on(
+            bevy::tasks::futures_lite::future::poll_once(&mut fetch.task),
+        ) {
             match res {
                 Ok(response) => {
-                    let sanitized_id = response.asset_id.replace('/', "_").replace('\\', "_").replace('.', "_");
+                    let sanitized_id = response
+                        .asset_id
+                        .replace('/', "_")
+                        .replace('\\', "_")
+                        .replace('.', "_");
                     let memory_path = format!("ped_{}.glb", sanitized_id);
 
                     // Insert bytes into MemoryDir
-                    memory_dir.dir.insert_asset(std::path::Path::new(&memory_path), response.glb_bytes.clone());
+                    memory_dir.dir.insert_asset(
+                        std::path::Path::new(&memory_path),
+                        response.glb_bytes.clone(),
+                    );
 
                     // Build memory URLs
-                    let scene_url = GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", memory_path));
+                    let scene_url =
+                        GltfAssetLabel::Scene(0).from_asset(format!("memory://{}", memory_path));
                     let gltf_url = format!("memory://{}", memory_path);
 
                     let handle = asset_server.load::<WorldAsset>(scene_url);
@@ -134,7 +144,8 @@ pub fn poll_pedestrian_glb_fetches(
                     counter.0 += 1;
 
                     // Add the components to the existing parent entity
-                    commands.entity(entity)
+                    commands
+                        .entity(entity)
                         .insert((
                             ModelRoot {
                                 index,
@@ -155,9 +166,11 @@ pub fn poll_pedestrian_glb_fetches(
                                 InheritedVisibility::default(),
                             ));
                         });
-                    
+
                     // Remove the fetch component
-                    commands.entity(entity).remove::<PendingPedestrianGlbFetch>();
+                    commands
+                        .entity(entity)
+                        .remove::<PendingPedestrianGlbFetch>();
                 }
                 Err(e) => {
                     tracing::error!("Pedestrian model fetch RPC error: {e:?}");

@@ -19,10 +19,12 @@ pub use weapon_shooting::{
 };
 
 use weapon_attach::{
-    equip_weapon_observer, finalize_weapon_extents, reconcile_weapon_model,
-    update_weapon_transforms, poll_weapon_model_fetches,
+    equip_weapon_observer, finalize_weapon_extents, poll_weapon_model_fetches,
+    reconcile_weapon_model, update_weapon_transforms,
 };
-use weapon_manifest::{spawn_weapon_manifest_task, poll_weapon_manifest_task, start_weapon_manifest_load};
+use weapon_manifest::{
+    poll_weapon_manifest_task, spawn_weapon_manifest_task, start_weapon_manifest_load,
+};
 use weapon_shooting::{
     draw_bullet_sparks, draw_shot_tracers, fire_gun_observer, reload_gun_observer,
     tick_pending_melee_hits,

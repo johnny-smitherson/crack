@@ -73,11 +73,11 @@ async fn _compute_payload_2(msg: JsValue) -> anyhow::Result<JsValue> {
         let js_response = js_sys::Object::new();
         let _ = js_sys::Reflect::set(&js_response, &"msg_id".into(), &JsValue::from(0));
         let _ = js_sys::Reflect::set(&js_response, &"msg_type".into(), &JsValue::from("pong"));
-        
+
         let view = unsafe { js_sys::Uint8Array::view(&client_version) };
         let uint8_array = view.slice(0, client_version.len() as u32);
         let _ = js_sys::Reflect::set(&js_response, &"msg_content".into(), &uint8_array);
-        
+
         return Ok(js_response.into());
     } else {
         tracing::debug!("Got App Message, type = {}({})", data.msg_type, data.msg_id);
@@ -89,9 +89,17 @@ async fn _compute_payload_2(msg: JsValue) -> anyhow::Result<JsValue> {
         let t_end_func = _crack_utils::get_timestamp_now_ms();
 
         let js_response = js_sys::Object::new();
-        let _ = js_sys::Reflect::set(&js_response, &"msg_id".into(), &JsValue::from(response.msg_id));
-        let _ = js_sys::Reflect::set(&js_response, &"msg_type".into(), &JsValue::from(&response.msg_type));
-        
+        let _ = js_sys::Reflect::set(
+            &js_response,
+            &"msg_id".into(),
+            &JsValue::from(response.msg_id),
+        );
+        let _ = js_sys::Reflect::set(
+            &js_response,
+            &"msg_type".into(),
+            &JsValue::from(&response.msg_type),
+        );
+
         let view = unsafe { js_sys::Uint8Array::view(&response.msg_content) };
         let uint8_array = view.slice(0, response.msg_content.len() as u32);
         let _ = js_sys::Reflect::set(&js_response, &"msg_content".into(), &uint8_array);

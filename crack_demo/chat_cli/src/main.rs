@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use anyhow::Context;
 use net_crackpipe::{
     chat::chat_controller::{IChatController, IChatReceiver, IChatSender},
@@ -6,6 +5,7 @@ use net_crackpipe::{
     global_matchmaker::GlobalMatchmaker,
     user_identity::UserIdentitySecrets,
 };
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 #[tokio::main]

@@ -124,9 +124,7 @@ impl<T: IChatRoomType> ChatController<T> {
                     continue;
                 };
                 errors = 0;
-                let msg = SignedMessage::verify_and_decode::<ChatMessage<T>>(
-                    &message,
-                );
+                let msg = SignedMessage::verify_and_decode::<ChatMessage<T>>(&message);
                 match msg {
                     Ok(m) => {
                         if let Err(e) = _dispatch_inner_loop::<T>(
@@ -141,10 +139,7 @@ impl<T: IChatRoomType> ChatController<T> {
                         }
                     }
                     Err(e) => {
-                        warn!(
-                            "_dispatch_task: Error verifying message: {:?}",
-                            e
-                        );
+                        warn!("_dispatch_task: Error verifying message: {:?}", e);
                     }
                 }
             }
@@ -161,14 +156,8 @@ impl<T: IChatRoomType> ChatController<T> {
             loop {
                 let _ = _sleep_manager.sleep(PRESENCE_INTERVAL).await;
                 if let Err(e) = _sender.broadcast_presence().await {
-                    warn!(
-                        "_presence_task: Error broadcasting presence: {:?}",
-                        e
-                    );
-                    anyhow::bail!(
-                        "_presence_task: Error broadcasting presence: {:?}",
-                        e
-                    );
+                    warn!("_presence_task: Error broadcasting presence: {:?}", e);
+                    anyhow::bail!("_presence_task: Error broadcasting presence: {:?}", e);
                 }
             }
         };
@@ -255,9 +244,7 @@ impl<T: IChatRoomType> IChatController<T> for ChatController<T> {
             if bootstrap.is_empty() || found_count >= 3 {
                 break;
             }
-            let _ =
-                n0_future::time::timeout(CONNECT_TIMEOUT / 10, p.notified())
-                    .await;
+            let _ = n0_future::time::timeout(CONNECT_TIMEOUT / 10, p.notified()).await;
             attempts += 1;
         }
         Ok(())
@@ -272,9 +259,7 @@ pub enum ChatMessage<T: IChatRoomType> {
 }
 
 #[async_trait::async_trait]
-pub trait IChatController<T: IChatRoomType>:
-    Send + Sync + 'static + std::fmt::Debug
-{
+pub trait IChatController<T: IChatRoomType>: Send + Sync + 'static + std::fmt::Debug {
     fn node_identity(&self) -> NodeIdentity;
     fn sender(&self) -> ChatSender<T>;
     async fn receiver(&self) -> ChatReceiver<T>;
@@ -294,13 +279,9 @@ pub struct ChatSender<T: IChatRoomType> {
 
 #[async_trait::async_trait]
 impl<T: IChatRoomType> IChatSender<T> for ChatSender<T> {
-    async fn broadcast_message(
-        &self,
-        message: T::M,
-    ) -> anyhow::Result<ReceivedMessage<T>> {
+    async fn broadcast_message(&self, message: T::M) -> anyhow::Result<ReceivedMessage<T>> {
         let message2 = ChatMessage::<T>::Message(message.clone());
-        let (bytes, sent_preview) =
-            self.message_signer.sign_and_encode(message2)?;
+        let (bytes, sent_preview) = self.message_signer.sign_and_encode(message2)?;
         self.inner.broadcast_message(bytes).await?;
         let sent_preview = ReceivedMessage::<T> {
             _sender_timestamp: sent_preview._timestamp,
@@ -317,8 +298,7 @@ impl<T: IChatRoomType> IChatSender<T> for ChatSender<T> {
         message: T::M,
     ) -> anyhow::Result<ReceivedMessage<T>> {
         let message2 = ChatMessage::<T>::Message(message.clone());
-        let (bytes, sent_preview) =
-            self.message_signer.sign_and_encode(message2)?;
+        let (bytes, sent_preview) = self.message_signer.sign_and_encode(message2)?;
         self.inner.direct_message(to, bytes).await?;
         let received_message = ReceivedMessage::<T> {
             _sender_timestamp: sent_preview._timestamp,
@@ -371,13 +351,8 @@ impl<T: IChatRoomType> ChatSender<T> {
 }
 
 #[async_trait::async_trait]
-pub trait IChatSender<T: IChatRoomType>:
-    Send + Sync + 'static + std::fmt::Debug
-{
-    async fn broadcast_message(
-        &self,
-        message: T::M,
-    ) -> anyhow::Result<ReceivedMessage<T>>;
+pub trait IChatSender<T: IChatRoomType>: Send + Sync + 'static + std::fmt::Debug {
+    async fn broadcast_message(&self, message: T::M) -> anyhow::Result<ReceivedMessage<T>>;
     async fn direct_message(
         &self,
         to: NodeIdentity,
@@ -401,20 +376,14 @@ impl<T: IChatRoomType> IChatReceiver<T> for ChatReceiver<T> {
 }
 
 #[async_trait::async_trait]
-pub trait IChatReceiver<T: IChatRoomType>:
-    Send + Sync + 'static + std::fmt::Debug
-{
+pub trait IChatReceiver<T: IChatRoomType>: Send + Sync + 'static + std::fmt::Debug {
     async fn next_message(&self) -> Option<ReceivedMessage<T>>;
 }
 
 #[async_trait::async_trait]
 pub trait IChatRoomRaw: Send + Sync + 'static + std::fmt::Debug {
     async fn broadcast_message(&self, message: Vec<u8>) -> anyhow::Result<()>;
-    async fn direct_message(
-        &self,
-        to: NodeIdentity,
-        message: Vec<u8>,
-    ) -> anyhow::Result<()>;
+    async fn direct_message(&self, to: NodeIdentity, message: Vec<u8>) -> anyhow::Result<()>;
     async fn next_message(&self) -> anyhow::Result<Option<Arc<Vec<u8>>>>;
     async fn join_peers(&self, peers: Vec<NodeId>) -> anyhow::Result<()>;
     async fn shutdown(&self) -> anyhow::Result<()>;

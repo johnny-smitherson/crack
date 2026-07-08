@@ -43,12 +43,9 @@ pub struct SignedMessage {
 }
 
 impl SignedMessage {
-    pub fn verify_and_decode<T: AcceptableType>(
-        bytes: &[u8],
-    ) -> Result<WireMessage<T>> {
+    pub fn verify_and_decode<T: AcceptableType>(bytes: &[u8]) -> Result<WireMessage<T>> {
         let signed_message: Self = postcard::from_bytes(bytes)?;
-        let message: WireMessage<T> =
-            postcard::from_bytes(&signed_message.data)?;
+        let message: WireMessage<T> = postcard::from_bytes(&signed_message.data)?;
         // let signed_message: Self = bincode::deserialize(bytes)?;
         // let message: WireMessage<T> =
         // bincode::deserialize(&signed_message.data)?;

@@ -34,16 +34,21 @@ impl<T: Clone> LruCache<T> {
         let now = _crack_utils::get_timestamp_now_ms();
         if self.entries.len() >= self.max_entries {
             // Find the oldest entry to evict
-            let oldest_key = self.entries.iter()
+            let oldest_key = self
+                .entries
+                .iter()
                 .min_by_key(|(_, v)| v.last_access_ms)
                 .map(|(k, _)| k.clone());
             if let Some(old_key) = oldest_key {
                 self.entries.remove(&old_key);
             }
         }
-        self.entries.insert(key, CacheEntry {
-            val,
-            last_access_ms: now,
-        });
+        self.entries.insert(
+            key,
+            CacheEntry {
+                val,
+                last_access_ms: now,
+            },
+        );
     }
 }

@@ -10,9 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     api::api_const::API_SERVER_VERSION,
     chat::{
-        chat_controller::{
-            ChatController, IChatController, IChatReceiver, IChatSender,
-        },
+        chat_controller::{ChatController, IChatController, IChatReceiver, IChatSender},
         chat_ticket::ChatTicket,
         global_chat::GlobalChatMessageContent,
     },
@@ -31,9 +29,7 @@ impl IChatRoomType for ServerChatRoomType {
         ServerChatPresence::default()
     }
 }
-#[derive(
-    Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize, Default,
-)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize, Default)]
 pub struct ServerChatPresence {
     pub is_server: bool,
 }
@@ -59,8 +55,7 @@ pub async fn server_join_server_chat(
         anyhow::bail!("server_join_server_chat: no node!");
     };
     let chat_ticket = ChatTicket::new_str_bs("server", BTreeSet::from([]));
-    let Ok(chat) = nn.join_chat::<ServerChatRoomType>(&chat_ticket).await
-    else {
+    let Ok(chat) = nn.join_chat::<ServerChatRoomType>(&chat_ticket).await else {
         anyhow::bail!("server_join_server_chat: Failed to join server chat");
     };
     Ok(chat)
@@ -80,16 +75,13 @@ async fn client_join_server_chat_with_server_ids(
         "server",
         BTreeSet::from_iter(server_nodes.iter().map(|x| *x.node_id())),
     );
-    let Ok(chat) = nn.join_chat::<ServerChatRoomType>(&chat_ticket).await
-    else {
+    let Ok(chat) = nn.join_chat::<ServerChatRoomType>(&chat_ticket).await else {
         anyhow::bail!("client_join_server_chat: Failed to join server chat");
     };
     Ok(chat)
 }
 
-pub(crate) async fn fetch_server_ids(
-    mm: GlobalMatchmaker,
-) -> anyhow::Result<Vec<NodeIdentity>> {
+pub(crate) async fn fetch_server_ids(mm: GlobalMatchmaker) -> anyhow::Result<Vec<NodeIdentity>> {
     tracing::info!("fetch_server_ids()");
     let global = mm
         .global_chat_controller()
@@ -103,19 +95,20 @@ pub(crate) async fn fetch_server_ids(
 
     let rr = global.receiver().await;
     let pp = global.chat_presence();
-    let fetch_task = AbortOnDropHandle::new(n0_future::task::spawn(
-        async move {
-            while let Some(msg1) = rr.next_message().await {
-                let msg = msg1.message;
-                let GlobalChatMessageContent::BootstrapQuery(crate::chat::global_chat::GlobalChatBootstrapQuery::ServerList { v }) = msg else {
+    let fetch_task = AbortOnDropHandle::new(n0_future::task::spawn(async move {
+        while let Some(msg1) = rr.next_message().await {
+            let msg = msg1.message;
+            let GlobalChatMessageContent::BootstrapQuery(
+                crate::chat::global_chat::GlobalChatBootstrapQuery::ServerList { v },
+            ) = msg
+            else {
                 continue;
             };
-                for x in v.0 {
-                    pp.add_presence(&x.identity, &x.payload).await;
-                }
+            for x in v.0 {
+                pp.add_presence(&x.identity, &x.payload).await;
             }
-        },
-    ));
+        }
+    }));
 
     let mut server_nodes: Vec<_> = vec![];
     for _retry in 0..10 {
@@ -138,10 +131,7 @@ pub(crate) async fn fetch_server_ids(
                 if !bs_sent_to.contains(&node_id) {
                     bs_sent_to.insert(node_id);
                     tracing::info!("Sending direct message for server list!");
-                    let _ = global
-                        .sender()
-                        .direct_message(node_id, req.clone())
-                        .await;
+                    let _ = global.sender().direct_message(node_id, req.clone()).await;
                     continue;
                 }
             }
@@ -183,16 +173,10 @@ pub(crate) async fn client_join_server_chat(
             continue;
         }
 
-        let chat = client_join_server_chat_with_server_ids(
-            mm.clone(),
-            server_nodes.clone(),
-        )
-        .await;
+        let chat = client_join_server_chat_with_server_ids(mm.clone(), server_nodes.clone()).await;
         if let Ok(chat) = chat {
             if let Err(e) = chat.wait_joined().await {
-                tracing::warn!(
-                    "retry error {i}/{RETRY_COUNT}: on wait_joined: {e}"
-                );
+                tracing::warn!("retry error {i}/{RETRY_COUNT}: on wait_joined: {e}");
             }
 
             tracing::info!("server chat OK.");

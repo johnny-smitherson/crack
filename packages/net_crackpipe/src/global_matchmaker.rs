@@ -15,17 +15,12 @@ use tracing::{error, info, warn};
 use crate::{
     _bootstrap_keys::BOOTSTRAP_SECRET_KEYS,
     chat::{
-        chat_const::{
-            CONNECT_TIMEOUT, GLOBAL_CHAT_TOPIC_ID,
-            GLOBAL_PERIODIC_TASK_INTERVAL,
-        },
-        chat_controller::{
-            ChatController, IChatController, IChatReceiver, IChatSender,
-        },
+        chat_const::{CONNECT_TIMEOUT, GLOBAL_CHAT_TOPIC_ID, GLOBAL_PERIODIC_TASK_INTERVAL},
+        chat_controller::{ChatController, IChatController, IChatReceiver, IChatSender},
         chat_ticket::ChatTicket,
         global_chat::{
-            GlobalChatBootstrapQuery, GlobalChatMessageContent,
-            GlobalChatPresence, GlobalChatRoomType,
+            GlobalChatBootstrapQuery, GlobalChatMessageContent, GlobalChatPresence,
+            GlobalChatRoomType,
         },
     },
     datetime_now,
@@ -80,8 +75,7 @@ impl GlobalMatchmakerInner {
 
 impl PartialEq for GlobalMatchmaker {
     fn eq(&self, other: &Self) -> bool {
-        self.user_secrets == other.user_secrets
-            && self.own_public_key == other.own_public_key
+        self.user_secrets == other.user_secrets && self.own_public_key == other.own_public_key
     }
 }
 
@@ -124,19 +118,14 @@ impl GlobalMatchmaker {
         *self.own_node_identity().user_identity()
     }
 
-    pub async fn global_chat_controller(
-        &self,
-    ) -> Option<ChatController<GlobalChatRoomType>> {
+    pub async fn global_chat_controller(&self) -> Option<ChatController<GlobalChatRoomType>> {
         self.inner.read().await.global_chat_controller.clone()
     }
-    pub async fn bs_global_chat_controller(
-        &self,
-    ) -> Option<ChatController<GlobalChatRoomType>> {
+    pub async fn bs_global_chat_controller(&self) -> Option<ChatController<GlobalChatRoomType>> {
         self.inner.read().await.bs_global_chat_controller.clone()
     }
     pub async fn display_debug_info(&self) -> Result<String> {
-        let user_nickname =
-            self.user_secrets().user_identity().nickname().to_string();
+        let user_nickname = self.user_secrets().user_identity().nickname().to_string();
         let user_id = self.user_secrets().user_identity().user_id().to_string();
 
         let endpoint = self
@@ -168,8 +157,7 @@ impl GlobalMatchmaker {
         info_txt.push_str(&format!("User Nickname: {user_nickname}\n"));
         info_txt.push_str(&format!("User ID: {user_id}\n\n"));
         info_txt.push_str(&format!("Own Endpoint NodeID: \n{endpoint:#?}\n\n"));
-        info_txt
-            .push_str(&format!("Own Bootstrap NodeID: \n{bs_endpoint:#?}\n\n"));
+        info_txt.push_str(&format!("Own Bootstrap NodeID: \n{bs_endpoint:#?}\n\n"));
         info_txt.push_str(&format!("Known Bootstrap Nodes: \n{bs:#?}\n\n"));
         Ok(info_txt)
     }
@@ -193,11 +181,8 @@ impl GlobalMatchmaker {
             sleep_manager: SleepManager::new(),
         };
 
-        let node_identity = NodeIdentity::new(
-            *user.user_identity(),
-            own_private_key.public(),
-            None,
-        );
+        let node_identity =
+            NodeIdentity::new(*user.user_identity(), own_private_key.public(), None);
         info!(
             "GlobalMatchmaker created with \n- node identity: {:#?}",
             node_identity
@@ -257,19 +242,11 @@ impl GlobalMatchmaker {
     //     self.own_private_key.clone()
     // }
 
-    pub async fn new(
-        user_identity_secrets: Arc<UserIdentitySecrets>,
-    ) -> Result<Self> {
+    pub async fn new(user_identity_secrets: Arc<UserIdentitySecrets>) -> Result<Self> {
         let num = 3;
         for i in 0..num {
-            let own_private_key =
-                Arc::new(SecretKey::generate(&mut rand::thread_rng()));
-            match Self::new_try_once(
-                own_private_key.clone(),
-                user_identity_secrets.clone(),
-            )
-            .await
-            {
+            let own_private_key = Arc::new(SecretKey::generate(&mut rand::thread_rng()));
+            match Self::new_try_once(own_private_key.clone(), user_identity_secrets.clone()).await {
                 Ok(mm) => {
                     return Ok(mm);
                 }
@@ -301,9 +278,8 @@ impl GlobalMatchmaker {
 
         mm.connect_global_chats().await?;
 
-        let periodic_task = AbortOnDropHandle::new(n0_future::task::spawn(
-            global_periodic_task(mm.clone()),
-        ));
+        let periodic_task =
+            AbortOnDropHandle::new(n0_future::task::spawn(global_periodic_task(mm.clone())));
         {
             mm.inner.write().await._periodic_task = Some(periodic_task);
         }
@@ -350,22 +326,17 @@ impl GlobalMatchmaker {
                 let mut i = mm.inner.write().await;
                 i.bs_global_chat_controller = Some(c1.clone());
                 let c1 = c1.clone();
-                i.bs_global_chat_task = Some(AbortOnDropHandle::new(
-                    n0_future::task::spawn(async move {
+                i.bs_global_chat_task =
+                    Some(AbortOnDropHandle::new(n0_future::task::spawn(async move {
                         match run_bs_global_chat_task(c1).await {
                             Ok(_) => {
-                                tracing::warn!(
-                                    "run_bs_global_chat_task exited!"
-                                );
+                                tracing::warn!("run_bs_global_chat_task exited!");
                             }
                             Err(e) => {
-                                tracing::error!(
-                                    "run_bs_global_chat_task ERROR: {e:?}"
-                                );
+                                tracing::error!("run_bs_global_chat_task ERROR: {e:?}");
                             }
                         };
-                    }),
-                ));
+                    })));
 
                 Ok(())
             }
@@ -382,9 +353,7 @@ impl GlobalMatchmaker {
         Ok(ticket)
     }
 
-    pub async fn known_bootstrap_nodes(
-        &self,
-    ) -> BTreeMap<usize, BootstrapNodeInfo> {
+    pub async fn known_bootstrap_nodes(&self) -> BTreeMap<usize, BootstrapNodeInfo> {
         self.inner.read().await.known_bootstrap_nodes.clone()
     }
 
@@ -409,8 +378,7 @@ impl GlobalMatchmaker {
                     .cloned()
                     .collect::<HashSet<_>>()
             };
-            let free_bs_idx =
-                all_bs_idx.difference(&present_bs_idx).collect::<Vec<_>>();
+            let free_bs_idx = all_bs_idx.difference(&present_bs_idx).collect::<Vec<_>>();
             if free_bs_idx.len() <= 1 {
                 // info!("no free bootstrap idx, exiting.");
                 return Ok(false);
@@ -419,8 +387,7 @@ impl GlobalMatchmaker {
             *free_bs_idx[rand]
         };
         info!("Spawning new bootstrap endpoint #{boostrap_idx}");
-        let bootstrap_key =
-            SecretKey::from_bytes(&BOOTSTRAP_SECRET_KEYS[boostrap_idx]);
+        let bootstrap_key = SecretKey::from_bytes(&BOOTSTRAP_SECRET_KEYS[boostrap_idx]);
 
         let node_identity = NodeIdentity::new(
             self.user_identity(),
@@ -454,8 +421,7 @@ impl GlobalMatchmaker {
         let bs_ident = bs_node.node_identity();
         let bs_idx = bs_ident.bootstrap_idx().unwrap() as usize;
 
-        let our_bs =
-            known_bs.get(&bs_idx).context("faild to find ourselves")?;
+        let our_bs = known_bs.get(&bs_idx).context("faild to find ourselves")?;
         if our_bs.own_id
             != self
                 .own_endpoint()
@@ -472,8 +438,7 @@ impl GlobalMatchmaker {
                     .context("spawn_bootstrap_endpoint: no endpoint")?
                     .node_id()
             );
-            let old_endpoint =
-                { self.inner.write().await.bootstrap_main_node.take() };
+            let old_endpoint = { self.inner.write().await.bootstrap_main_node.take() };
             if let Some(old_endpoint) = old_endpoint {
                 old_endpoint.shutdown().await?;
             }
@@ -535,12 +500,10 @@ impl GlobalMatchmaker {
             match res {
                 Ok(info) => {
                     let mut inner = self.inner.write().await;
-                    let _r =
-                        inner.known_bootstrap_nodes.insert(info.bs_idx, info);
+                    let _r = inner.known_bootstrap_nodes.insert(info.bs_idx, info);
                     if _r.is_none() {
                         info!("added connection to bootstrap node #{i}");
-                        if exit_early && inner.known_bootstrap_nodes.len() >= 2
-                        {
+                        if exit_early && inner.known_bootstrap_nodes.len() >= 2 {
                             info!("exiting connect_to_bootstrap() early: found 2 hosts.");
                             return Ok(());
                         }
@@ -616,8 +579,8 @@ impl GlobalMatchmaker {
 async fn global_periodic_task(_mm: GlobalMatchmaker) {
     let mut fail = 0;
     loop {
-        let interval = GLOBAL_PERIODIC_TASK_INTERVAL
-            + Duration::from_secs(rand::thread_rng().gen_range(0..5));
+        let interval =
+            GLOBAL_PERIODIC_TASK_INTERVAL + Duration::from_secs(rand::thread_rng().gen_range(0..5));
         _mm.sleep(interval).await;
         match global_periodic_task_iteration_1(_mm.clone()).await {
             Ok(_) => {}
@@ -626,8 +589,8 @@ async fn global_periodic_task(_mm: GlobalMatchmaker) {
                 fail += 1;
             }
         }
-        let interval = GLOBAL_PERIODIC_TASK_INTERVAL
-            + Duration::from_secs(rand::thread_rng().gen_range(0..5));
+        let interval =
+            GLOBAL_PERIODIC_TASK_INTERVAL + Duration::from_secs(rand::thread_rng().gen_range(0..5));
         _mm.sleep(interval).await;
         match global_periodic_task_iteration_2(_mm.clone()).await {
             Ok(_) => {}
@@ -665,9 +628,7 @@ async fn global_periodic_task_iteration_2(mm: GlobalMatchmaker) -> Result<()> {
     Ok(())
 }
 
-async fn run_bs_global_chat_task(
-    bs_cc: ChatController<GlobalChatRoomType>,
-) -> anyhow::Result<()> {
+async fn run_bs_global_chat_task(bs_cc: ChatController<GlobalChatRoomType>) -> anyhow::Result<()> {
     tracing::info!("run_bs_global_chat_task");
     let answer_ratelimit_ms = 130000;
     let rx = bs_cc.receiver().await;
@@ -681,9 +642,8 @@ async fn run_bs_global_chat_task(
             continue;
         }
 
-        let GlobalChatMessageContent::BootstrapQuery(
-            GlobalChatBootstrapQuery::PlzSendServerList,
-        ) = msg
+        let GlobalChatMessageContent::BootstrapQuery(GlobalChatBootstrapQuery::PlzSendServerList) =
+            msg
         else {
             continue;
         };
@@ -696,30 +656,25 @@ async fn run_bs_global_chat_task(
         }
 
         let mut list = presence.get_presence_list().await;
-        list.0.retain(|x| {
-            x.payload.is_some()
-                && x.payload.as_ref().unwrap().is_server.is_some()
-        });
+        list.0
+            .retain(|x| x.payload.is_some() && x.payload.as_ref().unwrap().is_server.is_some());
         if list.0.is_empty() {
             tracing::info!("cannot answer as there are no servers found by this bootstrap. ");
             continue;
         }
-        let response = GlobalChatMessageContent::BootstrapQuery(
-            GlobalChatBootstrapQuery::ServerList { v: list.clone() },
-        );
+        let response =
+            GlobalChatMessageContent::BootstrapQuery(GlobalChatBootstrapQuery::ServerList {
+                v: list.clone(),
+            });
         tracing::info!("Sending server list to {from:?}");
         if let Err(e) = bs_cc.sender().direct_message(from, response).await {
-            tracing::warn!(
-                "Failed to reply with presence list to peer {from:?}: {e:#?}"
-            );
+            tracing::warn!("Failed to reply with presence list to peer {from:?}: {e:#?}");
             continue;
         }
         if !list.0.is_empty() {
             last_sent.insert(from, get_timestamp_now_ms());
         }
-        last_sent.retain(|_k, &mut v| {
-            (get_timestamp_now_ms() - v) < answer_ratelimit_ms
-        })
+        last_sent.retain(|_k, &mut v| (get_timestamp_now_ms() - v) < answer_ratelimit_ms)
     }
 
     anyhow::bail!("ran out of chat messages for bootstrap chat!");

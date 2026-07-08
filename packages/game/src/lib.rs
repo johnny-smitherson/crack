@@ -6,7 +6,7 @@ pub mod timestamp {
 
 pub mod api {
     pub mod game_match {
-        use serde::{Serialize, Deserialize};
+        use serde::{Deserialize, Serialize};
 
         #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
         pub struct GameMatch<User> {
@@ -33,8 +33,8 @@ pub mod api {
 }
 
 pub mod tet {
-    use serde::{Serialize, Deserialize};
-    
+    use serde::{Deserialize, Serialize};
+
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct GameState;
 

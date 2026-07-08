@@ -1,6 +1,6 @@
-use bevy::prelude::*;
-use bevy_egui::{egui, EguiContexts};
 use crate::plugins::network::{ChatState, NetworkConnectionState};
+use bevy::prelude::*;
+use bevy_egui::{EguiContexts, egui};
 
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct GlobalChatUiState {
@@ -35,10 +35,7 @@ impl Plugin for GlobalChatPlugin {
             show_window: false,
             always_visible: self.always_visible,
         });
-        app.add_systems(
-            bevy_egui::EguiPrimaryContextPass,
-            draw_chat_ui_system,
-        );
+        app.add_systems(bevy_egui::EguiPrimaryContextPass, draw_chat_ui_system);
     }
 }
 
@@ -95,7 +92,7 @@ fn draw_chat_ui_system(
                         |ui| {
                             ui.heading("Active Users");
                             ui.separator();
-                            
+
                             egui::ScrollArea::vertical()
                                 .id_salt("presence_scroll")
                                 .show(ui, |ui| {
@@ -103,7 +100,8 @@ fn draw_chat_ui_system(
                                         ui.label("Searching...");
                                     } else {
                                         for (nick, color) in &state.presence_list {
-                                            let c = egui::Color32::from_rgb(color.0, color.1, color.2);
+                                            let c =
+                                                egui::Color32::from_rgb(color.0, color.1, color.2);
                                             ui.horizontal(|ui| {
                                                 let (rect, _response) = ui.allocate_exact_size(
                                                     egui::vec2(8.0, 8.0),
@@ -127,14 +125,15 @@ fn draw_chat_ui_system(
                         |ui| {
                             ui.heading("Global Chat Room");
                             ui.separator();
-                            
+
                             egui::ScrollArea::vertical()
                                 .id_salt("chat_scroll")
                                 .stick_to_bottom(true)
                                 .show(ui, |ui| {
                                     for (nick, text, color) in &state.msg_history {
                                         ui.horizontal(|ui| {
-                                            let c = egui::Color32::from_rgb(color.0, color.1, color.2);
+                                            let c =
+                                                egui::Color32::from_rgb(color.0, color.1, color.2);
                                             ui.colored_label(c, format!("{}:", nick));
                                             ui.label(text);
                                         });
@@ -153,7 +152,11 @@ fn draw_chat_ui_system(
                         egui::vec2(150.0, bottom_height),
                         egui::Layout::left_to_right(egui::Align::Center),
                         |ui| {
-                            let c = egui::Color32::from_rgb(state.own_color.0, state.own_color.1, state.own_color.2);
+                            let c = egui::Color32::from_rgb(
+                                state.own_color.0,
+                                state.own_color.1,
+                                state.own_color.2,
+                            );
                             ui.label("You:");
                             ui.colored_label(c, &state.own_nickname);
                         },
@@ -169,11 +172,13 @@ fn draw_chat_ui_system(
                             let text_edit = egui::TextEdit::singleline(&mut state.input_buffer)
                                 .hint_text("Type a message and press Enter...")
                                 .desired_width(ui.available_width() - 80.0);
-                            
+
                             let response = ui.add(text_edit);
-                            
+
                             let mut do_send = false;
-                            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                            if response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            {
                                 do_send = true;
                                 response.request_focus();
                             }

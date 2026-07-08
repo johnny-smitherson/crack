@@ -189,12 +189,13 @@ async fn make_worker() -> anyhow::Result<WorkerPipe> {
         while let Some(req) = req_rx.recv().await {
             let js_req = js_sys::Object::new();
             let _ = js_sys::Reflect::set(&js_req, &"msg_id".into(), &JsValue::from(req.msg_id));
-            let _ = js_sys::Reflect::set(&js_req, &"msg_type".into(), &JsValue::from(&req.msg_type));
-            
+            let _ =
+                js_sys::Reflect::set(&js_req, &"msg_type".into(), &JsValue::from(&req.msg_type));
+
             let view = unsafe { js_sys::Uint8Array::view(&req.msg_content) };
             let uint8_array = view.slice(0, req.msg_content.len() as u32);
             let _ = js_sys::Reflect::set(&js_req, &"msg_content".into(), &uint8_array);
-            
+
             js_handles.send_message(&js_req.into());
         }
     });
