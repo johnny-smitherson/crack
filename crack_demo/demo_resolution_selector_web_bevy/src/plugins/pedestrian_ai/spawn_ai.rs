@@ -3,11 +3,14 @@
 use bevy::prelude::*;
 use rand::seq::IndexedRandom;
 
+use avian3d::prelude::LinearVelocity;
+
 use crate::plugins::{
     pedestrians::{
         PedestrianManifest, PedestrianUrl, SpawnPedestrianEvent,
         pedestrian_controller_plugin::{
-            CAPSULE_HALF_HEIGHT, SCALE_MAX, SCALE_MIN, character_physics_bundle,
+            CAPSULE_HALF_HEIGHT, CharacterScale, MovementModifiers, SCALE_MAX, SCALE_MIN,
+            character_physics_bundle,
         },
     },
     weapons::{EquipWeaponEvent, WeaponId, WeaponManifest},
@@ -66,29 +69,39 @@ pub fn spawn_ai_pedestrian_observer(
         event.position.z,
     );
 
-    let (transform, maybe_parent) = if let Some((car_entity, seat_idx)) = event.car_seat {
+    // Seated car passengers are visual-only. A physics capsule here would (a) sit on the `Car`
+    // collision layer and violently shove the car's dynamic body ("explosion"), and (b) as a
+    // kinematic body it would not ride along with the car. So passengers get NO collider / rigid
+    // body — just a plain child of the car that follows it via transform propagation, exactly
+    // like the driver mesh. Ground-spawned AI peds still get the full physics capsule.
+    let controller = if let Some((car_entity, seat_idx)) = event.car_seat {
         let local_pos = CAR_SEAT_OFFSETS[seat_idx] + Vec3::new(0.0, CAPSULE_HALF_HEIGHT, 0.0);
-        (
-            Transform::from_translation(local_pos)
-                .with_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
-            Some(ChildOf(car_entity)),
-        )
+        commands
+            .spawn((
+                Name::new("CarPassengerController"),
+                Transform::from_translation(local_pos)
+                    .with_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
+                Visibility::default(),
+                ChildOf(car_entity),
+                CarPassenger {
+                    seat_index: seat_idx,
+                    car: car_entity,
+                },
+                // Components the shared AI animation system reads. The passenger never moves, so
+                // velocity stays zero and `ai_animation` plays the seated idle clip for it.
+                CharacterScale(scale),
+                MovementModifiers::default(),
+                LinearVelocity::ZERO,
+            ))
+            .id()
     } else {
-        (Transform::from_translation(controller_pos), None)
+        commands
+            .spawn((
+                Name::new("AiPedestrianController"),
+                character_physics_bundle(scale, Transform::from_translation(controller_pos)),
+            ))
+            .id()
     };
-
-    let mut controller_cmds = commands.spawn((
-        Name::new("AiPedestrianController"),
-        character_physics_bundle(scale, transform),
-    ));
-    if let Some(parent) = maybe_parent {
-        controller_cmds.insert(parent);
-        controller_cmds.insert(CarPassenger {
-            seat_index: event.car_seat.unwrap().1,
-            car: event.car_seat.unwrap().0,
-        });
-    }
-    let controller = controller_cmds.id();
 
     // Insert AI components separately to stay under Bevy's Bundle tuple limit.
     commands.entity(controller).insert((

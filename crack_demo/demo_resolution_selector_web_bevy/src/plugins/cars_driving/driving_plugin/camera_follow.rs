@@ -35,15 +35,15 @@ pub fn camera_follows_car(
         false
     };
 
-    // Center point is just above the top of the car
-    let center = car_transform.translation + Vec3::Y * 1.5;
+    // Center point sits well above the car (GTA-style raised chase cam).
+    let center = car_transform.translation + Vec3::Y * 2.6;
 
     // Get car yaw (Y-rotation) in world space
     let (car_yaw, _, _) = car_transform.rotation.to_euler(EulerRot::YXZ);
 
     // Default behind-the-car positions
     let default_yaw = car_yaw;
-    let default_pitch = 15.0f32.to_radians();
+    let default_pitch = 20.0f32.to_radians();
 
     let (mut yaw, mut pitch) = local_orbit.unwrap_or((default_yaw, default_pitch));
 

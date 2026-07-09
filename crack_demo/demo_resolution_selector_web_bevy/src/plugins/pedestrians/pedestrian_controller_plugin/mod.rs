@@ -56,8 +56,8 @@ use crate::plugins::states::GameControlState;
 
 pub use camera::CameraRig;
 pub use interaction_ui::{
-    CarSeatOffset, DriverMesh, EjectedDriver, EjectedStage, eject_driver_as_ai,
-    tick_ejected_driver_system,
+    CarSeatOffset, DriverMesh, EjectedDriver, EjectedStage, SpawnPlayerDriverEvent,
+    eject_driver_as_ai, tick_ejected_driver_system,
 };
 pub use spawn::{ControlledCharacter, SpawnControlledPedestrianEvent};
 
@@ -66,9 +66,10 @@ use camera::{follow_camera, orbit_camera_input};
 use controller::{character_input, jump_or_climb};
 use interaction_ui::{
     WeaponSelection, apply_seat_offset, car_seat_debug_ui, crosshair_ui, detect_car_interaction,
-    drive_driver_mesh_animation, equip_on_new_character, handle_exit_car,
-    handle_freecam_right_click, spawn_choice_popup_ui, tick_driver_mesh_exit, tick_entering_car,
-    weapon_hud_ui, weapon_wheel,
+    drive_driver_mesh_animation, driveby_fire, driving_crosshair_ui, driving_weapon_hud_ui,
+    driving_weapon_wheel, equip_on_new_character, finalize_car_drivers, handle_exit_car,
+    handle_freecam_right_click, spawn_choice_popup_ui, spawn_player_driver_observer,
+    tick_driver_mesh_exit, tick_entering_car, weapon_hud_ui, weapon_wheel,
 };
 use locomotion::CharacterLocomotionPlugin;
 pub use spawn::{
@@ -133,16 +134,28 @@ const CROUCH_SPRINT_MULT: f32 = 2.0;
 
 /// How fast the controller turns to face its movement direction (higher = snappier).
 const TURN_SPEED: f32 = 12.0;
+/// Extra yaw applied to the body while aiming, on top of the camera's aim direction, so the
+/// character blades slightly off the aim line (GTA over-the-shoulder stance) instead of squaring
+/// dead-on. Positive rotates the body toward the left of the aim direction (~10°). Flip the sign
+/// if it blades the wrong way in the running app.
+const AIM_BODY_YAW_OFFSET: f32 = 10.0 * (std::f32::consts::PI / 180.0);
 /// Yaw offset applied on top of the movement direction, if the model's forward axis is not +Z.
 const MODEL_FORWARD_OFFSET: f32 = 0.0;
 
 // Follow camera. Position trails the character; orientation is manual (left-mouse drag).
 const CAM_DISTANCE: f32 = 4.0;
 const CAM_AIM_DISTANCE: f32 = 1.5;
+// Shoulder offset. Positive = right; both stay on the same (right) side so the camera never
+// swaps shoulders when aiming.
 const CAM_SHOULDER_X: f32 = 0.8;
-const CAM_AIM_SHOULDER_X: f32 = 0.4;
+const CAM_AIM_SHOULDER_X: f32 = 0.5;
 const CAM_ZOOM_SPEED: f32 = 8.0;
-const CAM_LOOK_HEIGHT: f32 = 1.5;
+/// Height above the controller's capsule *center* (~0.85 m above feet) that the camera anchors
+/// to and looks at. Kept low so the look point lands around chest/head, not above the head.
+const CAM_LOOK_HEIGHT: f32 = 0.6;
+/// Lower look height while aiming so the over-the-shoulder aim camera drops to shoulder level
+/// instead of floating above the head.
+const CAM_AIM_LOOK_HEIGHT: f32 = 0.45;
 /// Time constant for smoothing the *character-driven* follow position. This attenuates the wild
 /// up/down/left/right shake the kinematic controller picks up from the rough map, while leaving
 /// user-driven (mouse-drag) camera rotation completely un-attenuated.
@@ -342,6 +355,7 @@ impl Plugin for PedestrianControllerPlugin {
             .init_resource::<CarSeatOffset>()
             .init_resource::<WeaponSelection>()
             .add_observer(spawn_controlled_pedestrian_observer)
+            .add_observer(spawn_player_driver_observer)
             // Runs in every state: log the catalog once, manage death peds, and manage the freecam right-click popup.
             .add_systems(
                 Update,
@@ -383,7 +397,8 @@ impl Plugin for PedestrianControllerPlugin {
             )
             .add_systems(
                 Update,
-                handle_exit_car.run_if(in_state(GameControlState::DrivingCar)),
+                (handle_exit_car, driveby_fire, driving_weapon_wheel)
+                    .run_if(in_state(GameControlState::DrivingCar)),
             )
             // Driver-mesh systems run in every state: the mesh exists while DrivingCar,
             // and the exit slide finishes across the state change back to pedestrian.
@@ -393,6 +408,7 @@ impl Plugin for PedestrianControllerPlugin {
                     drive_driver_mesh_animation,
                     apply_seat_offset,
                     tick_driver_mesh_exit,
+                    finalize_car_drivers,
                 ),
             )
             .add_systems(
@@ -401,6 +417,8 @@ impl Plugin for PedestrianControllerPlugin {
                     crosshair_ui.run_if(in_state(GameControlState::ControllingPedestrian)),
                     weapon_hud_ui.run_if(in_state(GameControlState::ControllingPedestrian)),
                     car_seat_debug_ui.run_if(in_state(GameControlState::DrivingCar)),
+                    driving_crosshair_ui.run_if(in_state(GameControlState::DrivingCar)),
+                    driving_weapon_hud_ui.run_if(in_state(GameControlState::DrivingCar)),
                 ),
             )
             .add_systems(

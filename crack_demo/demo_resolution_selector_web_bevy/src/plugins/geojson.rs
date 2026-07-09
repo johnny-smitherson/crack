@@ -1097,14 +1097,23 @@ fn osm_overlay_gizmos_system(
     };
 
     if osm_overlay.show_roads {
+        use crate::plugins::traffic::road_graph::road_too_steep;
         if let Some(features) = database.categories.get("roads") {
             for feature in features {
                 match &feature.geometry {
                     FeatureGeometry::LineString(pts) => {
+                        // Steep roads are discarded from traffic/pedestrian routing; hide them
+                        // here too so the overlay reflects what actually exists in the game.
+                        if road_too_steep(pts) {
+                            continue;
+                        }
                         draw_lines(&mut gizmos, pts, road_color);
                     }
                     FeatureGeometry::MultiLineString(lines) => {
                         for pts in lines {
+                            if road_too_steep(pts) {
+                                continue;
+                            }
                             draw_lines(&mut gizmos, pts, road_color);
                         }
                     }

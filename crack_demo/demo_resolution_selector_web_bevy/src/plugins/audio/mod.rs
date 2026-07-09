@@ -176,10 +176,13 @@ fn load_sound_manifest_system(
         if name.is_empty() {
             continue;
         }
+        // `attenuation` is the audible reference distance in metres. The manifest usually
+        // omits it, so default to a gameplay-sized range instead of 1.0 (which made sounds
+        // die within a couple of metres, see `play_sound_observer`).
         let attenuation = parts
             .next()
             .and_then(|s| s.trim().parse::<f32>().ok())
-            .unwrap_or(1.0);
+            .unwrap_or(45.0);
         let volume = parts
             .next()
             .and_then(|s| s.trim().parse::<f32>().ok())
@@ -211,7 +214,10 @@ fn play_sound_observer(trigger: On<PlaySoundEvent>, mut commands: Commands) {
         PlaybackMode::Despawn
     };
 
-    let scale_factor = ev.attenuation.max(0.1);
+    // Bevy multiplies BOTH the emitter and listener positions by this scale before rodio's
+    // ~1/distance attenuation, so a smaller scale makes a sound carry farther. `attenuation`
+    // is the audible reference distance in metres → scale = 1 / distance.
+    let scale_factor = 1.0 / ev.attenuation.max(0.1);
     let playback_settings = PlaybackSettings {
         mode,
         volume: Volume::Linear(ev.volume),

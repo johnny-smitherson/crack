@@ -5,6 +5,7 @@
 node_modules/
 dist/
 build/
+.venv/
 out/
 .next/
 coverage/
@@ -21,7 +22,6 @@ vendor/
 *.jpg
 *.png
 *.mp3
-3d_data_v2
-3d_data
-_data
+_data/3d_data_v2/
+_data/3d_data/
 scripts

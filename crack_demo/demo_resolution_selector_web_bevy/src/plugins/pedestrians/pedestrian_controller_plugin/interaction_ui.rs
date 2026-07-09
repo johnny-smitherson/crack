@@ -20,7 +20,8 @@ use crate::plugins::pedestrian_ai::{
 };
 use crate::plugins::pedestrians::ManualAnimation;
 use crate::plugins::weapons::{
-    EquipWeaponEvent, EquippedWeapon, GunState, WeaponId, WeaponManifest,
+    EquipWeaponEvent, EquippedWeapon, FireGunEvent, GunState, ReloadGunEvent, WeaponCooldown,
+    WeaponId, WeaponManifest,
 };
 
 /// On right-click in freecam, raycast to the map and open the choice popup at that point.
@@ -144,9 +145,10 @@ use std::f32::consts::PI;
 
 use super::animation::node_for;
 use super::spawn::ControlledCharacter;
-use super::{CharacterController, CharacterScale};
+use super::{CharacterController, CharacterScale, SCALE_MAX, SCALE_MIN};
 use crate::plugins::cars_driving::driving_plugin::spawn_car::{ActivePlayerVehicle, Car};
-use crate::plugins::pedestrians::PedestrianAnimations;
+use crate::plugins::pedestrians::spawn_pedestrian::{ModelController, ModelRoot};
+use crate::plugins::pedestrians::{PedestrianAnimations, PedestrianManifest, SpawnPedestrianEvent};
 use crate::plugins::states::GameControlState;
 
 /// Where the driver mesh sits inside the car (car-local), tunable from the Debug menu.
@@ -881,6 +883,358 @@ pub fn weapon_wheel(
         character: controller,
         weapon: manifest.all[selection.index].clone(),
     });
+}
+
+/// Requests a seated player-driver mesh (with a weapon) for a freshly-spawned controllable car.
+/// Cars spawned straight into [`GameControlState::DrivingCar`] from the freecam menu have no
+/// driver mesh, so without this the player had no weapon until getting out and back in.
+#[derive(Event)]
+pub struct SpawnPlayerDriverEvent {
+    pub car: Entity,
+}
+
+/// Placeholder controller that owns a loading driver model. When the model's [`ModelRoot`]
+/// appears, [`finalize_car_drivers`] converts the model into a seated [`DriverMesh`] on the car.
+#[derive(Component)]
+pub struct PendingCarDriver {
+    pub car: Entity,
+    pub weapon: WeaponId,
+    pub scale: f32,
+}
+
+/// Kicks off loading a random pedestrian model + weapon for the car's driver seat.
+pub fn spawn_player_driver_observer(
+    trigger: On<SpawnPlayerDriverEvent>,
+    mut commands: Commands,
+    ped_manifest: Res<PedestrianManifest>,
+    weapon_manifest: Res<WeaponManifest>,
+    seat: Res<CarSeatOffset>,
+    q_car: Query<&GlobalTransform, With<Car>>,
+) {
+    let car = trigger.event().car;
+    let Some(url) = ped_manifest.urls.choose(&mut rand::rng()).cloned() else {
+        warn!("SpawnPlayerDriverEvent: pedestrian manifest empty");
+        return;
+    };
+
+    // Prefer a gun so driveby works immediately; fall back to any non-Unarmed weapon, then Unarmed.
+    let guns: Vec<WeaponId> = weapon_manifest
+        .all
+        .iter()
+        .filter(|w| w.is_gun())
+        .cloned()
+        .collect();
+    let weapon = guns
+        .choose(&mut rand::rng())
+        .cloned()
+        .or_else(|| weapon_manifest.all.get(1).cloned())
+        .unwrap_or(WeaponId::Unarmed);
+
+    let scale = SCALE_MIN + rand::random::<f32>() * (SCALE_MAX - SCALE_MIN);
+
+    // World position of the driver seat so the loading model appears roughly in place.
+    let seat_world = q_car
+        .get(car)
+        .map(|gt| {
+            let t = gt.compute_transform();
+            t.translation + t.rotation * seat.offset
+        })
+        .unwrap_or(Vec3::ZERO);
+
+    let placeholder = commands
+        .spawn((
+            Name::new("PendingCarDriver"),
+            Transform::from_translation(seat_world),
+            Visibility::default(),
+            PendingCarDriver {
+                car,
+                weapon: weapon.clone(),
+                scale,
+            },
+        ))
+        .id();
+
+    commands.trigger(SpawnPedestrianEvent {
+        url,
+        position: seat_world,
+        controller: placeholder,
+        parent: placeholder,
+    });
+}
+
+/// Once a pending-driver model has loaded, seat it in the car as a [`DriverMesh`] and equip its
+/// weapon — reaching the same state a driver has after [`tick_entering_car`].
+pub fn finalize_car_drivers(
+    mut commands: Commands,
+    seat: Res<CarSeatOffset>,
+    q_new_models: Query<(Entity, &ModelController), Added<ModelRoot>>,
+    q_pending: Query<&PendingCarDriver>,
+) {
+    for (model_ent, controller_ref) in &q_new_models {
+        let Ok(pending) = q_pending.get(controller_ref.0) else {
+            continue;
+        };
+        let car = pending.car;
+
+        // Re-parent the model onto the car *before* despawning the placeholder, so the
+        // placeholder's recursive despawn does not take the model with it.
+        commands.entity(model_ent).insert((
+            ChildOf(car),
+            DriverMesh {
+                car,
+                anim_node: None,
+            },
+            Transform::from_translation(seat.offset)
+                .with_rotation(Quat::from_rotation_y(seat.y_rot))
+                .with_scale(Vec3::splat(pending.scale)),
+            Faction::Neutral,
+            Health::full(DEFAULT_HP),
+        ));
+        commands.trigger(EquipWeaponEvent {
+            character: model_ent,
+            weapon: pending.weapon.clone(),
+        });
+        if let Ok(mut cmds) = commands.get_entity(controller_ref.0) {
+            cmds.despawn();
+        }
+    }
+}
+
+/// Driveby: while driving, LMB fires the seated driver's gun out of the car. RMB aims (the
+/// arm-IK system extends the driver's arm to the crosshair). Only the player driver — the
+/// [`DriverMesh`] parented to the active car — fires; passengers stay armed but passive.
+pub fn driveby_fire(
+    mouse: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut contexts: EguiContexts,
+    mut commands: Commands,
+    q_active_car: Query<Entity, With<ActivePlayerVehicle>>,
+    mut q_driver: Query<(
+        Entity,
+        &DriverMesh,
+        &GlobalTransform,
+        &EquippedWeapon,
+        &mut GunState,
+        Option<&mut WeaponCooldown>,
+    )>,
+) {
+    let Some(car) = q_active_car.iter().next() else {
+        return;
+    };
+    let over_ui = contexts
+        .ctx_mut()
+        .map(|c| c.is_pointer_over_egui() || c.egui_wants_pointer_input())
+        .unwrap_or(false);
+    if over_ui {
+        return;
+    }
+
+    let Some((driver_ent, _, driver_gt, equipped, mut gun, mut cooldown)) =
+        q_driver.iter_mut().find(|(_, d, _, _, _, _)| d.car == car)
+    else {
+        return;
+    };
+    if !equipped.0.is_gun() {
+        return;
+    }
+
+    // R reloads a partly-spent clip.
+    if keys.just_pressed(KeyCode::KeyR) && gun.reload_timer <= 0.0 && gun.rounds < gun.clip_size {
+        commands.trigger(ReloadGunEvent {
+            shooter: driver_ent,
+        });
+        return;
+    }
+
+    let automatic = equipped.0.automatic();
+    let fire_pressed =
+        mouse.just_pressed(MouseButton::Left) || (automatic && mouse.pressed(MouseButton::Left));
+    let cooldown_ready = cooldown.as_ref().map_or(true, |cd| cd.0 <= 0.0);
+    if !fire_pressed || !cooldown_ready || gun.reload_timer > 0.0 {
+        return;
+    }
+
+    let cooldown_secs = 60.0 / equipped.0.rpm();
+    if gun.rounds > 0 {
+        commands.trigger(FireGunEvent {
+            shooter: driver_ent,
+        });
+    } else {
+        // Empty: click, and auto-reload after a few dry fires (mirrors the on-foot logic).
+        gun.empty_click_count += 1;
+        commands.trigger(crate::plugins::audio::audio_fx::AudioFxEvent {
+            fx: crate::plugins::audio::audio_fx::AudioFxEventType::EmptyClick,
+            position: driver_gt.translation(),
+            follow: None,
+        });
+        if gun.empty_click_count >= 3 {
+            gun.empty_click_count = 0;
+            commands.trigger(ReloadGunEvent {
+                shooter: driver_ent,
+            });
+        }
+    }
+
+    if let Some(cd) = cooldown.as_mut() {
+        cd.0 = cooldown_secs;
+    } else {
+        commands
+            .entity(driver_ent)
+            .insert(WeaponCooldown(cooldown_secs));
+    }
+}
+
+/// Crosshair while driving an armed car (the on-foot `crosshair_ui` is gone with the controller).
+pub fn driving_crosshair_ui(
+    mut contexts: EguiContexts,
+    q_active_car: Query<Entity, With<ActivePlayerVehicle>>,
+    q_driver: Query<(&DriverMesh, &EquippedWeapon)>,
+) {
+    let Some(car) = q_active_car.iter().next() else {
+        return;
+    };
+    let has_gun = q_driver.iter().any(|(d, w)| d.car == car && w.0.is_gun());
+    if !has_gun {
+        return;
+    }
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
+    let painter = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Foreground,
+        egui::Id::new("driving_crosshair"),
+    ));
+    let center = ctx.content_rect().center();
+    let color = egui::Color32::from_rgba_unmultiplied(255, 255, 255, 178);
+    painter.circle_stroke(center, 10.0, egui::Stroke::new(1.5, color));
+    painter.circle_filled(center, 2.0, color);
+}
+
+/// Mouse wheel cycles the seated driver's weapon while driving (mirrors the on-foot
+/// [`weapon_wheel`], but targets the active car's [`DriverMesh`] instead of the controller).
+pub fn driving_weapon_wheel(
+    time: Res<Time>,
+    mut next_switch: Local<f32>,
+    mut commands: Commands,
+    mut wheel: MessageReader<MouseWheel>,
+    mut contexts: EguiContexts,
+    manifest: Res<WeaponManifest>,
+    mut selection: ResMut<WeaponSelection>,
+    q_active_car: Query<Entity, With<ActivePlayerVehicle>>,
+    q_driver: Query<(Entity, &DriverMesh)>,
+) {
+    if !manifest.loaded || manifest.all.is_empty() {
+        wheel.clear();
+        return;
+    }
+    let over_ui = contexts
+        .ctx_mut()
+        .map(|c| c.is_pointer_over_egui() || c.egui_wants_pointer_input())
+        .unwrap_or(false);
+
+    let mut step = 0i32;
+    for ev in wheel.read() {
+        if ev.y > 0.0 {
+            step += 1;
+        } else if ev.y < 0.0 {
+            step -= 1;
+        }
+    }
+    let step = step.signum();
+    if step == 0 || over_ui {
+        return;
+    }
+    let now = time.elapsed_secs();
+    if now < *next_switch {
+        return;
+    }
+    let Some(car) = q_active_car.iter().next() else {
+        return;
+    };
+    let Some((driver_ent, _)) = q_driver.iter().find(|(_, d)| d.car == car) else {
+        return;
+    };
+
+    let n = manifest.all.len() as i32;
+    selection.index = (((selection.index as i32 + step) % n + n) % n) as usize;
+    *next_switch = now + 0.15;
+    commands.trigger(EquipWeaponEvent {
+        character: driver_ent,
+        weapon: manifest.all[selection.index].clone(),
+    });
+}
+
+/// Top-left weapon HUD while driving (mirrors the on-foot [`weapon_hud_ui`], but reads the
+/// active car's [`DriverMesh`]): green weapon name, HP, and `<rounds>/<clip_size>`.
+pub fn driving_weapon_hud_ui(
+    mut contexts: EguiContexts,
+    q_active_car: Query<Entity, With<ActivePlayerVehicle>>,
+    q_driver: Query<(&DriverMesh, &EquippedWeapon, Option<&GunState>, &Health)>,
+) {
+    let Some(car) = q_active_car.iter().next() else {
+        return;
+    };
+    let Some((_, equipped_weapon, gun_state, health)) =
+        q_driver.iter().find(|(d, _, _, _)| d.car == car)
+    else {
+        return;
+    };
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
+
+    let weapon_name = equipped_weapon.0.label();
+
+    egui::Area::new(egui::Id::new("driving_weapon_hud_area"))
+        .fixed_pos(egui::pos2(16.0, 16.0))
+        .show(ctx, |ui| {
+            ui.vertical(|ui| {
+                ui.label(
+                    egui::RichText::new(&weapon_name)
+                        .color(egui::Color32::from_rgb(0, 255, 0))
+                        .size(18.0)
+                        .strong(),
+                );
+
+                let hp_color = if health.current < 30.0 {
+                    egui::Color32::from_rgb(255, 50, 50)
+                } else {
+                    egui::Color32::from_rgb(0, 255, 0)
+                };
+                ui.label(
+                    egui::RichText::new(format!("HP: {:.0}/{:.0}", health.current, health.max))
+                        .color(hp_color)
+                        .size(20.0)
+                        .strong(),
+                );
+
+                if let Some(gun) = gun_state {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 0.0;
+                        let font_size = 32.0;
+                        let green = egui::Color32::from_rgb(0, 255, 0);
+                        let red = egui::Color32::from_rgb(255, 50, 50);
+
+                        if gun.rounds == 0 {
+                            ui.label(egui::RichText::new("0").color(red).size(font_size).strong());
+                        } else {
+                            ui.label(
+                                egui::RichText::new(gun.rounds.to_string())
+                                    .color(green)
+                                    .size(font_size)
+                                    .strong(),
+                            );
+                        }
+                        ui.label(
+                            egui::RichText::new(format!("/{}", gun.clip_size))
+                                .color(green)
+                                .size(font_size)
+                                .strong(),
+                        );
+                    });
+                }
+            });
+        });
 }
 
 /// White (70% alpha) crosshair at screen center when holding a gun.

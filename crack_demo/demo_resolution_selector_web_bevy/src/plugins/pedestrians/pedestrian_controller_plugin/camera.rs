@@ -129,10 +129,15 @@ pub fn follow_camera(
     } else {
         CAM_SHOULDER_X
     };
+    let look_height = if rig.aiming {
+        CAM_AIM_LOOK_HEIGHT
+    } else {
+        CAM_LOOK_HEIGHT
+    };
     let shoulder_offset = Quat::from_rotation_y(rig.yaw) * Vec3::new(shoulder_x, 0.0, 0.0);
 
     // Camera position from the (slow) follow target + manual orbit; look at the (fast) look target.
-    let anchor = pos_target + Vec3::Y * CAM_LOOK_HEIGHT + shoulder_offset;
+    let anchor = pos_target + Vec3::Y * look_height + shoulder_offset;
     let distance = rig.current_distance;
     let offset =
         Quat::from_euler(EulerRot::YXZ, rig.yaw, rig.pitch, 0.0) * Vec3::new(0.0, 0.0, distance);
@@ -150,5 +155,8 @@ pub fn follow_camera(
     } else {
         cam.translation = anchor + offset;
     }
-    cam.look_at(look_pos + Vec3::Y * CAM_LOOK_HEIGHT, Vec3::Y);
+    // Apply the same shoulder offset to the look target as to the anchor so the view is a
+    // *parallel* over-the-shoulder shift. Without this the camera toes back in toward the
+    // character centre and the offset cancels visually (character stays dead-centre).
+    cam.look_at(look_pos + Vec3::Y * look_height + shoulder_offset, Vec3::Y);
 }

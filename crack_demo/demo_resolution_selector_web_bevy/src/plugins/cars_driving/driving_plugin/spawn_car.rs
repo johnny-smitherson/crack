@@ -244,6 +244,14 @@ pub fn spawn_car_request_event_observer(
     // Mark as active player vehicle so camera follows and player can drive immediately
     commands.entity(car_entity).insert(ActivePlayerVehicle);
 
+    // Seat a player driver mesh (with a weapon) so the car is armed immediately — otherwise a
+    // menu-spawned car has no driver mesh and no weapon until the player exits and re-enters.
+    commands.trigger(
+        crate::plugins::pedestrians::pedestrian_controller_plugin::SpawnPlayerDriverEvent {
+            car: car_entity,
+        },
+    );
+
     // Spawn passengers
     for (seat_idx, passenger) in spawn_car_event.passengers.iter().enumerate() {
         let Some(pass) = passenger else { continue };

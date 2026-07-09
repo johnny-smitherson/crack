@@ -412,6 +412,49 @@ pub fn face_movement(
     }
 }
 
+/// While aiming (RMB held), turn the controlled pedestrian to face where the camera looks so
+/// shots line up with the crosshair and the body squares to the aim direction (GTA-style),
+/// rather than facing its movement/strafe direction. Runs *after* [`face_movement`] so it wins
+/// while aiming. A small [`AIM_BODY_YAW_OFFSET`] blades the body slightly off the aim line.
+pub fn face_aim(
+    time: Res<Time>,
+    rig: Option<Res<CameraRig>>,
+    controlled: Option<Res<ControlledCharacter>>,
+    camera: Query<&GlobalTransform, With<Camera3d>>,
+    mut query: Query<&mut Transform, (With<CharacterController>, Without<CarPassenger>)>,
+) {
+    // Player-only feature; these resources are absent in AI-only contexts (e.g. car_sim).
+    let (Some(rig), Some(controlled)) = (rig, controlled) else {
+        return;
+    };
+    if !rig.aiming {
+        return;
+    }
+    let Some(controller) = controlled.controller else {
+        return;
+    };
+    let Ok(cam) = camera.single() else {
+        return;
+    };
+    let Ok(mut transform) = query.get_mut(controller) else {
+        return;
+    };
+
+    // Camera forward flattened onto the ground plane = the aim direction.
+    let mut forward = cam.forward().as_vec3();
+    forward.y = 0.0;
+    let forward = forward.normalize_or_zero();
+    if forward == Vec3::ZERO {
+        return;
+    }
+
+    // Model forward is +Z; face the aim direction, then blade slightly by the offset.
+    let aim_yaw = f32::atan2(forward.x, forward.z);
+    let target = Quat::from_rotation_y(aim_yaw + AIM_BODY_YAW_OFFSET);
+    let s = (TURN_SPEED * time.delta_secs()).clamp(0.0, 1.0);
+    transform.rotation = transform.rotation.slerp(target, s);
+}
+
 /// Safety net: if the controller ends up below the ground plane (y < 0), teleport it back up.
 pub fn respawn_if_fallen(
     mut query: Query<

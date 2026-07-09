@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use super::no_one_climbing;
 use crate::plugins::pedestrians::pedestrian_controller_plugin::controller::{
     apply_forces_to_dynamic_bodies, apply_gravity, apply_movement_damping, apply_speed_cap,
-    detect_fallen_off_map, face_movement, move_and_slide, movement, respawn_if_fallen,
+    detect_fallen_off_map, face_aim, face_movement, move_and_slide, movement, respawn_if_fallen,
     update_climb, update_grounded, update_roll,
 };
 
@@ -43,7 +43,7 @@ impl Plugin for CharacterLocomotionPlugin {
         .add_systems(
             Update,
             (
-                face_movement,
+                (face_movement, face_aim).chain(),
                 update_climb,
                 update_roll,
                 respawn_if_fallen,

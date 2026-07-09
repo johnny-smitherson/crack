@@ -58,9 +58,26 @@ pub fn build_road_graph(
     );
 }
 
-/// Maximum road segment inclination in degrees. Segments steeper than this
-/// are discarded to remove broken / vertical OSM road markers from traffic.
-const MAX_ROAD_INCLINATION_DEG: f32 = 15.0;
+/// Maximum road segment inclination in degrees. Roads steeper than this (in any sub-segment)
+/// are discarded — both from the traffic graph *and* the OSM road overlay — to remove broken /
+/// steep OSM road markers. Kept to a few degrees so only genuinely flat, walkable/drivable
+/// streets survive.
+pub const MAX_ROAD_INCLINATION_DEG: f32 = 6.0;
+
+/// True if any sub-segment of the polyline is steeper than [`MAX_ROAD_INCLINATION_DEG`] (or
+/// degenerate). Shared by the traffic graph builder and the road overlay so both agree on which
+/// roads exist.
+pub fn road_too_steep(points: &[Vec3]) -> bool {
+    let max_slope = MAX_ROAD_INCLINATION_DEG.to_radians().tan();
+    for w in points.windows(2) {
+        let dx = (w[1].x - w[0].x).hypot(w[1].z - w[0].z); // horizontal distance
+        let dy = (w[1].y - w[0].y).abs(); // vertical distance
+        if dx < 0.01 || dy / dx > max_slope {
+            return true;
+        }
+    }
+    false
+}
 
 fn process_points(
     points: &[Vec3],
@@ -78,13 +95,8 @@ fn process_points(
     }
 
     // reject segments where any sub-segment is steeper than threshold
-    let max_slope = MAX_ROAD_INCLINATION_DEG.to_radians().tan();
-    for w in points.windows(2) {
-        let dx = (w[1].x - w[0].x).hypot(w[1].z - w[0].z); // horizontal distance
-        let dy = (w[1].y - w[0].y).abs(); // vertical distance
-        if dx < 0.01 || dy / dx > max_slope {
-            return; // entire segment is discarded
-        }
+    if road_too_steep(points) {
+        return; // entire segment is discarded
     }
 
     let seg_idx = segments.len();
