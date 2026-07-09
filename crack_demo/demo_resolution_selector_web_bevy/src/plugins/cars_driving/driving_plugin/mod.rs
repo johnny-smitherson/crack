@@ -303,9 +303,8 @@ pub fn car_drive_observer(
         return;
     };
 
-    let has_input = drive_input.accelerate > 0.05
-        || drive_input.brake > 0.05
-        || drive_input.steer.abs() > 0.01;
+    let has_input =
+        drive_input.accelerate > 0.05 || drive_input.brake > 0.05 || drive_input.steer.abs() > 0.01;
     if has_input {
         unpark_car(&mut drive_state);
     }
@@ -474,9 +473,7 @@ pub fn apply_car_steering_and_drive(
         let ang_speed = ang_vel.0.length();
 
         if drive_state.parked
-            && (has_input
-                || speed_xz > PARK_SPEED_THRESHOLD
-                || ang_speed > PARK_ANG_THRESHOLD)
+            && (has_input || speed_xz > PARK_SPEED_THRESHOLD || ang_speed > PARK_ANG_THRESHOLD)
         {
             unpark_car(&mut drive_state);
         }
@@ -564,10 +561,7 @@ pub fn apply_car_steering_and_drive(
         }
 
         if !drive_state.parked {
-            if !has_input
-                && speed_xz < PARK_SPEED_THRESHOLD
-                && ang_speed < PARK_ANG_THRESHOLD
-            {
+            if !has_input && speed_xz < PARK_SPEED_THRESHOLD && ang_speed < PARK_ANG_THRESHOLD {
                 drive_state.park_timer += dt;
                 if drive_state.park_timer >= PARK_SETTLE_TIME {
                     drive_state.parked = true;

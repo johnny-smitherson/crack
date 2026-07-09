@@ -115,6 +115,8 @@ fn manage_player_pedestrian(
                 is_exiting_car: false,
                 rotation: None,
                 health: None,
+                weapon: None,
+                gun_state: None,
             });
             spawner.respawn_timer = 1.0;
         }
@@ -297,6 +299,7 @@ fn spawn_factions_once(
                 faction,
                 url: None,
                 weapon: None,
+                car_seat: None,
             });
         }
     }

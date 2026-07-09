@@ -21,7 +21,8 @@ pub async fn run_game_migrations(_: ()) -> anyhow::Result<()> {
         "CREATE TABLE IF NOT EXISTS user_secrets (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             secret_key TEXT NOT NULL
-        )".to_string()
+        )"
+        .to_string(),
     )
     .await?;
 

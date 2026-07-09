@@ -23,11 +23,33 @@ pub enum BoneLabel {
     RightFoot,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ArmSide {
+    Left,
+    Right,
+}
+
 #[derive(Component)]
 pub struct PedestrianSkeleton {
     pub joint_labels: std::collections::HashMap<Entity, BoneLabel>,
     /// The right-wrist bone entity (a good attach point for a held weapon), if found.
     pub right_hand: Option<Entity>,
+    pub left_shoulder: Option<Entity>,
+    pub left_elbow: Option<Entity>,
+    pub left_wrist: Option<Entity>,
+    pub right_shoulder: Option<Entity>,
+    pub right_elbow: Option<Entity>,
+    pub right_wrist: Option<Entity>,
+    pub spine: Option<Entity>,
+}
+
+impl PedestrianSkeleton {
+    pub fn arm_chain(&self, arm: ArmSide) -> Option<(Entity, Entity, Entity)> {
+        match arm {
+            ArmSide::Left => Some((self.left_shoulder?, self.left_elbow?, self.left_wrist?)),
+            ArmSide::Right => Some((self.right_shoulder?, self.right_elbow?, self.right_wrist?)),
+        }
+    }
 }
 
 pub struct JointData {
@@ -80,10 +102,11 @@ pub fn classify_skeleton(
     Option<Entity>, // right shoulder
     Option<Entity>, // right elbow
     Option<Entity>, // right wrist
+    Option<Entity>, // spine
 ) {
     let mut labels = std::collections::HashMap::new();
     if joints.is_empty() {
-        return (labels, None, None, None, None, None, None);
+        return (labels, None, None, None, None, None, None, None);
     }
 
     let coccis_entity = joints[0].entity;
@@ -221,6 +244,14 @@ pub fn classify_skeleton(
         None => (None, None, None),
     };
 
+    let mut spine_entity = None;
+    for &node in spine_path.iter().rev() {
+        if node != coccis_entity && node != head_entity && Some(node) != neck_entity {
+            spine_entity = Some(node);
+            break;
+        }
+    }
+
     (
         labels,
         left_shoulder,
@@ -229,6 +260,7 @@ pub fn classify_skeleton(
         right_shoulder,
         right_elbow,
         right_wrist,
+        spine_entity,
     )
 }
 

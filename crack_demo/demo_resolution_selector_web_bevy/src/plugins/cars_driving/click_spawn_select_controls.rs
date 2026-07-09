@@ -1,5 +1,9 @@
-use crate::plugins::cars_driving::{
-    car_info::get_random_car_type, driving_plugin::spawn_car::SpawnCarRequestEvent,
+use crate::plugins::{
+    cars_driving::{
+        car_info::get_random_car_type,
+        driving_plugin::spawn_car::{SpawnCarPassenger, SpawnCarRequestEvent},
+    },
+    pedestrian_ai::faction::Faction,
 };
 
 use bevy::prelude::*;
@@ -44,6 +48,24 @@ pub fn handle_click_raycast_spawn_car(
                         position: hit_point,
                         car_type: get_random_car_type().to_string(),
                         rotation: None,
+                        passengers: vec![
+                            None, // driver seat empty (player will enter)
+                            Some(SpawnCarPassenger {
+                                url: None,
+                                weapon: None,
+                                faction: Faction::Neutral,
+                            }),
+                            Some(SpawnCarPassenger {
+                                url: None,
+                                weapon: None,
+                                faction: Faction::Neutral,
+                            }),
+                            Some(SpawnCarPassenger {
+                                url: None,
+                                weapon: None,
+                                faction: Faction::Neutral,
+                            }),
+                        ],
                     });
                 }
             }

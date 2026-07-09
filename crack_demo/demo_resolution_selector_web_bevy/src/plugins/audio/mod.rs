@@ -211,7 +211,7 @@ fn play_sound_observer(trigger: On<PlaySoundEvent>, mut commands: Commands) {
         PlaybackMode::Despawn
     };
 
-    let scale_factor = 1.0 / ev.attenuation.max(0.001);
+    let scale_factor = ev.attenuation.max(0.1);
     let playback_settings = PlaybackSettings {
         mode,
         volume: Volume::Linear(ev.volume),

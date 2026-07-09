@@ -5,11 +5,11 @@ use std::sync::Arc;
 use crate::plugins::states::NetworkConnectionState;
 use game_logic::network::GLOBAL_GAMEPLAY_TOPIC_ID;
 use net_crackpipe::{
+    PublicKey,
     chat::chat_controller::{IChatController, IChatReceiver, IChatSender},
     chat::global_chat::{GlobalChatMessageContent, GlobalChatPresence},
     network_manager::NetworkManager,
     user_identity::UserIdentitySecrets,
-    PublicKey,
 };
 
 pub mod global_chat_ui;
@@ -130,7 +130,10 @@ fn trigger_network_setup(
 
 async fn init_network_secrets(client: &CrackClient) -> anyhow::Result<UserIdentitySecrets> {
     let sql = "SELECT secret_key FROM user_secrets WHERE id = 1 LIMIT 1".to_string();
-    let res = client.0.call::<storage_crackhouse::api::ExecuteSQL2>(sql).await;
+    let res = client
+        .0
+        .call::<storage_crackhouse::api::ExecuteSQL2>(sql)
+        .await;
 
     match res {
         Ok(set) if !set.rows.is_empty() => {
@@ -151,7 +154,10 @@ async fn init_network_secrets(client: &CrackClient) -> anyhow::Result<UserIdenti
                 "INSERT OR REPLACE INTO user_secrets (id, secret_key) VALUES (1, '{}')",
                 escaped_json
             );
-            client.0.call::<storage_crackhouse::api::ExecuteSQL2>(sql).await?;
+            client
+                .0
+                .call::<storage_crackhouse::api::ExecuteSQL2>(sql)
+                .await?;
             Ok(secrets)
         }
     }
@@ -175,7 +181,8 @@ fn install_network_setup(
                 let (outgoing_tx, outgoing_rx) = async_channel::bounded::<String>(100);
 
                 let (game_outgoing_tx, game_outgoing_rx) = async_channel::bounded::<Vec<u8>>(256);
-                let (game_incoming_tx, game_incoming_rx) = async_channel::bounded::<GameSyncInbound>(256);
+                let (game_incoming_tx, game_incoming_rx) =
+                    async_channel::bounded::<GameSyncInbound>(256);
 
                 commands.insert_resource(GameSyncChannels {
                     outgoing_tx: game_outgoing_tx,

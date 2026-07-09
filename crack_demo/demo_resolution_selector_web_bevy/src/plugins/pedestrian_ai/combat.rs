@@ -19,7 +19,7 @@ use super::{
     AiCombatTimers, AiModel, AiPedestrian, AiPerception, AiState, AiThink, PedestrianDied,
     faction::{DEATH_ANIM_TIME, Dying, Enemies, Health},
 };
-use crate::plugins::cars_driving::driving_plugin::spawn_car::CarHealth;
+use crate::plugins::cars_driving::driving_plugin::spawn_car::{CarHealth, CarPassenger};
 
 // -------------------------------------------------------------------------------------
 // Constants
@@ -154,7 +154,7 @@ pub fn ai_combat(
             Option<&WeaponModelState>,
             Option<&AiModel>,
         ),
-        With<AiPedestrian>,
+        (With<AiPedestrian>, Without<CarPassenger>),
     >,
     global_transforms: Query<&GlobalTransform>,
     parents: Query<&ChildOf>,

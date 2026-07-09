@@ -1,8 +1,8 @@
-use crate::plugins::audio::{master_volume_linear, PlaySoundEvent, SoundManifest};
-use bevy::audio::GlobalVolume;
+use crate::plugins::audio::{PlaySoundEvent, SoundManifest, master_volume_linear};
 use crate::plugins::cars_driving::driving_plugin::CarDriveState;
 use crate::plugins::pedestrians::pedestrian_controller_plugin::{CharacterController, Grounded};
 use avian3d::prelude::LinearVelocity;
+use bevy::audio::GlobalVolume;
 use bevy::audio::SpatialAudioSink;
 use bevy::prelude::*;
 

@@ -58,6 +58,10 @@ pub fn build_road_graph(
     );
 }
 
+/// Maximum road segment inclination in degrees. Segments steeper than this
+/// are discarded to remove broken / vertical OSM road markers from traffic.
+const MAX_ROAD_INCLINATION_DEG: f32 = 15.0;
+
 fn process_points(
     points: &[Vec3],
     segments: &mut Vec<RoadSegment>,
@@ -71,6 +75,16 @@ fn process_points(
 
     if length < 20.0 {
         return;
+    }
+
+    // reject segments where any sub-segment is steeper than threshold
+    let max_slope = MAX_ROAD_INCLINATION_DEG.to_radians().tan();
+    for w in points.windows(2) {
+        let dx = (w[1].x - w[0].x).hypot(w[1].z - w[0].z); // horizontal distance
+        let dy = (w[1].y - w[0].y).abs(); // vertical distance
+        if dx < 0.01 || dy / dx > max_slope {
+            return; // entire segment is discarded
+        }
     }
 
     let seg_idx = segments.len();

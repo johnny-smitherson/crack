@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 
+use crate::plugins::cars_driving::driving_plugin::spawn_car::CarPassenger;
 use crate::plugins::weapons::{EquippedWeapon, GunState, ReloadGunEvent};
 
 use super::{AiCombatTimers, AiPedestrian, AiPerception, AiState, faction::Health};
@@ -28,7 +29,7 @@ pub fn ai_brain(
             &mut AiCombatTimers,
             Option<&crate::plugins::pedestrians::pedestrian_controller_plugin::EjectedDriver>,
         ),
-        With<AiPedestrian>,
+        (With<AiPedestrian>, Without<CarPassenger>),
     >,
 ) {
     let dt = time.delta_secs();

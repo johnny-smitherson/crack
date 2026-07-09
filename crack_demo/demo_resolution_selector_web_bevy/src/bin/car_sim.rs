@@ -188,6 +188,7 @@ fn update_sim_control(
             position: spawn_pos,
             car_type: car_type.to_string(),
             rotation: Some(car_rot),
+            passengers: vec![],
         });
     }
 

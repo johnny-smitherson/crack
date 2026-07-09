@@ -469,8 +469,7 @@ pub fn update_weapon_transforms(
                                 if let Ok(wrist_gt) = global_transforms.get(wrist_entity) {
                                     let weapon_world_pos =
                                         wrist_gt.transform_point(transform.translation);
-                                    aim_dir =
-                                        Some((target - weapon_world_pos).normalize_or_zero());
+                                    aim_dir = Some((target - weapon_world_pos).normalize_or_zero());
                                 }
                             }
                         }

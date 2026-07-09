@@ -134,11 +134,13 @@ pub fn follow_camera(
     // Camera position from the (slow) follow target + manual orbit; look at the (fast) look target.
     let anchor = pos_target + Vec3::Y * CAM_LOOK_HEIGHT + shoulder_offset;
     let distance = rig.current_distance;
-    let offset = Quat::from_euler(EulerRot::YXZ, rig.yaw, rig.pitch, 0.0)
-        * Vec3::new(0.0, 0.0, distance);
+    let offset =
+        Quat::from_euler(EulerRot::YXZ, rig.yaw, rig.pitch, 0.0) * Vec3::new(0.0, 0.0, distance);
     if let Some(dir) = Dir3::new(offset).ok() {
-        let filter = avian3d::prelude::SpatialQueryFilter::from_mask([crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer::Map])
-            .with_excluded_entities([controller_ent]);
+        let filter = avian3d::prelude::SpatialQueryFilter::from_mask([
+            crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer::Map,
+        ])
+        .with_excluded_entities([controller_ent]);
         if let Some(hit) = spatial_query.cast_ray(anchor, dir, distance, true, &filter) {
             let dist = (hit.distance * 0.9).min(distance);
             cam.translation = anchor + offset.normalize() * dist;
@@ -150,4 +152,3 @@ pub fn follow_camera(
     }
     cam.look_at(look_pos + Vec3::Y * CAM_LOOK_HEIGHT, Vec3::Y);
 }
-

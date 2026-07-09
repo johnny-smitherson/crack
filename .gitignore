@@ -3,3 +3,10 @@
 __pycache__
 *.pyc
 post3.db
+
+.context
+gain.ndjson
+copilot-instructions.md
+gemini-context.md
+AGENTS.md
+CLAUDE.md

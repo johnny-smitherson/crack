@@ -41,9 +41,14 @@ fn weapon_basename(path: &str) -> &str {
 fn hand_picked_reload_secs(path: &str) -> Option<f32> {
     match weapon_basename(path) {
         "revolver1.glb" | "revolver2.glb" | "revolver3.glb" => Some(3.0),
-        "pistol1-cv.glb" | "pistol2-glock.glb" | "pistol3-fallout.glb"
-        | "pistol4-cz.glb" | "pistol5-1911.glb" | "pistol6-breta.glb"
-        | "pistol7-tt.glb" | "pistol8-luger.glb" => Some(1.6),
+        "pistol1-cv.glb"
+        | "pistol2-glock.glb"
+        | "pistol3-fallout.glb"
+        | "pistol4-cz.glb"
+        | "pistol5-1911.glb"
+        | "pistol6-breta.glb"
+        | "pistol7-tt.glb"
+        | "pistol8-luger.glb" => Some(1.6),
         "uzi1.glb" | "uzi2.glb" => Some(2.0),
         "mp5-mini.glb" | "mp5-mini-2.glb" | "skorpion1.glb" => Some(2.2),
         "ak47.glb" => Some(2.8),

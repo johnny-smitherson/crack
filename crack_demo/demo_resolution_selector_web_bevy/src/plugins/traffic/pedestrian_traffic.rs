@@ -130,6 +130,7 @@ pub fn spawn_traffic_pedestrian_observer(
         faction,
         url: None,
         weapon: None,
+        car_seat: None,
     });
 
     // 6. Push to PendingTrafficPeds queue

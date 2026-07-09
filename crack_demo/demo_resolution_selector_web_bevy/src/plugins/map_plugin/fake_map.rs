@@ -51,7 +51,10 @@ pub struct FakeMapPlugin;
 impl Plugin for FakeMapPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<FakeHorizonState>()
-            .add_systems(OnEnter(InitialMapLoadFinished::Finished), start_fake_horizon)
+            .add_systems(
+                OnEnter(InitialMapLoadFinished::Finished),
+                start_fake_horizon,
+            )
             .add_systems(
                 Update,
                 (
@@ -307,10 +310,7 @@ fn xz_inside_bbox(world_pos: Vec3, bbox: &BBox) -> bool {
     let max_x = bbox.min.x.max(bbox.max.x);
     let min_z = bbox.min.z.min(bbox.max.z);
     let max_z = bbox.min.z.max(bbox.max.z);
-    world_pos.x >= min_x
-        && world_pos.x <= max_x
-        && world_pos.z >= min_z
-        && world_pos.z <= max_z
+    world_pos.x >= min_x && world_pos.x <= max_x && world_pos.z >= min_z && world_pos.z <= max_z
 }
 
 fn lower_cosmetic_vertices(

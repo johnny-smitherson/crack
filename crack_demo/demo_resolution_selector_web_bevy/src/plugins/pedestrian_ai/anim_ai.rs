@@ -4,14 +4,15 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+use crate::plugins::pedestrians::PedestrianAnimationControlEvent;
 use crate::plugins::pedestrians::locomotion_clip;
 use crate::plugins::pedestrians::pedestrian_controller_plugin::{
     CharacterScale, MOVE_ANIM_THRESHOLD, MovementModifiers,
 };
-use crate::plugins::pedestrians::PedestrianAnimationControlEvent;
 use crate::plugins::weapons::EquippedWeapon;
 
 use super::{AiAnim, AiModel, AiPedestrian, AiState};
+use crate::plugins::cars_driving::driving_plugin::spawn_car::CarPassenger;
 
 /// Picks a base locomotion clip for each AI ped and triggers the animation event when it changes.
 pub fn ai_animation(
@@ -27,6 +28,7 @@ pub fn ai_animation(
             &super::faction::Health,
             Option<&EquippedWeapon>,
             Option<&crate::plugins::pedestrians::pedestrian_controller_plugin::EjectedDriver>,
+            Option<&CarPassenger>,
         ),
         With<AiPedestrian>,
     >,
@@ -41,6 +43,7 @@ pub fn ai_animation(
         health,
         equipped,
         ejected_driver,
+        car_passenger,
     ) in query.iter_mut()
     {
         if health.current <= 0.0 {
@@ -58,6 +61,8 @@ pub fn ai_animation(
                     &["Sitting_Exit"]
                 }
             }
+        } else if car_passenger.is_some() {
+            &["Sitting_Idle_Loop"]
         } else if is_melee && !modifiers.crouch && speed <= MOVE_ANIM_THRESHOLD {
             &["Sword_Idle"]
         } else {

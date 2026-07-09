@@ -3,7 +3,7 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::plugins::cars_driving::driving_plugin::spawn_car::{Car, DisabledCar};
+use crate::plugins::cars_driving::driving_plugin::spawn_car::{Car, CarPassenger, DisabledCar};
 use crate::plugins::pedestrians::pedestrian_controller_plugin::{
     CAPSULE_HALF_HEIGHT, CharacterController, DriverMesh,
 };
@@ -42,7 +42,7 @@ pub fn ai_perception(
             &AiThink,
             &mut AiPerception,
         ),
-        With<AiPedestrian>,
+        (With<AiPedestrian>, Without<CarPassenger>),
     >,
     targets_query: Query<(Entity, &GlobalTransform, &Faction, &Health), With<CharacterController>>,
     q_cars: Query<(Entity, &GlobalTransform, &Children), (With<Car>, Without<DisabledCar>)>,

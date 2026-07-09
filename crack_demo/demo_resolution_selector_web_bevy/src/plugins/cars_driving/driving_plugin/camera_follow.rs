@@ -6,7 +6,10 @@ use bevy_egui::EguiContexts;
 pub fn camera_follows_car(
     time: Res<Time>,
     mut camera_query: Query<&mut Transform, (With<Camera3d>, Without<ActivePlayerVehicle>)>,
-    car_query: Query<(Entity, &Transform, &LinearVelocity), (With<ActivePlayerVehicle>, Without<Camera3d>)>,
+    car_query: Query<
+        (Entity, &Transform, &LinearVelocity),
+        (With<ActivePlayerVehicle>, Without<Camera3d>),
+    >,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut mouse_motion: MessageReader<bevy::input::mouse::MouseMotion>,
     mut contexts: EguiContexts,
@@ -45,7 +48,8 @@ pub fn camera_follows_car(
     let (mut yaw, mut pitch) = local_orbit.unwrap_or((default_yaw, default_pitch));
 
     // Mouse drag or captured mouse updates yaw and pitch
-    let drag_active = capture_state.is_captured || (!egui_focused && mouse_button.pressed(MouseButton::Left));
+    let drag_active =
+        capture_state.is_captured || (!egui_focused && mouse_button.pressed(MouseButton::Left));
     if drag_active {
         let sensitivity = 0.003;
         for event in mouse_motion.read() {
@@ -81,8 +85,10 @@ pub fn camera_follows_car(
         r * yaw.cos() * pitch.cos(),
     );
     if let Some(dir) = Dir3::new(offset).ok() {
-        let filter = avian3d::prelude::SpatialQueryFilter::from_mask([crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer::Map])
-            .with_excluded_entities([car_entity]);
+        let filter = avian3d::prelude::SpatialQueryFilter::from_mask([
+            crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer::Map,
+        ])
+        .with_excluded_entities([car_entity]);
         if let Some(hit) = spatial_query.cast_ray(center, dir, r, true, &filter) {
             let dist = (hit.distance * 0.9).min(r);
             camera_transform.translation = center + offset.normalize() * dist;
@@ -94,4 +100,3 @@ pub fn camera_follows_car(
     }
     camera_transform.look_at(center, Vec3::Y);
 }
-

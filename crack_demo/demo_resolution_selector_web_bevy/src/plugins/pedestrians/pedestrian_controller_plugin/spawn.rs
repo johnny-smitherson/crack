@@ -51,6 +51,8 @@ pub struct SpawnControlledPedestrianEvent {
     pub rotation: Option<Quat>,
     /// Carried-over health (e.g. when getting out of a car). `None` spawns at full HP.
     pub health: Option<crate::plugins::pedestrian_ai::faction::Health>,
+    pub weapon: Option<crate::plugins::weapons::EquippedWeapon>,
+    pub gun_state: Option<crate::plugins::weapons::GunState>,
 }
 
 pub fn spawn_controlled_pedestrian_observer(
@@ -93,23 +95,30 @@ pub fn spawn_controlled_pedestrian_observer(
         .health
         .unwrap_or_else(|| crate::plugins::pedestrian_ai::faction::Health::full(100.0));
 
-    let controller = commands
-        .spawn((
-            Name::new("PedestrianController"),
-            super::character_physics_bundle(
-                scale,
-                Transform::from_translation(controller_pos)
-                    .with_rotation(event.rotation.unwrap_or(Quat::IDENTITY)),
-            ),
-            PlayerDriven,
-            AnimState::default(),
-            CombatState::default(),
-            crate::plugins::weapons::WeaponCooldown::default(),
-            health,
-            crate::plugins::pedestrian_ai::faction::Faction::Neutral,
-            url.clone(),
-        ))
-        .id();
+    let mut entity_cmds = commands.spawn((
+        Name::new("PedestrianController"),
+        super::character_physics_bundle(
+            scale,
+            Transform::from_translation(controller_pos)
+                .with_rotation(event.rotation.unwrap_or(Quat::IDENTITY)),
+        ),
+        PlayerDriven,
+        AnimState::default(),
+        CombatState::default(),
+        crate::plugins::weapons::WeaponCooldown::default(),
+        health,
+        crate::plugins::pedestrian_ai::faction::Faction::Neutral,
+        url.clone(),
+    ));
+
+    if let Some(ref ew) = event.weapon {
+        entity_cmds.insert((*ew).clone());
+    }
+    if let Some(ref gs) = event.gun_state {
+        entity_cmds.insert((*gs).clone());
+    }
+
+    let controller = entity_cmds.id();
 
     // Intermediate scale node: child of controller, parent of the model. Scaling here keeps the
     // model's feet at the capsule bottom and does not affect the animation playback.
@@ -177,7 +186,10 @@ pub fn setup_death_prop_animations(
 pub fn player_death_to_freecam(
     mut commands: Commands,
     mut controlled: ResMut<ControlledCharacter>,
-    q_newly_dying: Query<(Entity, &PedestrianUrl, &Transform, &CharacterScale), Added<crate::plugins::pedestrian_ai::faction::Dying>>,
+    q_newly_dying: Query<
+        (Entity, &PedestrianUrl, &Transform, &CharacterScale),
+        Added<crate::plugins::pedestrian_ai::faction::Dying>,
+    >,
     mut next_state: ResMut<NextState<GameControlState>>,
 ) {
     let Some(controller) = controlled.controller else {
@@ -187,20 +199,24 @@ pub fn player_death_to_freecam(
         return;
     };
 
-    let prop_parent = commands.spawn((
-        Name::new("DeathPropParent"),
-        *transform,
-        DeathProp {
-            timer: Timer::from_seconds(10.0, TimerMode::Once),
-        },
-    )).id();
+    let prop_parent = commands
+        .spawn((
+            Name::new("DeathPropParent"),
+            *transform,
+            DeathProp {
+                timer: Timer::from_seconds(10.0, TimerMode::Once),
+            },
+        ))
+        .id();
 
-    let prop_scale_node = commands.spawn((
-        Name::new("DeathPropScaleNode"),
-        ChildOf(prop_parent),
-        Transform::from_xyz(0.0, -CAPSULE_HALF_HEIGHT, 0.0).with_scale(Vec3::splat(scale.0)),
-        Visibility::default(),
-    )).id();
+    let prop_scale_node = commands
+        .spawn((
+            Name::new("DeathPropScaleNode"),
+            ChildOf(prop_parent),
+            Transform::from_xyz(0.0, -CAPSULE_HALF_HEIGHT, 0.0).with_scale(Vec3::splat(scale.0)),
+            Visibility::default(),
+        ))
+        .id();
 
     commands.trigger(SpawnPedestrianEvent {
         url: url.clone(),

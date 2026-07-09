@@ -3,7 +3,10 @@ use crate::plugins::{
     cars_driving::driving_plugin::{
         CarDriveState, CarSpeculativeContactData, CarWheelsContactData, GamePhysicsLayer,
     },
+    pedestrian_ai::{SpawnAiPedestrianEvent, faction::Faction},
+    pedestrians::PedestrianUrl,
     states::GameControlState,
+    weapons::WeaponId,
 };
 use avian3d::{
     dynamics::ccd::SweptCcd,
@@ -15,11 +18,36 @@ use avian3d::{
 use bevy::prelude::*;
 use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 
+/// Seat offsets in car-local space [driver, front-pass, rear-left, rear-right].
+pub const CAR_SEAT_OFFSETS: [Vec3; 4] = [
+    Vec3::new(-0.4, 0.3, 0.15), // driver (current CarSeatOffset default)
+    Vec3::new(0.4, 0.3, 0.15),  // front passenger
+    Vec3::new(-0.4, 0.3, -0.7), // rear left
+    Vec3::new(0.4, 0.3, -0.7),  // rear right
+];
+
+#[derive(Component)]
+pub struct CarPassenger {
+    pub seat_index: usize,
+    pub car: Entity,
+}
+
+#[derive(Clone)]
+pub struct SpawnCarPassenger {
+    pub url: Option<PedestrianUrl>, // None = random from manifest
+    pub weapon: Option<WeaponId>,   // None = random from manifest
+    pub faction: Faction,
+}
+
 #[derive(Event)]
 pub struct SpawnCarRequestEvent {
     pub position: Vec3,
     pub car_type: String,
     pub rotation: Option<Quat>,
+    /// Optional passengers to spawn in the car's seats.
+    /// Index 0 = driver, 1 = front passenger, 2 = rear left, 3 = rear right.
+    /// `None` entries leave the seat empty.
+    pub passengers: Vec<Option<SpawnCarPassenger>>,
 }
 
 #[derive(Resource)]
@@ -215,6 +243,23 @@ pub fn spawn_car_request_event_observer(
 
     // Mark as active player vehicle so camera follows and player can drive immediately
     commands.entity(car_entity).insert(ActivePlayerVehicle);
+
+    // Spawn passengers
+    for (seat_idx, passenger) in spawn_car_event.passengers.iter().enumerate() {
+        let Some(pass) = passenger else { continue };
+        if seat_idx == 0 {
+            // Driver seat — use existing DriverMesh logic (already implemented)
+            continue;
+        }
+        let seat_world = car_rot * CAR_SEAT_OFFSETS[seat_idx] + pos;
+        commands.trigger(SpawnAiPedestrianEvent {
+            position: seat_world,
+            faction: pass.faction,
+            url: pass.url.clone(),
+            weapon: pass.weapon.clone(),
+            car_seat: Some((car_entity, seat_idx)),
+        });
+    }
 
     next_state.set(GameControlState::DrivingCar);
 }

@@ -52,7 +52,10 @@ pub struct MouseCaptureState {
 pub fn update_mouse_capture(
     mut capture_state: ResMut<MouseCaptureState>,
     state: Res<State<GameControlState>>,
-    mut q_window: Query<(&mut Window, &mut bevy::window::CursorOptions), With<bevy::window::PrimaryWindow>>,
+    mut q_window: Query<
+        (&mut Window, &mut bevy::window::CursorOptions),
+        With<bevy::window::PrimaryWindow>,
+    >,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
     mut contexts: bevy_egui::EguiContexts,
@@ -98,25 +101,25 @@ pub fn update_mouse_capture(
         // Apply grab and visibility to the primary window
         let (mut window, mut cursor_options) = q_window.single_mut().unwrap();
         if capture_state.is_captured {
-                let grab_mode = bevy::window::CursorGrabMode::Locked;
-                if cursor_options.grab_mode != grab_mode {
-                    cursor_options.grab_mode = grab_mode;
-                }
-                if cursor_options.visible {
-                    cursor_options.visible = false;
-                }
-                let width = window.width();
-                let height = window.height();
-                window.set_cursor_position(Some(Vec2::new(width / 2.0, height / 2.0)));
-            } else {
-                let grab_mode = bevy::window::CursorGrabMode::None;
-                if cursor_options.grab_mode != grab_mode {
-                    cursor_options.grab_mode = grab_mode;
-                }
-                if !cursor_options.visible {
-                    cursor_options.visible = true;
-                }
+            let grab_mode = bevy::window::CursorGrabMode::Locked;
+            if cursor_options.grab_mode != grab_mode {
+                cursor_options.grab_mode = grab_mode;
             }
+            if cursor_options.visible {
+                cursor_options.visible = false;
+            }
+            let width = window.width();
+            let height = window.height();
+            window.set_cursor_position(Some(Vec2::new(width / 2.0, height / 2.0)));
+        } else {
+            let grab_mode = bevy::window::CursorGrabMode::None;
+            if cursor_options.grab_mode != grab_mode {
+                cursor_options.grab_mode = grab_mode;
+            }
+            if !cursor_options.visible {
+                cursor_options.visible = true;
+            }
+        }
     } else {
         // Not in a grab state
         capture_state.is_captured = false;

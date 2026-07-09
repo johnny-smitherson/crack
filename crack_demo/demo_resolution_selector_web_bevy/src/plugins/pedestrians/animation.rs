@@ -148,7 +148,11 @@ pub fn play_animations_system(
     anims: Res<PedestrianAnimations>,
     gltf_assets: Res<Assets<bevy::gltf::Gltf>>,
     model_roots: Query<
-        (&PedestrianGltf, Option<&TargetAnimation>, Has<PlayOnceAnimation>),
+        (
+            &PedestrianGltf,
+            Option<&TargetAnimation>,
+            Has<PlayOnceAnimation>,
+        ),
         (With<ModelRoot>, Without<ManualAnimation>),
     >,
     mut players: Query<(

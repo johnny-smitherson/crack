@@ -135,7 +135,8 @@ fn camera_movement_system(
     };
 
     // 3. Speed proportional to height
-    let is_shift = !egui_wants_keyboard && (keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight));
+    let is_shift = !egui_wants_keyboard
+        && (keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight));
     let speed_multiplier = if is_shift { 5.0 } else { 1.0 };
     let speed = (height * 1.0).clamp(5.0, 500.0) * speed_multiplier;
 

@@ -11,6 +11,7 @@ use crate::plugins::cars_driving::driving_plugin::spawn_car::{
 use crate::plugins::cars_driving::driving_plugin::{
     CarDriveState, CarWheelsContactData, CosmeticWheel, GamePhysicsLayer,
 };
+use crate::plugins::network::{ChatBubbles, ChatState};
 use crate::plugins::pedestrians::animation::{
     ActiveOneShot, CurrentPlayingAnimation, NetworkDriven, TargetAnimation,
 };
@@ -22,14 +23,13 @@ use crate::plugins::pedestrians::{
     ModelRoot, PedestrianAnimations, PedestrianUrl, SpawnPedestrianEvent, locomotion_clip,
 };
 use crate::plugins::states::{GameControlState, InitialMapLoadFinished, NetworkConnectionState};
-use crate::plugins::weapons::weapon_shooting::{ShotTracer, MeleeDebugBoxes, MeleeDebugBox};
+use crate::plugins::weapons::weapon_shooting::{MeleeDebugBox, MeleeDebugBoxes, ShotTracer};
 use crate::plugins::weapons::{
     BulletSpark, BulletSparks, EquippedWeapon, FireGunEvent, GunState, ShotTracers, WeaponId,
     WeaponManifest, WeaponModel,
 };
 use crate::ui_egui::UiState;
 use net_crackpipe::PublicKey;
-use crate::plugins::network::{ChatBubbles, ChatState};
 
 // ---------------------------------------------------------------------------------------------
 // Gameplay Room / Protocol Definition
@@ -287,7 +287,10 @@ fn collect_outbound_events(
     q_climbing: Query<&Climbing, Added<Climbing>>,
     q_rolling: Query<&Rolling, Added<Rolling>>,
     q_melee: Query<
-        (&crate::plugins::weapons::weapon_shooting::PendingMeleeHit, &Transform),
+        (
+            &crate::plugins::weapons::weapon_shooting::PendingMeleeHit,
+            &Transform,
+        ),
         Added<crate::plugins::weapons::weapon_shooting::PendingMeleeHit>,
     >,
     mut outbound: ResMut<OutboundEvents>,
@@ -1057,12 +1060,15 @@ fn find_animation_player(
 fn update_remote_animations(
     mut commands: Commands,
     anims: Res<PedestrianAnimations>,
-    q_remote_roots: Query<(
-        Entity,
-        &LinearVelocity,
-        &crate::plugins::pedestrian_ai::faction::Health,
-        &crate::plugins::pedestrians::pedestrian_controller_plugin::CharacterScale,
-    ), With<NetworkDriven>>,
+    q_remote_roots: Query<
+        (
+            Entity,
+            &LinearVelocity,
+            &crate::plugins::pedestrian_ai::faction::Health,
+            &crate::plugins::pedestrians::pedestrian_controller_plugin::CharacterScale,
+        ),
+        With<NetworkDriven>,
+    >,
     q_models: Query<(Entity, &ChildOf), With<ModelRoot>>,
     q_parents: Query<&ChildOf>,
 ) {
@@ -1792,8 +1798,11 @@ fn draw_remote_billboards(
                                 }
                             }
 
-                            let color =
-                                egui::Color32::from_rgb(player.color.0, player.color.1, player.color.2);
+                            let color = egui::Color32::from_rgb(
+                                player.color.0,
+                                player.color.1,
+                                player.color.2,
+                            );
                             ui.colored_label(color, &player.nickname);
                         });
                     });
@@ -1839,7 +1848,11 @@ fn draw_self_billboard(
     mut contexts: EguiContexts,
     q_camera: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     controlled: Res<ControlledCharacter>,
-    q_controlled_data: Query<(&GlobalTransform, &crate::plugins::pedestrian_ai::faction::Health, &CharacterScale)>,
+    q_controlled_data: Query<(
+        &GlobalTransform,
+        &crate::plugins::pedestrian_ai::faction::Health,
+        &CharacterScale,
+    )>,
     chat_state: Res<ChatState>,
     bubbles: Res<ChatBubbles>,
     time: Res<Time>,
@@ -1902,10 +1915,8 @@ fn draw_self_billboard(
                     };
                     let width = 50.0;
                     let height_bar = 4.0;
-                    let (rect, _) = ui.allocate_exact_size(
-                        egui::vec2(width, height_bar),
-                        egui::Sense::hover(),
-                    );
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::vec2(width, height_bar), egui::Sense::hover());
                     ui.painter()
                         .rect_filled(rect, 1.0, egui::Color32::DARK_GRAY);
                     let mut filled_rect = rect;

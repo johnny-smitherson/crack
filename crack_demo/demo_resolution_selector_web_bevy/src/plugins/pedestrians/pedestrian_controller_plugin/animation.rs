@@ -13,11 +13,13 @@ use bevy_egui::EguiContexts;
 
 use super::*;
 use crate::plugins::pedestrian_ai::Dying;
-use crate::plugins::pedestrians::locomotion_clip;
 use crate::plugins::pedestrians::PedestrianAnimations;
+use crate::plugins::pedestrians::locomotion_clip;
 use crate::plugins::pedestrians::pedestrian_controller_plugin::interaction_ui::EnteringCarTimer;
 use crate::plugins::weapons::weapon_attach::{WeaponModel, WeaponModelState};
-use crate::plugins::weapons::{EquippedWeapon, FireGunEvent, GunState, ReloadGunEvent, WeaponCooldown, WeaponId};
+use crate::plugins::weapons::{
+    EquippedWeapon, FireGunEvent, GunState, ReloadGunEvent, WeaponCooldown, WeaponId,
+};
 use spawn::ControlledCharacter;
 
 /// Base weight while a combat overlay is active, so the overlay reads on top of locomotion.
@@ -134,9 +136,7 @@ pub fn drive_character_animation(
     };
 
     // Which weapon class is equipped (None component == Unarmed).
-    let weapon_id = equipped
-        .map(|e| e.0.clone())
-        .unwrap_or(WeaponId::Unarmed);
+    let weapon_id = equipped.map(|e| e.0.clone()).unwrap_or(WeaponId::Unarmed);
     let is_gun = weapon_id.is_gun();
     let is_melee = weapon_id.is_melee();
 
@@ -374,8 +374,7 @@ pub fn drive_character_animation(
             }
         } else if is_melee {
             pressed_node = node_for(&anims, &["Sword_Attack"]);
-            one_shot_speed =
-                (NATURAL_SWING_SECS / swing_secs).clamp(0.5, 4.0);
+            one_shot_speed = (NATURAL_SWING_SECS / swing_secs).clamp(0.5, 4.0);
             commands.entity(controller).insert(
                 crate::plugins::weapons::weapon_shooting::PendingMeleeHit {
                     timer: swing_secs * 0.4,

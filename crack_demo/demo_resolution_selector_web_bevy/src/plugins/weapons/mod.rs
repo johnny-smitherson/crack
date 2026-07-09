@@ -15,8 +15,8 @@ pub use weapon_attach::{
 };
 pub use weapon_manifest::{GunInfo, MeleeInfo, WeaponId, WeaponManifest};
 pub use weapon_shooting::{
-    BulletSpark, BulletSparks, FireGunEvent, GunState, ReloadGunEvent, ShotTracers,
-    MeleeDebugBox, MeleeDebugBoxes, WeaponCooldown, draw_melee_debug_boxes,
+    BulletSpark, BulletSparks, FireGunEvent, GunState, MeleeDebugBox, MeleeDebugBoxes,
+    ReloadGunEvent, ShotTracers, WeaponCooldown, draw_melee_debug_boxes,
 };
 
 use weapon_attach::{
@@ -61,6 +61,13 @@ impl Plugin for WeaponsPlugin {
                 )
                     .chain(),
             )
-            .add_systems(Update, (draw_shot_tracers, draw_bullet_sparks, draw_melee_debug_boxes));
+            .add_systems(
+                Update,
+                (
+                    draw_shot_tracers,
+                    draw_bullet_sparks,
+                    draw_melee_debug_boxes,
+                ),
+            );
     }
 }

@@ -10,7 +10,8 @@ use rand::seq::IndexedRandom;
 use super::spawn::{SpawnChoicePopup, SpawnControlledPedestrianEvent};
 use super::{AnimState, CAPSULE_HALF_HEIGHT, CombatState, character_physics_bundle};
 use crate::plugins::cars_driving::{
-    car_info::get_random_car_type, driving_plugin::spawn_car::SpawnCarRequestEvent,
+    car_info::get_random_car_type,
+    driving_plugin::spawn_car::{SpawnCarPassenger, SpawnCarRequestEvent},
 };
 use crate::plugins::pedestrian_ai::faction::{Enemies, Health};
 use crate::plugins::pedestrian_ai::{
@@ -91,6 +92,8 @@ pub fn spawn_choice_popup_ui(
                         is_exiting_car: false,
                         rotation: None,
                         health: None,
+                        weapon: None,
+                        gun_state: None,
                     });
                     close = true;
                 }
@@ -99,6 +102,24 @@ pub fn spawn_choice_popup_ui(
                         position: popup.world_pos,
                         car_type: get_random_car_type().to_string(),
                         rotation: None,
+                        passengers: vec![
+                            None, // driver seat empty (player will enter)
+                            Some(SpawnCarPassenger {
+                                url: None,
+                                weapon: None,
+                                faction: Faction::Neutral,
+                            }),
+                            Some(SpawnCarPassenger {
+                                url: None,
+                                weapon: None,
+                                faction: Faction::Neutral,
+                            }),
+                            Some(SpawnCarPassenger {
+                                url: None,
+                                weapon: None,
+                                faction: Faction::Neutral,
+                            }),
+                        ],
                     });
                     close = true;
                 }
@@ -286,7 +307,12 @@ pub fn tick_entering_car(
     seat: Res<CarSeatOffset>,
     mut controlled: ResMut<ControlledCharacter>,
     mut next_state: ResMut<NextState<GameControlState>>,
-    q_player_fh: Query<(&Faction, &Health)>,
+    q_player_fh: Query<(
+        &Faction,
+        &Health,
+        Option<&EquippedWeapon>,
+        Option<&GunState>,
+    )>,
 ) {
     for (entity, mut entering, mut ped_transform, char_scale) in q_player.iter_mut() {
         // Interpolate position to the car door, then onto the seat
@@ -323,10 +349,10 @@ pub fn tick_entering_car(
                 }
             }
 
-            let (faction, health) = q_player_fh
+            let (faction, health, equipped_weapon, gun_state) = q_player_fh
                 .get(entity)
-                .map(|(f, h)| (*f, *h))
-                .unwrap_or((Faction::Neutral, Health::full(DEFAULT_HP)));
+                .map(|(f, h, ew, gs)| (*f, *h, ew.cloned(), gs.cloned()))
+                .unwrap_or((Faction::Neutral, Health::full(DEFAULT_HP), None, None));
 
             // Steal the visual model from the controller and seat it in the car; the
             // physics capsule and controller components despawn with the controller.
@@ -344,6 +370,12 @@ pub fn tick_entering_car(
                         faction,
                         health,
                     ));
+                    if let Some(ew) = equipped_weapon {
+                        model_cmds.insert(ew);
+                    }
+                    if let Some(gs) = gun_state {
+                        model_cmds.insert(gs);
+                    }
                 }
             }
             if controlled.controller == Some(entity) {
@@ -629,6 +661,8 @@ pub fn handle_exit_car(
             is_exiting_car: false,
             rotation: Some(exit_rot),
             health: None,
+            weapon: None,
+            gun_state: None,
         });
     }
 }
@@ -639,7 +673,7 @@ pub fn tick_driver_mesh_exit(
     mut commands: Commands,
     time: Res<Time>,
     mut q_exit: Query<(Entity, &mut Transform, &mut DriverMeshExit)>,
-    q_health: Query<&Health>,
+    q_driver_info: Query<(&Health, Option<&EquippedWeapon>, Option<&GunState>)>,
 ) {
     for (mesh_ent, mut tf, mut exit) in q_exit.iter_mut() {
         exit.timer.tick(time.delta());
@@ -656,9 +690,12 @@ pub fn tick_driver_mesh_exit(
         if exit.timer.just_finished() {
             let spawn_pos = exit.exit_pos;
             let spawn_rot = exit.exit_rot;
-            // Carry the driver's remaining HP out with them so a round-trip through a car is not
+            // Carry the driver's remaining HP and weapon state out with them so a round-trip through a car is not
             // a free heal.
-            let carried_health = q_health.get(mesh_ent).ok().copied();
+            let (carried_health, carried_weapon, carried_gun_state) = q_driver_info
+                .get(mesh_ent)
+                .map(|(h, w, g)| (Some(*h), w.cloned(), g.cloned()))
+                .unwrap_or((None, None, None));
             if let Ok(mut mesh_cmds) = commands.get_entity(mesh_ent) {
                 mesh_cmds.despawn();
             }
@@ -669,6 +706,8 @@ pub fn tick_driver_mesh_exit(
                 is_exiting_car: false,
                 rotation: Some(spawn_rot),
                 health: carried_health,
+                weapon: carried_weapon,
+                gun_state: carried_gun_state,
             });
         }
     }
@@ -765,6 +804,7 @@ pub fn equip_on_new_character(
     manifest: Res<WeaponManifest>,
     mut selection: ResMut<WeaponSelection>,
     mut last: Local<Option<Entity>>,
+    q_equipped: Query<&EquippedWeapon>,
 ) {
     if !manifest.loaded {
         return;
@@ -777,6 +817,10 @@ pub fn equip_on_new_character(
         return;
     }
     *last = Some(controller);
+
+    if q_equipped.get(controller).is_ok() {
+        return;
+    }
 
     // Pick a random real weapon (skip Unarmed at index 0), fall back to Unarmed.
     let weapon = manifest.all[1..]

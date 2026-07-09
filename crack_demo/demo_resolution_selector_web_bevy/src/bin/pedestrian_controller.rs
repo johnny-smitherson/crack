@@ -104,6 +104,8 @@ fn demo_auto_spawn(
         is_exiting_car: false,
         rotation: None,
         health: None,
+        weapon: None,
+        gun_state: None,
     });
     *done = true;
 }

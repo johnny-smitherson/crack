@@ -9,6 +9,8 @@ use crate::plugins::pedestrians::pedestrian_controller_plugin::{
     DriverMesh, SpawnControlledPedestrianEvent, eject_driver_as_ai,
 };
 
+use crate::plugins::weapons::{EquippedWeapon, GunState};
+
 /// When a car's [`CarHealth`] falls to/below [`CAR_DISABLE_HP`], mark it [`DisabledCar`] (which
 /// stops it, blocks entry, and shows a green sphere) and eject its driver. An AI driver stands up
 /// as a fresh AI ped; the player is handed back a controllable pedestrian with their carried HP.
@@ -24,7 +26,17 @@ pub fn disable_low_health_cars(
         ),
         (With<Car>, Without<DisabledCar>),
     >,
-    q_driver: Query<(Entity, &Faction, &Health, &Transform), With<DriverMesh>>,
+    q_driver: Query<
+        (
+            Entity,
+            &Faction,
+            &Health,
+            &Transform,
+            Option<&EquippedWeapon>,
+            Option<&GunState>,
+        ),
+        With<DriverMesh>,
+    >,
 ) {
     for (car_ent, car_gt, health, is_player, children) in q_cars.iter() {
         if health.current > CAR_DISABLE_HP {
@@ -40,14 +52,21 @@ pub fn disable_low_health_cars(
         let mut driver = None;
         if let Some(children) = children {
             for child in children.iter() {
-                if let Ok((d_ent, faction, dhealth, tf)) = q_driver.get(child) {
-                    driver = Some((d_ent, *faction, *dhealth, tf.scale.x));
+                if let Ok((d_ent, faction, dhealth, tf, ew, gs)) = q_driver.get(child) {
+                    driver = Some((
+                        d_ent,
+                        *faction,
+                        *dhealth,
+                        tf.scale.x,
+                        ew.cloned(),
+                        gs.cloned(),
+                    ));
                     break;
                 }
             }
         }
 
-        let Some((d_ent, faction, dhealth, scale)) = driver else {
+        let Some((d_ent, faction, dhealth, scale, ew, gs)) = driver else {
             continue;
         };
 
@@ -67,6 +86,8 @@ pub fn disable_low_health_cars(
                 is_exiting_car: false,
                 rotation: Some(exit_rot),
                 health: Some(dhealth),
+                weapon: ew,
+                gun_state: gs,
             });
         } else {
             eject_driver_as_ai(&mut commands, car_gt, d_ent, faction, dhealth, scale);

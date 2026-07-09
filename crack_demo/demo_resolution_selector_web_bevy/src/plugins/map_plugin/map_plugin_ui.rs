@@ -24,7 +24,12 @@ pub fn draw_tree_bboxes(
     // Per-tile bbox drawing disabled on client; see `draw_map_extent_gizmo`.
 }
 
-fn draw_bbox_wireframe(gizmos: &mut Gizmos<MapExtentGizmoGroup>, min: Vec3, max: Vec3, color: Color) {
+fn draw_bbox_wireframe(
+    gizmos: &mut Gizmos<MapExtentGizmoGroup>,
+    min: Vec3,
+    max: Vec3,
+    color: Color,
+) {
     let c = [
         Vec3::new(min.x, min.y, min.z),
         Vec3::new(max.x, min.y, min.z),

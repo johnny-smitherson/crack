@@ -7,6 +7,7 @@ use bevy::{ecs::query::Has, prelude::*};
 use super::*;
 use crate::plugins::audio::audio_fx::{AudioFxEvent, AudioFxEventType};
 use crate::plugins::cars_driving::driving_plugin::GamePhysicsLayer;
+use crate::plugins::cars_driving::driving_plugin::spawn_car::CarPassenger;
 use crate::plugins::map_plugin::{MapTree, TreeMapTile};
 
 /// Reads WASD into a camera-relative move direction and updates modifiers. Space -> jump.
@@ -83,7 +84,7 @@ pub fn character_input(
 /// Updates the [`Grounded`] status for character controllers.
 pub fn update_grounded(
     mut commands: Commands,
-    mut query: Query<(Entity, &GroundDetection, &GlobalTransform)>,
+    mut query: Query<(Entity, &GroundDetection, &GlobalTransform), Without<CarPassenger>>,
     spatial_query: SpatialQuery,
 ) {
     for (entity, ground_detection, global_transform) in &mut query {
@@ -119,12 +120,15 @@ pub fn update_grounded(
 /// Responds to per-entity [`LocomotionInput`] and accelerates/jumps character controllers.
 pub fn movement(
     time: Res<Time>,
-    mut controllers: Query<(
-        &mut LocomotionInput,
-        &CharacterMovementSettings,
-        &mut LinearVelocity,
-        Has<Grounded>,
-    )>,
+    mut controllers: Query<
+        (
+            &mut LocomotionInput,
+            &CharacterMovementSettings,
+            &mut LinearVelocity,
+            Has<Grounded>,
+        ),
+        Without<CarPassenger>,
+    >,
 ) {
     let delta_secs = time.delta_secs_f64().adjust_precision();
 
@@ -148,7 +152,10 @@ pub fn movement(
 /// Applies custom gravity to character controllers.
 pub fn apply_gravity(
     time: Res<Time>,
-    mut controllers: Query<(&CharacterMovementSettings, &mut LinearVelocity)>,
+    mut controllers: Query<
+        (&CharacterMovementSettings, &mut LinearVelocity),
+        Without<CarPassenger>,
+    >,
 ) {
     let delta_secs = time.delta_secs_f64().adjust_precision();
 
@@ -172,7 +179,7 @@ pub fn apply_gravity(
 
 /// Exponential decay of horizontal velocity (Y left untouched).
 pub fn apply_movement_damping(
-    mut query: Query<(&CharacterMovementSettings, &mut LinearVelocity)>,
+    mut query: Query<(&CharacterMovementSettings, &mut LinearVelocity), Without<CarPassenger>>,
     time: Res<Time>,
 ) {
     let delta_secs = time.delta_secs_f64().adjust_precision();
@@ -187,7 +194,10 @@ pub fn apply_movement_damping(
 /// ramps toward `SPRINT_MAX_MULT` x jog speed while Shift is held.
 pub fn apply_speed_cap(
     time: Res<Time>,
-    mut query: Query<(&mut MovementModifiers, &mut LinearVelocity, Has<Rolling>)>,
+    mut query: Query<
+        (&mut MovementModifiers, &mut LinearVelocity, Has<Rolling>),
+        Without<CarPassenger>,
+    >,
 ) {
     let dt = time.delta_secs();
     for (mut modifiers, mut velocity, rolling) in &mut query {
@@ -236,7 +246,7 @@ pub fn move_and_slide(
             &mut LinearVelocity,
             &Collider,
         ),
-        With<CharacterController>,
+        (With<CharacterController>, Without<CarPassenger>),
     >,
     move_and_slide: MoveAndSlide,
     time: Res<Time>,
@@ -355,7 +365,7 @@ fn split_into_components(v: Vector, up: Vector) -> [Vector; 2] {
 
 /// Applies impulses to dynamic rigid bodies the character pushed into.
 pub fn apply_forces_to_dynamic_bodies(
-    characters: Query<(&ComputedMass, &CharacterCollisions)>,
+    characters: Query<(&ComputedMass, &CharacterCollisions), Without<CarPassenger>>,
     colliders: Query<&ColliderOf>,
     mut rigid_bodies: Query<(&RigidBody, Forces)>,
 ) {
@@ -385,7 +395,10 @@ pub fn apply_forces_to_dynamic_bodies(
 /// Rotates the controller (and therefore its model child) to face its horizontal velocity.
 pub fn face_movement(
     time: Res<Time>,
-    mut query: Query<(&LinearVelocity, &mut Transform), With<CharacterController>>,
+    mut query: Query<
+        (&LinearVelocity, &mut Transform),
+        (With<CharacterController>, Without<CarPassenger>),
+    >,
 ) {
     for (velocity, mut transform) in &mut query {
         let vx = velocity.x as f32;
@@ -401,7 +414,10 @@ pub fn face_movement(
 
 /// Safety net: if the controller ends up below the ground plane (y < 0), teleport it back up.
 pub fn respawn_if_fallen(
-    mut query: Query<(&mut Transform, &mut LinearVelocity), With<CharacterController>>,
+    mut query: Query<
+        (&mut Transform, &mut LinearVelocity),
+        (With<CharacterController>, Without<CarPassenger>),
+    >,
 ) {
     for (mut transform, mut velocity) in &mut query {
         if transform.translation.y < 0.0 {
@@ -562,7 +578,10 @@ pub(crate) fn detect_climb(
 pub fn update_climb(
     time: Res<Time>,
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Transform, &mut LinearVelocity, &mut Climbing)>,
+    mut query: Query<
+        (Entity, &mut Transform, &mut LinearVelocity, &mut Climbing),
+        Without<CarPassenger>,
+    >,
 ) {
     for (entity, mut transform, mut velocity, mut climb) in &mut query {
         velocity.0 = Vector::ZERO;
@@ -595,7 +614,10 @@ fn smoothstep(t: f32) -> f32 {
 pub fn update_roll(
     time: Res<Time>,
     mut commands: Commands,
-    mut query: Query<(Entity, &Transform, &mut LinearVelocity, &mut Rolling)>,
+    mut query: Query<
+        (Entity, &Transform, &mut LinearVelocity, &mut Rolling),
+        Without<CarPassenger>,
+    >,
 ) {
     for (entity, transform, mut velocity, mut roll) in &mut query {
         roll.elapsed += time.delta_secs();
@@ -622,7 +644,10 @@ pub fn detect_fallen_off_map(
     map: Option<Res<MapTree>>,
     tiles: Query<(), With<TreeMapTile>>,
     spatial_query: SpatialQuery,
-    mut query: Query<(Entity, &mut Transform, &mut LinearVelocity), With<CharacterController>>,
+    mut query: Query<
+        (Entity, &mut Transform, &mut LinearVelocity),
+        (With<CharacterController>, Without<CarPassenger>),
+    >,
 ) {
     let Some(map) = map else {
         return;

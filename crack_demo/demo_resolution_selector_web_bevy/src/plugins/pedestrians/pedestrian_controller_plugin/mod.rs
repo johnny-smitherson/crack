@@ -41,6 +41,7 @@
 //! driver is a deliberate exception for combat-overlay blending).
 
 mod animation;
+mod arm_ik;
 mod camera;
 mod controller;
 mod interaction_ui;
@@ -71,9 +72,8 @@ use interaction_ui::{
 };
 use locomotion::CharacterLocomotionPlugin;
 pub use spawn::{
-    SpawnChoicePopup, escape_to_freecam, player_death_to_freecam,
-    spawn_controlled_pedestrian_observer, DeathProp, tick_death_props,
-    setup_death_prop_animations,
+    DeathProp, SpawnChoicePopup, escape_to_freecam, player_death_to_freecam,
+    setup_death_prop_animations, spawn_controlled_pedestrian_observer, tick_death_props,
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -137,12 +137,12 @@ const TURN_SPEED: f32 = 12.0;
 const MODEL_FORWARD_OFFSET: f32 = 0.0;
 
 // Follow camera. Position trails the character; orientation is manual (left-mouse drag).
-const CAM_DISTANCE: f32 = 5.5;
-const CAM_AIM_DISTANCE: f32 = 2.5;
-const CAM_SHOULDER_X: f32 = 0.6;
-const CAM_AIM_SHOULDER_X: f32 = 0.3;
+const CAM_DISTANCE: f32 = 4.0;
+const CAM_AIM_DISTANCE: f32 = 1.5;
+const CAM_SHOULDER_X: f32 = 0.8;
+const CAM_AIM_SHOULDER_X: f32 = 0.4;
 const CAM_ZOOM_SPEED: f32 = 8.0;
-const CAM_LOOK_HEIGHT: f32 = 1.1;
+const CAM_LOOK_HEIGHT: f32 = 1.5;
 /// Time constant for smoothing the *character-driven* follow position. This attenuates the wild
 /// up/down/left/right shake the kinematic controller picks up from the rough map, while leaving
 /// user-driven (mouse-drag) camera rotation completely un-attenuated.
@@ -151,7 +151,7 @@ const CAM_FOLLOW_SMOOTH_TIME: f32 = 0.15;
 /// smoothing.
 const CAM_FOLLOW_SNAP_DIST: f32 = 5.0;
 /// Initial (and default) camera pitch — slightly downward.
-const CAM_PITCH: f32 = -0.35;
+const CAM_PITCH: f32 = -0.2;
 /// Mouse-drag orbit sensitivity (radians per pixel).
 const CAM_ORBIT_SENSITIVITY: f32 = 0.006;
 /// Pitch clamp limits: -85 degrees min to +85 degrees max.
@@ -402,6 +402,12 @@ impl Plugin for PedestrianControllerPlugin {
                     weapon_hud_ui.run_if(in_state(GameControlState::ControllingPedestrian)),
                     car_seat_debug_ui.run_if(in_state(GameControlState::DrivingCar)),
                 ),
+            )
+            .add_systems(
+                PostUpdate,
+                arm_ik::apply_arm_ik
+                    .after(bevy::app::AnimationSystems)
+                    .before(bevy::transform::TransformSystems::Propagate),
             );
     }
 }

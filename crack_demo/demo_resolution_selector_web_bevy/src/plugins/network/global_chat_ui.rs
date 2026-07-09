@@ -199,11 +199,13 @@ fn draw_chat_ui_system(
                                     let _ = state.outgoing_tx.try_send(text.clone());
                                     if let Some(ref mut bubbles) = bubbles {
                                         let is_longer = text.chars().count() > 70;
-                                        let mut bubble_text: String = text.chars().take(70).collect();
+                                        let mut bubble_text: String =
+                                            text.chars().take(70).collect();
                                         if is_longer {
                                             bubble_text.push('…');
                                         }
-                                        bubbles.own = Some((bubble_text, time.elapsed_secs_f64() + 3.0));
+                                        bubbles.own =
+                                            Some((bubble_text, time.elapsed_secs_f64() + 3.0));
                                     }
                                     state.input_buffer.clear();
                                 }
@@ -213,8 +215,7 @@ fn draw_chat_ui_system(
                 });
             }
         }
-    }
-    );
+    });
 
     if !chat_ui_state.always_visible {
         chat_ui_state.show_window = show_window;

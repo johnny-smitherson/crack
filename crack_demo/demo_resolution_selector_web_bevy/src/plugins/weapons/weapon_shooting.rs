@@ -1,4 +1,4 @@
-use avian3d::prelude::{SpatialQuery, SpatialQueryFilter, Collider};
+use avian3d::prelude::{Collider, SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
 
 use super::weapon_attach::{EquippedWeapon, WeaponModel, WeaponModelState};
@@ -13,7 +13,7 @@ const TRACER_TTL: f32 = 0.05;
 const REFLECT_LEN: f32 = 0.5;
 
 /// Ammo state for a character holding a gun. Inserted on gun equip, removed otherwise.
-#[derive(Component)]
+#[derive(Component, Clone, Debug)]
 pub struct GunState {
     pub rounds: u32,
     pub clip_size: u32,
@@ -424,12 +424,7 @@ pub fn tick_pending_melee_hits(
                 ttl: 0.1,
             });
 
-            let intersecting = spatial.shape_intersections(
-                &box_shape,
-                box_pos,
-                rotation,
-                &filter,
-            );
+            let intersecting = spatial.shape_intersections(&box_shape, box_pos, rotation, &filter);
 
             let mut hit_roots = std::collections::HashSet::new();
 
@@ -463,7 +458,10 @@ pub fn tick_pending_melee_hits(
                     continue;
                 }
 
-                let hit_pos = q_global_transform.get(hit_entity).map(|g| g.translation()).unwrap_or(box_pos);
+                let hit_pos = q_global_transform
+                    .get(hit_entity)
+                    .map(|g| g.translation())
+                    .unwrap_or(box_pos);
                 let is_person = is_person_entity(
                     hit_entity,
                     &parents,

@@ -17,6 +17,7 @@ use super::{
     AiAnim, AiCombatTimers, AiPedestrian, AiPerception, AiState, AiSteer, AiThink,
     faction::{DEFAULT_HP, Enemies, Faction, Health},
 };
+use crate::plugins::cars_driving::driving_plugin::spawn_car::{CAR_SEAT_OFFSETS, CarPassenger};
 
 /// Spawn an AI-driven pedestrian at `position` with the given `faction`.
 #[derive(Event)]
@@ -27,6 +28,8 @@ pub struct SpawnAiPedestrianEvent {
     pub url: Option<PedestrianUrl>,
     /// `None` picks a random weapon from the manifest.
     pub weapon: Option<WeaponId>,
+    /// Optional car and seat to spawn the passenger into.
+    pub car_seat: Option<(Entity, usize)>,
 }
 
 pub fn spawn_ai_pedestrian_observer(
@@ -63,12 +66,29 @@ pub fn spawn_ai_pedestrian_observer(
         event.position.z,
     );
 
-    let controller = commands
-        .spawn((
-            Name::new("AiPedestrianController"),
-            character_physics_bundle(scale, Transform::from_translation(controller_pos)),
-        ))
-        .id();
+    let (transform, maybe_parent) = if let Some((car_entity, seat_idx)) = event.car_seat {
+        let local_pos = CAR_SEAT_OFFSETS[seat_idx] + Vec3::new(0.0, CAPSULE_HALF_HEIGHT, 0.0);
+        (
+            Transform::from_translation(local_pos)
+                .with_rotation(Quat::from_rotation_y(std::f32::consts::PI)),
+            Some(ChildOf(car_entity)),
+        )
+    } else {
+        (Transform::from_translation(controller_pos), None)
+    };
+
+    let mut controller_cmds = commands.spawn((
+        Name::new("AiPedestrianController"),
+        character_physics_bundle(scale, transform),
+    ));
+    if let Some(parent) = maybe_parent {
+        controller_cmds.insert(parent);
+        controller_cmds.insert(CarPassenger {
+            seat_index: event.car_seat.unwrap().1,
+            car: event.car_seat.unwrap().0,
+        });
+    }
+    let controller = controller_cmds.id();
 
     // Insert AI components separately to stay under Bevy's Bundle tuple limit.
     commands.entity(controller).insert((
