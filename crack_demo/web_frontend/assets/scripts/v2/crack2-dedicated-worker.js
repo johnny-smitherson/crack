@@ -1,4 +1,4 @@
-importScripts("/assets/pkg_web_serviceworker/web_worker.js");
+importScripts("/assets/pkg_web_serviceworker/web_worker.js?v=b080a68bec6b7837db6e1a95f5747011");
 console.log('[DedicatedWorker] IMPORT SCRIPT OK!');
 
 console.log('[DedicatedWorker] wasm_bindgen 1');
@@ -13,7 +13,7 @@ function sleep(ms) {
 
 async function init_wasm_bindgen() {
     console.log('[DedicatedWorker] wasm_bindgen 2');
-    await wasm_bindgen("/assets/pkg_web_serviceworker/web_worker_bg.wasm");
+    await wasm_bindgen("/assets/pkg_web_serviceworker/web_worker_bg.wasm?v=b080a68bec6b7837db6e1a95f5747011");
     console.log('[DedicatedWorker] wasm_bindgen done');
 
       

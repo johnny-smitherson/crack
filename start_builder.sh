@@ -13,4 +13,5 @@ cargo watch \
     --watch Cargo.lock \
     --watch src/ \
     --watch crack_demo/web_worker \
+    --watch crack_demo/game_logic \
     -s "./build_worker.sh" 

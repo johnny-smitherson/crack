@@ -17,12 +17,19 @@ wasm-bindgen \
    --target no-modules  --no-typescript \
    --out-dir "$OUT_DIR" \
    "$WASM_FILE"
-md5sum "$WASM_FILE" | cut -f1 -d' ' > "$OUT_DIR/md5.txt"
+MD5="$(md5sum "$WASM_FILE" | cut -f1 -d' ')"
+echo "$MD5" > "$OUT_DIR/md5.txt"
 echo "//#region: crack"                                                                      >> $OUT_DIR/web_worker.js
 echo "let __wasm_script_md5 =   '$(cat $OUT_DIR/md5.txt)';"  >> $OUT_DIR/web_worker.js
 
 rm -rf "$OUT_DIR2" || true
 cp -r "$OUT_DIR" "$OUT_DIR2"
+
+for LOADER in \
+  crack_demo/demo_resolution_selector_web_bevy/public/scripts/v2/crack2-dedicated-worker.js \
+  crack_demo/web_frontend/assets/scripts/v2/crack2-dedicated-worker.js ; do
+  sed -i -E "s#(web_worker(_bg\.wasm|\.js))\?v=[A-Za-z0-9_]+#\1?v=${MD5}#g" "$LOADER"
+done
 
 # sed -i "s/let __wasm_worker_md5 = .*/let __wasm_worker_md5 = \"$(cat $OUT_DIR/md5.txt)\";  /" crack_demo/web_frontend/assets/scripts/worker.js
 
