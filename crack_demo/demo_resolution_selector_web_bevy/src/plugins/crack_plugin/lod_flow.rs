@@ -17,7 +17,10 @@ pub fn spawn_lod_task(
     q_pending: Query<&PendingTileReveal>,
     q_nodes: Query<&TreeMapTile>,
     mut last: Local<Option<(BTreeSet<MapTreeNodePath>, Vec<Vec3>, u32, bool, i32, u32)>>,
-    q_camera: Query<&Transform, With<Camera3d>>,
+    q_camera: Query<
+        &Transform,
+        With<crate::plugins::pedestrians::pedestrian_controller_plugin::MainCamera>,
+    >,
     res_tiles: Res<TileSwapRequests>,
     mut tasks: ResMut<CrackTasks>,
     client: Res<CrackClient>,

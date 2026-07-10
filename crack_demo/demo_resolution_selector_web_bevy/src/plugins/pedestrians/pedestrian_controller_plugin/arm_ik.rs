@@ -6,7 +6,7 @@
 use avian3d::prelude::{SpatialQuery, SpatialQueryFilter};
 use bevy::prelude::*;
 
-use super::{CharacterController, CombatKind, CombatState, ControlledCharacter};
+use super::{CharacterController, CombatKind, CombatState, ControlledCharacter, MainCamera};
 use crate::plugins::cars_driving::driving_plugin::spawn_car::ActivePlayerVehicle;
 use crate::plugins::pedestrians::pedestrian_controller_plugin::interaction_ui::DriverMesh;
 use crate::plugins::pedestrians::skeleton::{ArmSide, PedestrianSkeleton};
@@ -324,7 +324,7 @@ pub fn apply_arm_ik(
     controlled: Res<ControlledCharacter>,
     mouse: Res<ButtonInput<MouseButton>>,
     mut contexts: EguiContexts,
-    camera: Query<&GlobalTransform, With<Camera3d>>,
+    camera: Query<&GlobalTransform, With<MainCamera>>,
     skeletons: Query<&PedestrianSkeleton>,
     combat_states: Query<&CombatState>,
     equipped: Query<&EquippedWeapon>,

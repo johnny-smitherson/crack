@@ -17,6 +17,7 @@ use crate::plugins::map_plugin::map_plugin_ui::{
     configure_map_extent_gizmo, draw_map_extent_gizmo, draw_reference_points_gizmos,
     draw_tree_bboxes, tree_navigator_ui,
 };
+use crate::plugins::pedestrians::pedestrian_controller_plugin::MainCamera;
 
 pub struct MapPlugin;
 
@@ -61,7 +62,7 @@ const CAMERA_BBOX_Y_HEADROOM: f32 = 10.0;
 
 fn clamp_camera_to_map_bbox(
     map_tree: Option<Res<MapTree>>,
-    mut cam: Query<&mut Transform, With<Camera3d>>,
+    mut cam: Query<&mut Transform, With<MainCamera>>,
 ) {
     let Some(map_tree) = map_tree else {
         return;

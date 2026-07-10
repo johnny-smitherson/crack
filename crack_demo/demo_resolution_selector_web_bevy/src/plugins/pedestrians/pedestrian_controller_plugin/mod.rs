@@ -54,7 +54,7 @@ use bevy_egui::EguiPrimaryContextPass;
 
 use crate::plugins::states::GameControlState;
 
-pub use camera::CameraRig;
+pub use camera::{CameraRig, MainCamera};
 pub use interaction_ui::{
     CarSeatOffset, DriverMesh, EjectedDriver, EjectedStage, SpawnPlayerDriverEvent,
     eject_driver_as_ai, tick_ejected_driver_system,

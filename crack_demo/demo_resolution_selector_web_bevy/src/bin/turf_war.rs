@@ -28,7 +28,7 @@ use demo_resolution_selector_web_bevy::{
         pedestrians::{
             PedestrianManifest, PedestriansPlugin,
             pedestrian_controller_plugin::{
-                CharacterController, ControlledCharacter, PedestrianControllerPlugin,
+                CharacterController, ControlledCharacter, MainCamera, PedestrianControllerPlugin,
                 SpawnControlledPedestrianEvent,
             },
         },
@@ -162,7 +162,7 @@ fn player_hp_ui(
 }
 
 /// Override the debug scene camera to look down on the arena.
-fn setup_overhead_camera(mut camera_query: Query<&mut Transform, With<Camera3d>>) {
+fn setup_overhead_camera(mut camera_query: Query<&mut Transform, With<MainCamera>>) {
     for mut transform in &mut camera_query {
         *transform = Transform::from_xyz(0.0, 55.0, 40.0).looking_at(Vec3::ZERO, Vec3::Y);
     }

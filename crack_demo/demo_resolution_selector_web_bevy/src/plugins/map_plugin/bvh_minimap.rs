@@ -5,20 +5,18 @@
 //! colored by their LOD state (active / pending reveal / splitting / merging / dropping), so the
 //! split/merge churn — and what the BVH occluder culls — is visible while moving around the map.
 //!
-//! Deliberately *not* a second `Camera3d`: many gameplay systems query
-//! `Query<..., With<Camera3d>>::single()` and a second real camera would silently break them.
-//! Instead the boxes are projected manually and painted straight into the egui window.
+//! Deliberately *not* a second `Camera3d`: instead the boxes are projected manually and painted
+//! straight into the egui window.
 
-use bevy::camera::primitives::Aabb;
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, egui};
-use std::collections::HashMap;
 
 use super::map_lod::{
     PendingTileGroupFetch, PendingTileReveal, TileGroupFetchPurpose, TileShouldMerge,
     TileShouldSplit, TileSwapRequests, TreeMapTile,
 };
 use super::{MapLODState, MapTree, MapTreeNodePath};
+use crate::plugins::pedestrians::pedestrian_controller_plugin::MainCamera;
 
 /// Direction from the map center toward the virtual minimap camera. Mostly straight up with a
 /// slight lateral offset so box heights read as 3D instead of collapsing into a flat plan view.
@@ -154,37 +152,6 @@ fn box_corners(min: Vec3, max: Vec3) -> [Vec3; 8] {
     ]
 }
 
-/// World-space AABB of a spawned tile, merged from all mesh descendants. `None` until the tile's
-/// scene has finished instancing (no mesh `Aabb`s yet).
-fn compute_tile_aabb(
-    tile: Entity,
-    q_children: &Query<&Children>,
-    q_aabbs: &Query<(&GlobalTransform, &Aabb)>,
-) -> Option<(Vec3, Vec3)> {
-    let mut min = Vec3::splat(f32::MAX);
-    let mut max = Vec3::splat(f32::MIN);
-    let mut found = false;
-
-    let mut stack = vec![tile];
-    while let Some(ent) = stack.pop() {
-        if let Ok((gt, aabb)) = q_aabbs.get(ent) {
-            let center = Vec3::from(aabb.center);
-            let half = Vec3::from(aabb.half_extents);
-            for corner in box_corners(center - half, center + half) {
-                let world = gt.transform_point(corner);
-                min = min.min(world);
-                max = max.max(world);
-            }
-            found = true;
-        }
-        if let Ok(children) = q_children.get(ent) {
-            stack.extend(children.iter());
-        }
-    }
-
-    found.then_some((min, max))
-}
-
 /// Classifies the LOD state of a spawned tile from the in-flight split/merge/reveal bookkeeping.
 #[allow(clippy::too_many_arguments)]
 fn classify_tile(
@@ -246,15 +213,12 @@ pub fn bvh_minimap_window(
     mut lod_state: ResMut<MapLODState>,
     map_tree: Res<MapTree>,
     res_tiles: Res<TileSwapRequests>,
-    q_tiles: Query<(Entity, &TreeMapTile, &Visibility)>,
-    q_children: Query<&Children>,
-    q_aabbs: Query<(&GlobalTransform, &Aabb)>,
+    q_tiles: Query<(&TreeMapTile, &Visibility)>,
     q_splits: Query<&TileShouldSplit>,
     q_merges: Query<&TileShouldMerge>,
     q_reveals: Query<&PendingTileReveal>,
     q_fetches: Query<&PendingTileGroupFetch>,
-    q_camera: Query<&GlobalTransform, With<Camera3d>>,
-    mut aabb_cache: Local<HashMap<Entity, (Vec3, Vec3)>>,
+    q_camera: Query<&GlobalTransform, With<MainCamera>>,
 ) {
     let Some(mut state) = ui_state else {
         return;
@@ -268,9 +232,6 @@ pub fn bvh_minimap_window(
     if !map_tree.parsed {
         return;
     }
-
-    // Mesh AABBs are static per tile entity; compute once and drop entries for despawned tiles.
-    aabb_cache.retain(|ent, _| q_tiles.contains(*ent));
 
     let mut open = state.show_bvh_minimap;
     egui::Window::new("3D BVH Minimap")
@@ -288,17 +249,8 @@ pub fn bvh_minimap_window(
             // Gather tiles + states first so the legend can show live counts.
             let mut boxes: Vec<((Vec3, Vec3), TileState)> = Vec::new();
             let mut counts = [0usize; 5];
-            for (entity, tile, visibility) in q_tiles.iter() {
-                let aabb = match aabb_cache.get(&entity) {
-                    Some(aabb) => *aabb,
-                    None => match compute_tile_aabb(entity, &q_children, &q_aabbs) {
-                        Some(aabb) => {
-                            aabb_cache.insert(entity, aabb);
-                            aabb
-                        }
-                        None => continue, // scene not instanced yet
-                    },
-                };
+            for (tile, visibility) in q_tiles.iter() {
+                let aabb = (tile.bbox.min, tile.bbox.max);
                 let tile_state = classify_tile(
                     &tile.node_path,
                     visibility,

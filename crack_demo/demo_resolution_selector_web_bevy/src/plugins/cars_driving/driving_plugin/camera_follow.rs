@@ -1,14 +1,15 @@
 use crate::plugins::cars_driving::driving_plugin::spawn_car::ActivePlayerVehicle;
+use crate::plugins::pedestrians::pedestrian_controller_plugin::MainCamera;
 use avian3d::prelude::LinearVelocity;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 
 pub fn camera_follows_car(
     time: Res<Time>,
-    mut camera_query: Query<&mut Transform, (With<Camera3d>, Without<ActivePlayerVehicle>)>,
+    mut camera_query: Query<&mut Transform, (With<MainCamera>, Without<ActivePlayerVehicle>)>,
     car_query: Query<
         (Entity, &Transform, &LinearVelocity),
-        (With<ActivePlayerVehicle>, Without<Camera3d>),
+        (With<ActivePlayerVehicle>, Without<MainCamera>),
     >,
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut mouse_motion: MessageReader<bevy::input::mouse::MouseMotion>,

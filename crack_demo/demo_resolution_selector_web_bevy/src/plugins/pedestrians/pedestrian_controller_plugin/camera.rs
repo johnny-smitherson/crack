@@ -11,6 +11,12 @@ use bevy_egui::EguiContexts;
 use super::*;
 use spawn::ControlledCharacter;
 
+/// Marks the single primary game camera. Gameplay systems that need "the" camera (as opposed to
+/// a secondary render camera for mirrors, picture-in-picture, or a minimap) should query this
+/// instead of `With<Camera3d>`, which would match every 3D camera in the scene.
+#[derive(Component)]
+pub struct MainCamera;
+
 /// Orbit state for the follow camera, driven by left-mouse drag.
 #[derive(Resource)]
 pub struct CameraRig {
@@ -66,7 +72,7 @@ pub fn follow_camera(
     controlled: Res<ControlledCharacter>,
     mut rig: ResMut<CameraRig>,
     controller: Query<&GlobalTransform, With<CharacterController>>,
-    mut camera: Query<&mut Transform, With<Camera3d>>,
+    mut camera: Query<&mut Transform, With<MainCamera>>,
     spatial_query: avian3d::prelude::SpatialQuery,
 ) {
     let Some(controller_ent) = controlled.controller else {

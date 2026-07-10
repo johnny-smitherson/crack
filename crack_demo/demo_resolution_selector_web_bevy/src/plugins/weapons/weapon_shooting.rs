@@ -4,7 +4,9 @@ use bevy::prelude::*;
 use super::weapon_attach::{EquippedWeapon, WeaponExtents, WeaponModel, WeaponModelState};
 use super::weapon_manifest::WeaponId;
 use crate::plugins::pedestrians::ModelRoot;
-use crate::plugins::pedestrians::pedestrian_controller_plugin::{CharacterController, DriverMesh};
+use crate::plugins::pedestrians::pedestrian_controller_plugin::{
+    CharacterController, DriverMesh, MainCamera,
+};
 use crate::plugins::pedestrians::skeleton::PedestrianSkeleton;
 
 /// How long a shot tracer stays visible.
@@ -142,7 +144,7 @@ pub(crate) fn is_person_entity(
 pub fn fire_gun_observer(
     trigger: On<FireGunEvent>,
     mut shooters: Query<(&mut GunState, &EquippedWeapon, Option<&WeaponModelState>)>,
-    camera: Query<&GlobalTransform, With<Camera3d>>,
+    camera: Query<&GlobalTransform, With<MainCamera>>,
     transforms: Query<&GlobalTransform>,
     weapon_models: Query<(&GlobalTransform, Option<&WeaponExtents>), With<WeaponModel>>,
     spatial: SpatialQuery,

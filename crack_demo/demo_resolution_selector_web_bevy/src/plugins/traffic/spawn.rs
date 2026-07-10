@@ -7,7 +7,7 @@ use crate::plugins::{
     geojson::query_point_ground_y,
     map_plugin::MapTree,
     pedestrian_ai::faction::{DEFAULT_HP, Faction, Health},
-    pedestrians::pedestrian_controller_plugin::{CarSeatOffset, DriverMesh},
+    pedestrians::pedestrian_controller_plugin::{CarSeatOffset, DriverMesh, MainCamera},
     pedestrians::{
         ManualAnimation, ModelRoot, PedestrianManifest,
         spawn_pedestrian::{NeedAlignment, PedestrianGltf},
@@ -47,7 +47,7 @@ pub fn traffic_network_spawner(
     mut last_spawn: Local<f32>,
     config: Res<TrafficConfig>,
     graph: Res<TrafficRoadGraph>,
-    q_camera: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     q_traffic: Query<(), With<TrafficCar>>,
     q_all_cars: Query<&Transform, With<Car>>,
     mut commands: Commands,

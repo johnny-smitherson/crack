@@ -5,6 +5,7 @@ use super::road_graph::TrafficRoadGraph;
 use super::{
     SpawnTrafficCarEvent, SpawnTrafficPedestrianEvent, TrafficCar, TrafficConfig, TrafficPedestrian,
 };
+use crate::plugins::pedestrians::pedestrian_controller_plugin::MainCamera;
 use crate::ui_egui::UiState;
 
 pub fn traffic_debug_ui(
@@ -14,7 +15,7 @@ pub fn traffic_debug_ui(
     q_traffic: Query<Entity, With<TrafficCar>>,
     q_traffic_peds: Query<Entity, With<TrafficPedestrian>>,
     graph: Res<TrafficRoadGraph>,
-    q_camera: Query<&GlobalTransform, With<Camera3d>>,
+    q_camera: Query<&GlobalTransform, With<MainCamera>>,
     mut commands: Commands,
 ) {
     let show = ui_state.map(|s| s.show_traffic_debug).unwrap_or(true);

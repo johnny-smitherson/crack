@@ -13,6 +13,7 @@ use std::collections::{BTreeSet, HashMap};
 pub struct TreeMapTile {
     pub node_path: MapTreeNodePath,
     pub asset_id: MapTileAssetId,
+    pub bbox: game_logic::map::BBox,
 }
 
 fn spawn_node_tiles(
@@ -21,6 +22,7 @@ fn spawn_node_tiles(
         MapTileAssetId,
         Handle<WorldAsset>,
         Option<avian3d::prelude::Collider>,
+        game_logic::map::BBox,
     )],
     node_path: &MapTreeNodePath,
     hidden: bool,
@@ -31,7 +33,7 @@ fn spawn_node_tiles(
         Visibility::Visible
     };
     let mut spawned = Vec::with_capacity(assets.len());
-    for (asset_id, handle, collider_opt) in assets {
+    for (asset_id, handle, collider_opt, bbox) in assets {
         let mut entity_cmds = commands.spawn((
             WorldAssetRoot(handle.clone()),
             visibility,
@@ -39,6 +41,7 @@ fn spawn_node_tiles(
             TreeMapTile {
                 node_path: node_path.clone(),
                 asset_id: asset_id.clone(),
+                bbox: *bbox,
             },
             avian3d::prelude::RigidBody::Static,
             CollisionMargin(0.2),
@@ -80,6 +83,7 @@ pub fn spawn_root_map_tiles(
     let mut tasks = Vec::new();
     let mut asset_ids = Vec::new();
     let mut asset_to_node = HashMap::new();
+    let mut asset_bboxes = HashMap::new();
 
     for root in &data_res.roots {
         for asset in &root.assets {
@@ -100,7 +104,8 @@ pub fn spawn_root_map_tiles(
             });
             tasks.push(Some(task));
             asset_ids.push(asset_id.clone());
-            asset_to_node.insert(asset_id, root.path.clone());
+            asset_to_node.insert(asset_id.clone(), root.path.clone());
+            asset_bboxes.insert(asset_id, asset.bbox);
         }
     }
 
@@ -110,6 +115,7 @@ pub fn spawn_root_map_tiles(
             tasks,
             asset_ids,
             results: Vec::new(),
+            asset_bboxes,
         });
     }
 }
@@ -123,6 +129,7 @@ pub struct TileShouldMerge {
             MapTileAssetId,
             Handle<WorldAsset>,
             Option<avian3d::prelude::Collider>,
+            game_logic::map::BBox,
         )>,
     ),
 }
@@ -135,6 +142,7 @@ pub struct TileShouldSplit {
             MapTileAssetId,
             Handle<WorldAsset>,
             Option<avian3d::prelude::Collider>,
+            game_logic::map::BBox,
         )>,
     )>,
     pub drop_parent: MapTreeNodePath,
@@ -178,6 +186,7 @@ pub struct PendingTileGroupFetch {
     pub tasks: Vec<Option<bevy::tasks::Task<anyhow::Result<game_logic::tile::FetchTileResponse>>>>,
     pub asset_ids: Vec<MapTileAssetId>,
     pub results: Vec<(MapTileAssetId, game_logic::tile::FetchTileResponse)>,
+    pub asset_bboxes: HashMap<MapTileAssetId, game_logic::map::BBox>,
 }
 
 pub fn start_tile_swap_requests(
@@ -212,6 +221,7 @@ pub fn start_tile_swap_requests(
 
         let mut tasks = Vec::new();
         let mut asset_ids = Vec::new();
+        let mut asset_bboxes = HashMap::new();
         for child in &split.children {
             for asset in &child.assets {
                 let api_client = client.0.clone();
@@ -230,7 +240,8 @@ pub fn start_tile_swap_requests(
                         .await
                 });
                 tasks.push(Some(task));
-                asset_ids.push(asset_id);
+                asset_ids.push(asset_id.clone());
+                asset_bboxes.insert(asset_id, asset.bbox);
             }
         }
 
@@ -241,6 +252,7 @@ pub fn start_tile_swap_requests(
             tasks,
             asset_ids,
             results: Vec::new(),
+            asset_bboxes,
         });
         split_done.push(split.parent_path.clone());
     }
@@ -254,6 +266,7 @@ pub fn start_tile_swap_requests(
 
         let mut tasks = Vec::new();
         let mut asset_ids = Vec::new();
+        let mut asset_bboxes = HashMap::new();
         for asset in &merge.parent_assets {
             let api_client = client.0.clone();
             let base_url = crate::config::DATA_BASE_URL.to_string();
@@ -271,7 +284,8 @@ pub fn start_tile_swap_requests(
                     .await
             });
             tasks.push(Some(task));
-            asset_ids.push(asset_id);
+            asset_ids.push(asset_id.clone());
+            asset_bboxes.insert(asset_id, asset.bbox);
         }
 
         commands.spawn(PendingTileGroupFetch {
@@ -283,6 +297,7 @@ pub fn start_tile_swap_requests(
             tasks,
             asset_ids,
             results: Vec::new(),
+            asset_bboxes,
         });
 
         merge_done.push(merge.parent_path.clone());
@@ -360,18 +375,23 @@ pub fn poll_tile_group_fetches(
                     }
                 }
 
-                loaded_assets.push((asset_id.clone(), handle, collider_opt));
+                let bbox = fetch
+                    .asset_bboxes
+                    .get(asset_id)
+                    .cloned()
+                    .unwrap_or_default();
+                loaded_assets.push((asset_id.clone(), handle, collider_opt, bbox));
             }
 
             match &fetch.purpose {
                 TileGroupFetchPurpose::Root { asset_to_node } => {
                     let mut node_to_assets = HashMap::new();
-                    for (asset_id, handle, collider) in loaded_assets {
+                    for (asset_id, handle, collider, bbox) in loaded_assets {
                         if let Some(node_path) = asset_to_node.get(&asset_id) {
                             node_to_assets
                                 .entry(node_path.clone())
                                 .or_insert_with(Vec::new)
-                                .push((asset_id, handle, collider));
+                                .push((asset_id, handle, collider, bbox));
                         }
                     }
 
@@ -398,12 +418,13 @@ pub fn poll_tile_group_fetches(
                     let mut children_data = Vec::new();
                     for child_summary in &split_summary.children {
                         let mut child_assets = Vec::new();
-                        for (asset_id, handle, collider) in &loaded_assets {
+                        for (asset_id, handle, collider, bbox) in &loaded_assets {
                             if child_summary.assets.iter().any(|a| &a.name == asset_id) {
                                 child_assets.push((
                                     asset_id.clone(),
                                     handle.clone(),
                                     collider.clone(),
+                                    *bbox,
                                 ));
                             }
                         }
@@ -445,7 +466,7 @@ pub fn do_split_requests(
     let mut k = 0;
     for (split_req, _req_ent) in q_split.iter() {
         let assets_ready = split_req.load_children.iter().all(|x| {
-            x.1.iter().all(|(_, handle, _)| {
+            x.1.iter().all(|(_, handle, _, _)| {
                 matches!(
                     asset_server.get_load_state(handle),
                     Some(bevy::asset::LoadState::Loaded)
@@ -466,11 +487,12 @@ pub fn do_split_requests(
             .load_children
             .iter()
             .flat_map(|x| {
-                x.1.iter()
-                    .filter_map(|(_, handle, _)| match asset_server.get_load_state(handle) {
+                x.1.iter().filter_map(|(_, handle, _, _)| {
+                    match asset_server.get_load_state(handle) {
                         Some(bevy::asset::LoadState::Failed(_e)) => Some(_e),
                         _ => None,
-                    })
+                    }
+                })
             })
             .collect::<Vec<_>>();
         if !asset_errors.is_empty() {
@@ -511,7 +533,7 @@ pub fn do_merge_requests(
 
     let mut k = 0;
     for (merge_req, req_ent) in q_merge.iter() {
-        let parent_ready = merge_req.load_parent.1.iter().all(|(_, handle, _)| {
+        let parent_ready = merge_req.load_parent.1.iter().all(|(_, handle, _, _)| {
             matches!(
                 asset_server.get_load_state(handle),
                 Some(bevy::asset::LoadState::Loaded)
@@ -529,10 +551,12 @@ pub fn do_merge_requests(
             .load_parent
             .1
             .iter()
-            .filter_map(|(_, handle, _)| match asset_server.get_load_state(handle) {
-                Some(bevy::asset::LoadState::Failed(error)) => Some(error),
-                _ => None,
-            })
+            .filter_map(
+                |(_, handle, _, _)| match asset_server.get_load_state(handle) {
+                    Some(bevy::asset::LoadState::Failed(error)) => Some(error),
+                    _ => None,
+                },
+            )
             .collect::<Vec<_>>();
         for error in asset_errors {
             tracing::error!(

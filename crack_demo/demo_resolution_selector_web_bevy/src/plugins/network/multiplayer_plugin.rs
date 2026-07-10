@@ -17,7 +17,7 @@ use crate::plugins::pedestrians::animation::{
 };
 use crate::plugins::pedestrians::pedestrian_controller_plugin::{
     CharacterController, CharacterScale, Climbing, ControlledCharacter, Grounded, LocomotionInput,
-    Rolling, character_collision_bundle,
+    MainCamera, Rolling, character_collision_bundle,
 };
 use crate::plugins::pedestrians::{
     ModelRoot, PedestrianAnimations, PedestrianUrl, SpawnPedestrianEvent, locomotion_clip,
@@ -336,7 +336,7 @@ fn multiplayer_fire_gun_observer(
     trigger: On<FireGunEvent>,
     controlled: Res<ControlledCharacter>,
     shooters: Query<&EquippedWeapon>,
-    camera: Query<&GlobalTransform, With<Camera3d>>,
+    camera: Query<&GlobalTransform, With<MainCamera>>,
     mut outbound: ResMut<OutboundEvents>,
 ) {
     let shooter = trigger.event().shooter;
@@ -368,7 +368,7 @@ fn send_local_state(
     config: Res<MultiplayerConfig>,
     mut timer: Local<f32>,
     control_state: Res<State<GameControlState>>,
-    camera_query: Query<&GlobalTransform, With<Camera3d>>,
+    camera_query: Query<&GlobalTransform, With<MainCamera>>,
     controlled: Res<ControlledCharacter>,
     q_ped: Query<(
         &Transform,
@@ -1657,7 +1657,7 @@ fn draw_camera_gizmos(mut gizmos: Gizmos, remote_players: Res<RemotePlayers>) {
 
 fn draw_remote_billboards(
     mut contexts: EguiContexts,
-    q_camera: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     remote_players: Res<RemotePlayers>,
     q_transforms: Query<(&Transform, &RemoteAvatarMarker)>,
     q_ped_scale: Query<&CharacterScale>,
@@ -1845,7 +1845,7 @@ fn draw_remote_billboards(
 
 fn draw_self_billboard(
     mut contexts: EguiContexts,
-    q_camera: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     controlled: Res<ControlledCharacter>,
     q_controlled_data: Query<(
         &GlobalTransform,

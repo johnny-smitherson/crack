@@ -11,7 +11,7 @@ use super::{
 use crate::plugins::{
     map_plugin::MapTree,
     pedestrian_ai::{AiPedestrian, AiState, Faction, spawn_ai::SpawnAiPedestrianEvent},
-    pedestrians::pedestrian_controller_plugin::LocomotionInput,
+    pedestrians::pedestrian_controller_plugin::{LocomotionInput, MainCamera},
 };
 
 #[derive(Resource, Default)]
@@ -31,7 +31,7 @@ pub fn traffic_pedestrian_spawner(
     mut last_spawn: Local<f32>,
     config: Res<TrafficConfig>,
     graph: Res<TrafficRoadGraph>,
-    q_camera: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     q_traffic_peds: Query<(), With<TrafficPedestrian>>,
     q_all_peds: Query<&Transform, With<AiPedestrian>>,
     mut commands: Commands,
@@ -350,7 +350,7 @@ pub fn despawn_traffic_pedestrians(
     time: Res<Time>,
     config: Res<TrafficConfig>,
     mut q_peds: Query<(Entity, &Transform, &mut TrafficPedestrian)>,
-    q_camera: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     q_parent: Query<&ChildOf>,
     spatial_query: SpatialQuery,
     mut commands: Commands,

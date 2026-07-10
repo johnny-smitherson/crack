@@ -25,13 +25,16 @@ fn map_tree_to_manifest_result(tree: &MapTreeData) -> MapManifestResult {
     let mut roots_summary = Vec::new();
     for root_path in &tree.roots {
         let mut assets_summary = Vec::new();
+        let mut node_bbox = BBox::default();
         if let Some(node_info) = tree.all_nodes.get(root_path) {
+            node_bbox = node_info.bbox;
             for asset_id in &node_info.assets {
                 if let Some(asset_info) = tree.assets.get(asset_id) {
                     if let Some(glb_path) = &asset_info.glb_path {
                         assets_summary.push(crate::map::MapTileAssetInfoSummary {
                             name: asset_id.clone(),
                             glb_path: glb_path.clone(),
+                            bbox: asset_info.bbox,
                         });
                     }
                 }
@@ -40,6 +43,7 @@ fn map_tree_to_manifest_result(tree: &MapTreeData) -> MapManifestResult {
         roots_summary.push(crate::map::MapRootNodeSummary {
             path: root_path.clone(),
             assets: assets_summary,
+            bbox: node_bbox,
         });
     }
 

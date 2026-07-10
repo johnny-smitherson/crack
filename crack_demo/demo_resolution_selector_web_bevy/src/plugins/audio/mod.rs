@@ -16,6 +16,7 @@ use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
 use crate::plugins::pedestrians::manifest::{TextAsset, TextAssetLoader};
+use crate::plugins::pedestrians::pedestrian_controller_plugin::MainCamera;
 use crate::plugins::states::SoundManifestLoadFinished;
 
 /// Minimum time between two triggered sounds; rapid clicks in a shorter window are ignored.
@@ -112,7 +113,7 @@ impl Plugin for GameAudioPlugin {
 }
 
 /// Attach a [`SpatialListener`] to the scene camera so 3D sounds have a set of ears.
-fn setup_spatial_listener(mut commands: Commands, cameras: Query<Entity, With<Camera3d>>) {
+fn setup_spatial_listener(mut commands: Commands, cameras: Query<Entity, With<MainCamera>>) {
     for cam in cameras.iter() {
         let mut listener = SpatialListener::new(0.25);
         listener.left_ear_offset = Vec3::new(0.125, 0.0, 0.0);
@@ -121,10 +122,10 @@ fn setup_spatial_listener(mut commands: Commands, cameras: Query<Entity, With<Ca
     }
 }
 
-/// Automatically attach a [`SpatialListener`] to any newly spawned `Camera3d`.
+/// Automatically attach a [`SpatialListener`] to any newly spawned main camera.
 fn add_spatial_listener_to_new_cameras(
     mut commands: Commands,
-    cameras: Query<Entity, (Added<Camera3d>, Without<SpatialListener>)>,
+    cameras: Query<Entity, (Added<MainCamera>, Without<SpatialListener>)>,
 ) {
     for cam in cameras.iter() {
         let mut listener = SpatialListener::new(0.25);

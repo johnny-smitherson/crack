@@ -8,6 +8,7 @@ animations
 
 - car spawning: spawning a car from the menu shows some of the characters inside in a t-pose isntead of the sitting animation. all characters inside a car need to move bash (so positive Z in the space of the car) about 0.5m - they now sit too in front and the front passenger and dirver's heads are floating out the windshield
 
+- car camera: when 
 
 # FEATURES
 

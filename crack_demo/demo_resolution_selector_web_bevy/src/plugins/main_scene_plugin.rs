@@ -3,6 +3,8 @@ use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::prelude::*;
 use bevy::render::render_resource::{TextureViewDescriptor, TextureViewDimension};
 
+use crate::plugins::pedestrians::pedestrian_controller_plugin::MainCamera;
+
 pub struct MainScenePlugin;
 
 impl Plugin for MainScenePlugin {
@@ -43,6 +45,7 @@ fn setup_camera_and_load(mut commands: Commands, asset_server: Res<AssetServer>)
             ..default()
         },
         Camera3d::default(),
+        MainCamera,
         Tonemapping::None,
         Skybox {
             image: None,
@@ -138,7 +141,7 @@ fn convert_and_apply_skybox(
     asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
     state: Option<ResMut<SkyboxState>>,
-    mut q_camera: Query<(Entity, &mut Skybox), With<Camera3d>>,
+    mut q_camera: Query<(Entity, &mut Skybox), With<MainCamera>>,
 ) {
     let Some(mut state) = state else {
         return;

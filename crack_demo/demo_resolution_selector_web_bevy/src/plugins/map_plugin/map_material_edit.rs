@@ -2,6 +2,8 @@ use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 
+use crate::plugins::pedestrians::pedestrian_controller_plugin::MainCamera;
+
 pub struct MapMaterialEditPlugin;
 
 impl Plugin for MapMaterialEditPlugin {
@@ -62,8 +64,8 @@ fn map_material_edit_ui(
     mut state: ResMut<MapMaterialEditState>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut q_dir_lights: Query<&mut DirectionalLight>,
-    mut q_ambient_lights: Query<&mut AmbientLight, With<Camera3d>>,
-    mut q_skybox: Query<&mut Skybox, With<Camera3d>>,
+    mut q_ambient_lights: Query<&mut AmbientLight, With<MainCamera>>,
+    mut q_skybox: Query<&mut Skybox, With<MainCamera>>,
 ) {
     if !state.show_window {
         return;

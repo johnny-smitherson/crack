@@ -6,6 +6,7 @@ use avian3d::prelude::{Collider, CollisionLayers, Restitution, RigidBody};
 
 use crate::{
     plugins::cars_driving::driving_plugin::GamePhysicsLayer,
+    plugins::pedestrians::pedestrian_controller_plugin::MainCamera,
     utils::create_texture::create_grayscale_texture,
 };
 
@@ -85,6 +86,7 @@ fn setup_scene(
 
     commands.spawn((
         Camera3d::default(),
+        MainCamera,
         Transform::from_xyz(-10.0, 2.0, -15.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
         AmbientLight {
             color: Color::srgb(0.8, 0.85, 1.0),

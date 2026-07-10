@@ -9,7 +9,7 @@ use bevy::world_serialization::{WorldAsset, WorldAssetRoot};
 use super::weapon_manifest::WeaponId;
 use crate::basic_app::MemoryDir;
 use crate::plugins::pedestrians::pedestrian_controller_plugin::{
-    CameraRig, CombatKind, CombatState, ControlledCharacter,
+    CameraRig, CombatKind, CombatState, ControlledCharacter, MainCamera,
 };
 use crate::plugins::pedestrians::skeleton::PedestrianSkeleton;
 
@@ -406,7 +406,7 @@ pub fn update_weapon_transforms(
     grip: Res<WeaponGripOffset>,
     rig: Res<CameraRig>,
     controlled: Res<ControlledCharacter>,
-    camera: Query<&GlobalTransform, With<Camera3d>>,
+    camera: Query<&GlobalTransform, With<MainCamera>>,
     spatial: SpatialQuery,
     parents: Query<&ChildOf>,
     global_transforms: Query<&GlobalTransform>,

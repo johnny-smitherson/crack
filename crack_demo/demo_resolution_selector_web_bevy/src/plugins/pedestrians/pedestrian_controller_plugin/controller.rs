@@ -13,7 +13,7 @@ use crate::plugins::map_plugin::{MapTree, TreeMapTile};
 /// Reads WASD into a camera-relative move direction and updates modifiers. Space -> jump.
 pub fn character_input(
     keys: Res<ButtonInput<KeyCode>>,
-    camera: Query<&GlobalTransform, With<Camera3d>>,
+    camera: Query<&GlobalTransform, With<MainCamera>>,
     controlled: Res<
         crate::plugins::pedestrians::pedestrian_controller_plugin::spawn::ControlledCharacter,
     >,
@@ -428,7 +428,7 @@ pub fn face_movement(
 pub fn face_aim(
     rig: Option<Res<CameraRig>>,
     controlled: Option<Res<ControlledCharacter>>,
-    camera: Query<&GlobalTransform, With<Camera3d>>,
+    camera: Query<&GlobalTransform, With<MainCamera>>,
     combat_states: Query<&CombatState>,
     mut query: Query<&mut Transform, (With<CharacterController>, Without<CarPassenger>)>,
 ) {

@@ -71,12 +71,14 @@ pub struct FakeMapTile {
 pub struct MapTileAssetInfoSummary {
     pub name: MapTileAssetId,
     pub glb_path: String,
+    pub bbox: BBox,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MapRootNodeSummary {
     pub path: MapTreeNodePath,
     pub assets: Vec<MapTileAssetInfoSummary>,
+    pub bbox: BBox,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

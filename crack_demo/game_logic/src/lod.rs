@@ -51,6 +51,7 @@ pub struct MergeRequestSummary {
     pub parent_path: MapTreeNodePath,
     pub parent_assets: Vec<crate::map::MapTileAssetInfoSummary>,
     pub drop_children: BTreeSet<MapTreeNodePath>,
+    pub bbox: BBox,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -285,13 +286,16 @@ pub async fn compute_lod_changes(
             if let Some(child_paths) = data_res.children.get(item) {
                 for cp in child_paths {
                     let mut assets_summary = Vec::new();
+                    let mut node_bbox = BBox::default();
                     if let Some(node_info) = data_res.all_nodes.get(cp) {
+                        node_bbox = node_info.bbox;
                         for asset_id in &node_info.assets {
                             if let Some(asset_info) = data_res.assets.get(asset_id) {
                                 if let Some(glb_path) = &asset_info.glb_path {
                                     assets_summary.push(crate::map::MapTileAssetInfoSummary {
                                         name: asset_id.clone(),
                                         glb_path: glb_path.clone(),
+                                        bbox: asset_info.bbox,
                                     });
                                 }
                             }
@@ -300,6 +304,7 @@ pub async fn compute_lod_changes(
                     children_summary.push(crate::map::MapRootNodeSummary {
                         path: cp.clone(),
                         assets: assets_summary,
+                        bbox: node_bbox,
                     });
                 }
             }
@@ -337,13 +342,16 @@ pub async fn compute_lod_changes(
     let mut resolved_merges = Vec::new();
     for proposed in &merge_requests {
         let mut parent_assets = Vec::new();
+        let mut node_bbox = BBox::default();
         if let Some(node_info) = data_res.all_nodes.get(proposed) {
+            node_bbox = node_info.bbox;
             for asset_id in &node_info.assets {
                 if let Some(asset_info) = data_res.assets.get(asset_id) {
                     if let Some(glb_path) = &asset_info.glb_path {
                         parent_assets.push(crate::map::MapTileAssetInfoSummary {
                             name: asset_id.clone(),
                             glb_path: glb_path.clone(),
+                            bbox: asset_info.bbox,
                         });
                     }
                 }
@@ -354,6 +362,7 @@ pub async fn compute_lod_changes(
             parent_path: proposed.clone(),
             parent_assets,
             drop_children,
+            bbox: node_bbox,
         });
     }
 

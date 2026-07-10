@@ -8,7 +8,7 @@ use bevy::input::mouse::MouseWheel;
 use rand::seq::IndexedRandom;
 
 use super::spawn::{SpawnChoicePopup, SpawnControlledPedestrianEvent};
-use super::{AnimState, CAPSULE_HALF_HEIGHT, CombatState, character_physics_bundle};
+use super::{AnimState, CAPSULE_HALF_HEIGHT, CombatState, MainCamera, character_physics_bundle};
 use crate::plugins::cars_driving::{
     car_info::get_random_car_type,
     driving_plugin::spawn_car::{SpawnCarPassenger, SpawnCarRequestEvent},
@@ -211,7 +211,7 @@ pub fn detect_car_interaction(
         (With<CharacterController>, Without<EnteringCarTimer>),
     >,
     q_pending: Query<&PendingEnterCar>,
-    camera_query: Query<&GlobalTransform, With<Camera3d>>,
+    camera_query: Query<&GlobalTransform, With<MainCamera>>,
     q_cars: Query<(), With<Car>>,
     parents: Query<&ChildOf>,
     spatial_query: SpatialQuery,
@@ -900,6 +900,84 @@ pub fn equip_on_new_character(
     });
 }
 
+/// Reads a debounced scroll step (-1/0/+1) from the mouse wheel, ignoring input while the
+/// pointer is over egui and enforcing a fixed switch cooldown. Shared by [`weapon_wheel`] and
+/// [`driving_weapon_wheel`].
+fn read_scroll_step(
+    time: &Time,
+    next_switch: &mut f32,
+    wheel: &mut MessageReader<MouseWheel>,
+    contexts: &mut EguiContexts,
+) -> Option<i32> {
+    let over_ui = contexts
+        .ctx_mut()
+        .map(|c| c.is_pointer_over_egui() || c.egui_wants_pointer_input())
+        .unwrap_or(false);
+    if over_ui {
+        wheel.clear();
+        return None;
+    }
+    let mut step = 0i32;
+    for ev in wheel.read() {
+        if ev.y > 0.0 {
+            step += 1;
+        } else if ev.y < 0.0 {
+            step -= 1;
+        }
+    }
+    let step = step.signum();
+    if step == 0 {
+        return None;
+    }
+    let now = time.elapsed_secs();
+    if now < *next_switch {
+        return None;
+    }
+    *next_switch = now + 0.15;
+    Some(step)
+}
+
+/// Cycles `current_index` by `step` within the weapon manifest. When `guns_only` is set (the
+/// driving weapon wheel), cycles only through gun entries, snapping onto the nearest gun if the
+/// current selection is unarmed/melee. Shared by [`weapon_wheel`] and [`driving_weapon_wheel`].
+fn cycle_weapon(
+    manifest: &WeaponManifest,
+    current_index: usize,
+    step: i32,
+    guns_only: bool,
+) -> usize {
+    if guns_only {
+        let gun_indices: Vec<usize> = manifest
+            .all
+            .iter()
+            .enumerate()
+            .filter(|(_, w)| w.is_gun())
+            .map(|(i, _)| i)
+            .collect();
+        if gun_indices.is_empty() {
+            return current_index;
+        }
+        let n = gun_indices.len() as i32;
+        let next_pos = match gun_indices.iter().position(|&i| i == current_index) {
+            Some(pos) => (((pos as i32 + step) % n + n) % n) as usize,
+            None => {
+                if step > 0 {
+                    0
+                } else {
+                    gun_indices.len() - 1
+                }
+            }
+        };
+        gun_indices[next_pos]
+    } else {
+        let n = manifest.all.len() as i32;
+        if n == 0 {
+            return current_index;
+        }
+        (((current_index as i32 + step) % n + n) % n) as usize
+    }
+}
+
 /// Mouse wheel cycles to the next/previous weapon.
 pub fn weapon_wheel(
     time: Res<Time>,
@@ -915,34 +993,14 @@ pub fn weapon_wheel(
         wheel.clear();
         return;
     }
-    let over_ui = contexts
-        .ctx_mut()
-        .map(|c| c.is_pointer_over_egui() || c.egui_wants_pointer_input())
-        .unwrap_or(false);
-
-    let mut step = 0i32;
-    for ev in wheel.read() {
-        if ev.y > 0.0 {
-            step += 1;
-        } else if ev.y < 0.0 {
-            step -= 1;
-        }
-    }
-    let step = step.signum();
-    if step == 0 || over_ui {
+    let Some(step) = read_scroll_step(&time, &mut next_switch, &mut wheel, &mut contexts) else {
         return;
-    }
-    let now = time.elapsed_secs();
-    if now < *next_switch {
-        return;
-    }
+    };
     let Some(controller) = controlled.controller else {
         return;
     };
 
-    let n = manifest.all.len() as i32;
-    selection.index = (((selection.index as i32 + step) % n + n) % n) as usize;
-    *next_switch = now + 0.15;
+    selection.index = cycle_weapon(&manifest, selection.index, step, false);
     commands.trigger(EquipWeaponEvent {
         character: controller,
         weapon: manifest.all[selection.index].clone(),
@@ -1191,27 +1249,9 @@ pub fn driving_weapon_wheel(
         wheel.clear();
         return;
     }
-    let over_ui = contexts
-        .ctx_mut()
-        .map(|c| c.is_pointer_over_egui() || c.egui_wants_pointer_input())
-        .unwrap_or(false);
-
-    let mut step = 0i32;
-    for ev in wheel.read() {
-        if ev.y > 0.0 {
-            step += 1;
-        } else if ev.y < 0.0 {
-            step -= 1;
-        }
-    }
-    let step = step.signum();
-    if step == 0 || over_ui {
+    let Some(step) = read_scroll_step(&time, &mut next_switch, &mut wheel, &mut contexts) else {
         return;
-    }
-    let now = time.elapsed_secs();
-    if now < *next_switch {
-        return;
-    }
+    };
     let Some(car) = q_active_car.iter().next() else {
         return;
     };
@@ -1221,31 +1261,7 @@ pub fn driving_weapon_wheel(
 
     // Only guns make sense from the driver's seat: cycle through gun entries exclusively,
     // skipping unarmed/melee entirely.
-    let gun_indices: Vec<usize> = manifest
-        .all
-        .iter()
-        .enumerate()
-        .filter(|(_, w)| w.is_gun())
-        .map(|(i, _)| i)
-        .collect();
-    if gun_indices.is_empty() {
-        return;
-    }
-    let n = gun_indices.len() as i32;
-    let next_pos = match gun_indices.iter().position(|&i| i == selection.index) {
-        // Already on a gun: step within the gun list.
-        Some(pos) => (((pos as i32 + step) % n + n) % n) as usize,
-        // Currently on unarmed/melee: snap to the first/last gun depending on scroll direction.
-        None => {
-            if step > 0 {
-                0
-            } else {
-                gun_indices.len() - 1
-            }
-        }
-    };
-    selection.index = gun_indices[next_pos];
-    *next_switch = now + 0.15;
+    selection.index = cycle_weapon(&manifest, selection.index, step, true);
     commands.trigger(EquipWeaponEvent {
         character: driver_ent,
         weapon: manifest.all[selection.index].clone(),
