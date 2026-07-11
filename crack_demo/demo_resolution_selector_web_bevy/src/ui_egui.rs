@@ -143,12 +143,11 @@ fn ui_example_system(
             ui_state.resolution = (resolution_frac * 100.0).round() as i32;
             tracing::info!("INIT RESOLUTION SCALE = {}", ui_state.resolution);
 
-            const TARGET_PX_UI: f32 = 1200.0;
-
-            let ui_scale_frac = ((smallest_dim / (TARGET_PX_UI * 1.6) / STEP).round() * STEP)
-                .clamp(0.75, 2.5);
-            ui_state.ui_scale = (ui_scale_frac * 100.0).round() as i32;
-            tracing::info!("INIT UI SCALE = {}", ui_state.ui_scale);
+            // const TARGET_PX_UI: f32 = 1200.0;
+            // let ui_scale_frac = ((smallest_dim / (TARGET_PX_UI * 1.6) / STEP).round() * STEP)
+            //     .clamp(0.75, 2.5);
+            // ui_state.ui_scale = (ui_scale_frac * 100.0).round() as i32;
+            // tracing::info!("INIT UI SCALE = {}", ui_state.ui_scale);
         }
         web_set_resolution(ui_state.resolution);
         window
