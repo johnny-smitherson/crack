@@ -1,4 +1,4 @@
-importScripts("/pkg_web_serviceworker/web_worker.js?v=b080a68bec6b7837db6e1a95f5747011");
+importScripts("/pkg_web_serviceworker/web_worker.js?v=a7e464abf5a0e7c6ac5f1fcae00f8127");
 console.log('[DedicatedWorker] IMPORT SCRIPT OK!');
 
 console.log('[DedicatedWorker] wasm_bindgen 1');
@@ -23,7 +23,7 @@ function payloadTransferList(payload) {
 
 async function init_wasm_bindgen() {
     console.log('[DedicatedWorker] wasm_bindgen 2');
-    await wasm_bindgen("/pkg_web_serviceworker/web_worker_bg.wasm?v=b080a68bec6b7837db6e1a95f5747011");
+    await wasm_bindgen("/pkg_web_serviceworker/web_worker_bg.wasm?v=a7e464abf5a0e7c6ac5f1fcae00f8127");
     console.log('[DedicatedWorker] wasm_bindgen done');
 
       
