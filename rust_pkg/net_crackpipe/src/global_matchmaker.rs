@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use game::timestamp::get_timestamp_now_ms;
+use _crack_utils::get_timestamp_now_ms;
 use iroh::{endpoint::VarInt, Endpoint, NodeId, PublicKey, SecretKey};
 use n0_future::{task::AbortOnDropHandle, FuturesUnordered, StreamExt};
 use rand::Rng;

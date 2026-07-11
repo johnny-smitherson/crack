@@ -3814,15 +3814,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "game"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "uuid",
-]
-
-[[package]]
 name = "game_logic"
 version = "0.1.0"
 dependencies = [
@@ -5683,13 +5674,13 @@ dependencies = [
 name = "net_crackpipe"
 version = "0.1.0"
 dependencies = [
+ "_crack_utils",
  "anyhow",
  "async-broadcast",
  "async-channel",
  "async-trait",
  "chrono",
  "futures",
- "game",
  "getrandom 0.3.4",
  "hex",
  "iroh",

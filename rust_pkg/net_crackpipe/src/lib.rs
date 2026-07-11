@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 
 pub mod _bootstrap_keys;
 pub(crate) mod _random_word;
-pub mod api;
+
 pub mod chat;
 pub mod echo;
 pub mod global_matchmaker;

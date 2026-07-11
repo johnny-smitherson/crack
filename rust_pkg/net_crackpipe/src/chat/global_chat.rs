@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    api::api_method_macros::ServerInfo, chat::chat_presence::PresenceList,
+     chat::chat_presence::PresenceList,
     chat::chat_ticket::ChatTicket, IChatRoomType,
 };
 
@@ -19,7 +19,7 @@ impl IChatRoomType for GlobalChatRoomType {
 pub struct GlobalChatPresence {
     pub url: String,
     pub platform: String,
-    pub is_server: Option<ServerInfo>,
+    pub is_server: Option<()>,
 }
 
 #[non_exhaustive]

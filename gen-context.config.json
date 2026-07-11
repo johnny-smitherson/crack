@@ -1,5 +1,5 @@
 {
-  "_comment": "SigMap configuration — all keys are optional (defaults shown). Copy to gen-context.config.json.",
+  "_comment": "SigMap configuration \u2014 all keys are optional (defaults shown). Copy to gen-context.config.json.",
   "output": ".github/copilot-instructions.md",
   "outputs": [
     "copilot",
@@ -20,8 +20,25 @@
     "api"
   ],
   "srcDirs": [
-    "packages",
-    "crack_demo"
+    "crack_demo/web_worker",
+    "crack_demo/thread_worker",
+    "crack_demo/demo_resolution_selector_web_bevy",
+    "crack_demo/chat_cli",
+    "crack_demo/game_logic",
+
+"rust_pkg/consensus_crackhead",
+"rust_pkg/net_crackpipe",
+"rust_pkg/storage_crackhouse",
+"rust_pkg/web_serviceworker_crackslave",
+"rust_pkg/web_serviceworker_crackloader",
+"rust_pkg/api_asscrack",
+"rust_pkg/thread_crackworker",
+"rust_pkg/_crack_utils",
+
+"_data/3d_data_v2"
+
+
+
   ],
   "exclude": [
     "node_modules",
@@ -34,28 +51,37 @@
     "coverage",
     "target",
     "vendor",
-    ".venv",
     ".context",
+    "testdata",
+    ".venv",
     "AGENTS.md",
     "CLAUDE.md",
-    "copilot-instructions.md",
-    "gemini-context.md",
-    "Cargo.toml"
+    "context-*.md",
+    "*-context.md",
+    ".github",
+    "Cargo.toml",
+    "Dockerfile",
+    "Readme.md",
+    "data_in",
+    "data_out",
+    "data_cache",
+    "data_osm",
+    "*.toml", "public"
   ],
-  "maxDepth": 8,
+  "maxDepth": 9,
   "maxSigsPerFile": 25,
   "_maxTokens_comment": "Used only when autoMaxTokens is false. Override to pin a fixed budget.",
-  "maxTokens": 5000,
+  "maxTokens": 6000,
   "_autoMaxTokens_comment": "Auto-scale budget based on repo size. Default: true.",
-  "_autoMaxTokens_formula": "effective = clamp(totalSigTokens × coverageTarget, 4000, modelContextLimit × maxTokensHeadroom)",
-  "autoMaxTokens": false,
-  "_coverageTarget_comment": "Fraction of source files to target for inclusion (0.0–1.0). Default: 0.80 = 80%.",
-  "coverageTarget": 0.80,
-  "_modelContextLimit_comment": "Model context window size (tokens). Hard cap = modelContextLimit × maxTokensHeadroom.",
+  "_autoMaxTokens_formula": "effective = clamp(totalSigTokens \u00d7 coverageTarget, 4000, modelContextLimit \u00d7 maxTokensHeadroom)",
+  "autoMaxTokens": true,
+  "_coverageTarget_comment": "Fraction of source files to target for inclusion (0.0\u20131.0). Default: 0.80 = 80%.",
+  "coverageTarget": 0.8,
+  "_modelContextLimit_comment": "Model context window size (tokens). Hard cap = modelContextLimit \u00d7 maxTokensHeadroom.",
   "_modelContextLimit_examples": "128000 = GPT-4o/Claude (default)  |  200000 = Claude max  |  1000000 = Gemini 1M",
   "modelContextLimit": 128000,
   "_maxTokensHeadroom_comment": "Fraction of model context reserved for SigMap output. 0.20 = 25,600 token hard cap.",
-  "maxTokensHeadroom": 0.20,
+  "maxTokensHeadroom": 0.2,
   "secretScan": true,
   "monorepo": false,
   "diffPriority": true,
@@ -63,9 +89,9 @@
     "autoRegister": true
   },
   "_strategy_comment": "Context output strategy. Options: 'full' | 'per-module' | 'hot-cold'",
-  "_strategy_full": "  full       — single file, all signatures, always injected (default)",
-  "_strategy_per_module": "  per-module — one .github/context-<module>.md per srcDir + thin overview",
-  "_strategy_hot_cold": "  hot-cold   — recently changed files injected; rest in context-cold.md (MCP)",
+  "_strategy_full": "  full       \u2014 single file, all signatures, always injected (default)",
+  "_strategy_per_module": "  per-module \u2014 one .github/context-<module>.md per srcDir + thin overview",
+  "_strategy_hot_cold": "  hot-cold   \u2014 recently changed files injected; rest in context-cold.md (MCP)",
   "strategy": "full",
   "_hotCommits_comment": "Only used by hot-cold strategy: how many recent commits count as 'hot'",
   "hotCommits": 10,
@@ -77,7 +103,7 @@
   "changes": true,
   "_changesCommits_comment": "How many recent commits to analyze for the changes section",
   "changesCommits": 5,
-  "_testCoverage_comment": "Append function-level coverage hints (✓/✗) by scanning tests",
+  "_testCoverage_comment": "Append function-level coverage hints (\u2713/\u2717) by scanning tests",
   "testCoverage": false,
   "_testDirs_comment": "Directories used when testCoverage is enabled",
   "testDirs": [
@@ -87,5 +113,5 @@
     "spec"
   ],
   "_impactRadius_comment": "Append reverse dependency hints in file headers (used by: ...)",
-  "impactRadius": false
+  "impactRadius": true
 }

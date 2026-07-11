@@ -32,14 +32,14 @@ getrandom = { version = "0.4.3" }
 # web-sys = { version = "0.3.77", optional = true, features = ["Window", "Document", "Element", "HtmlCanvasElement", "CssStyleDeclaration", "HtmlDivElement"] }
 tracing = "*"
 anyhow = { workspace = true }
-_crack_utils = { path = "../../packages/_crack_utils" }
-net_crackpipe = { path = "../../packages/net_crackpipe" }
+_crack_utils = { path = "../../rust_pkg/_crack_utils" }
+net_crackpipe = { path = "../../rust_pkg/net_crackpipe" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 postcard = "1.1.1"
 game_logic = { path = "../../crack_demo/game_logic" }
-api_asscrack = { path = "../../packages/api_asscrack" }
-storage_crackhouse = { path = "../../packages/storage_crackhouse" }
+api_asscrack = { path = "../../rust_pkg/api_asscrack" }
+storage_crackhouse = { path = "../../rust_pkg/storage_crackhouse" }
 
 async-channel = "2"
 
@@ -48,7 +48,7 @@ thread_worker = { path = "../../crack_demo/thread_worker" }
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-web_serviceworker_crackloader = { path = "../../packages/web_serviceworker_crackloader" }
+web_serviceworker_crackloader = { path = "../../rust_pkg/web_serviceworker_crackloader" }
 wasm-bindgen-futures = { workspace = true }
 getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 [dependencies.web-sys]

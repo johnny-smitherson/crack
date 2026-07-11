@@ -13,3 +13,11 @@ gemini-context.md
 AGENTS.md
 CLAUDE.md
 .cursorrules
+copilot-instructions.md
+.context
+context-*.md
+*-context.md
+CLAUDE.md
+AGENTS.md
+gain.ndjson
+.cursorrules

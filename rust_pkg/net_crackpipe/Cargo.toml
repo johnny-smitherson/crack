@@ -5,7 +5,7 @@ authors.workspace = true
 edition = "2021"
 
 [dependencies]
-game = { path = "../game" }
+_crack_utils = {path = "../_crack_utils"}
 iroh = { version = "0.34.0", default-features = false }
 random_word = { version = "0.5.0", features = ["de"] }
 anyhow = "1"

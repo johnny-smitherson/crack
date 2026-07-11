@@ -16,12 +16,14 @@ vendor/
 *_pb.*
 *.min.js
 *.min.css
-
+__pycache__
+*.txt
 *.glb
 *.blend
 *.jpg
 *.png
 *.mp3
-_data/3d_data_v2/
+_data/3d_data_v2/data_cache/
+_data/3d_data_v2/data_out/
 _data/3d_data/
-scripts
+scripts/

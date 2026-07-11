@@ -18,41 +18,40 @@ native_thread_worker = ["dep:thread_crackworker"]
 
 
 [dependencies.consensus_crackhead]
-path = "./packages/consensus_crackhead"
+path = "./rust_pkg/consensus_crackhead"
 
 [dependencies.net_crackpipe]
-path = "./packages/net_crackpipe"
+path = "./rust_pkg/net_crackpipe"
 
 [dependencies.storage_crackhouse]
-path = "./packages/storage_crackhouse"
+path = "./rust_pkg/storage_crackhouse"
 
 [dependencies.api_asscrack]
-path = "./packages/api_asscrack"
+path = "./rust_pkg/api_asscrack"
 
 [dependencies.web_serviceworker_crackloader]
-path = "./packages/web_serviceworker_crackloader"
+path = "./rust_pkg/web_serviceworker_crackloader"
 optional = true
 
 [dependencies.web_serviceworker_crackslave]
-path = "./packages/web_serviceworker_crackslave"
+path = "./rust_pkg/web_serviceworker_crackslave"
 optional = true
 
 [dependencies.thread_crackworker]
-path = "./packages/thread_crackworker"
+path = "./rust_pkg/thread_crackworker"
 optional = true
 
 [workspace]
 members = [
-    "packages/consensus_crackhead",
-    "packages/net_crackpipe",
-    "packages/storage_crackhouse",
-    "packages/web_serviceworker_crackloader",
-    "packages/web_serviceworker_crackslave",
-    "packages/game",
+    "rust_pkg/consensus_crackhead",
+    "rust_pkg/net_crackpipe",
+    "rust_pkg/storage_crackhouse",
+    "rust_pkg/web_serviceworker_crackloader",
+    "rust_pkg/web_serviceworker_crackslave",
 
-    "packages/api_asscrack",
-    "packages/thread_crackworker",
-    "packages/_crack_utils",
+    "rust_pkg/api_asscrack",
+    "rust_pkg/thread_crackworker",
+    "rust_pkg/_crack_utils",
     
     "crack_demo/web_worker",
     "crack_demo/thread_worker",
