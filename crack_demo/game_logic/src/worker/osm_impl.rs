@@ -28,7 +28,7 @@ pub async fn fetch_osm_data(args: FetchArgs) -> anyhow::Result<OsmDataResult> {
     let manifest = super::manifest_impl::get_manifest_cache().await?;
 
     let bbox_url = format!("{}/3d_data_v2/data_in/zone-bbox.txt", args.base_url);
-    let list_url = format!("{}/3d_data_v2/data_osm/_list.txt", args.base_url);
+    let list_url = format!("{}/3d_data_v2/data_osm/original/_list.txt", args.base_url);
 
     let bbox_text = super::http::http_get_text(&bbox_url).await?;
     let list_text = super::http::http_get_text(&list_url).await?;
@@ -56,7 +56,7 @@ pub async fn fetch_osm_data(args: FetchArgs) -> anyhow::Result<OsmDataResult> {
     let mut result_categories = BTreeMap::new();
 
     for (category_name, file_name) in files {
-        let file_url = format!("{}/3d_data_v2/data_osm/{}", args.base_url, file_name);
+        let file_url = format!("{}/3d_data_v2/data_osm/original/{}", args.base_url, file_name);
         tracing::info!("Worker loading GeoJSON file: {}", file_url);
 
         let geojson_text = match super::http::http_get_text(&file_url).await {

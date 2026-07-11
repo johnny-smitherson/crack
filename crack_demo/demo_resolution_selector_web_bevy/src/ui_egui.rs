@@ -114,6 +114,8 @@ fn ui_example_system(
     mut osm_overlay: Option<ResMut<crate::plugins::geojson::OsmOverlayState>>,
     mut global_chat: Option<ResMut<crate::plugins::network::global_chat_ui::GlobalChatUiState>>,
     chat_state: Option<Res<crate::plugins::network::ChatState>>,
+    mut picker_state: Option<ResMut<crate::plugins::debug_picker::DebugPickerState>>,
+    game_control: Option<Res<State<crate::plugins::states::GameControlState>>>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         tracing::error!("no ctx in ui_example_system");
@@ -373,6 +375,19 @@ fn ui_example_system(
                 if let Some(ref mut state) = edit_state {
                     if ui.button("Map Material & Lighting Editor").clicked() {
                         state.show_window = !state.show_window;
+                        ui.close();
+                    }
+                }
+                let in_freecam = game_control
+                    .as_ref()
+                    .map(|s| *s.get() == crate::plugins::states::GameControlState::MapFreecam)
+                    .unwrap_or(false);
+                if let Some(ref mut picker) = picker_state {
+                    if ui
+                        .add_enabled(in_freecam, egui::Button::new("Debug Picker"))
+                        .clicked()
+                    {
+                        picker.show_window = !picker.show_window;
                         ui.close();
                     }
                 }

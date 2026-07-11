@@ -24,6 +24,7 @@ impl Plugin for MainGamePlugin {
             .add_plugins(crate::plugins::network::NetworkPlugin)
             .add_plugins(crate::plugins::network::global_chat_ui::GlobalChatPlugin::default())
             .add_plugins(crate::plugins::notifications::TooltipNotificationPlugin)
-            .add_plugins(crate::plugins::visual_fx::VisualFXPlugin);
+            .add_plugins(crate::plugins::visual_fx::VisualFXPlugin)
+            .add_plugins(crate::plugins::debug_picker::DebugPickerPlugin);
     }
 }

@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod cars_driving;
 pub mod crack_plugin;
+pub mod debug_picker;
 pub mod game_freecam;
 pub mod geojson;
 pub mod main_scene_plugin;
