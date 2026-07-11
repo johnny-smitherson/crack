@@ -39,7 +39,7 @@ fn setup_camera_and_load(mut commands: Commands, asset_server: Res<AssetServer>)
 
     // Keep only default camera spawning with Skybox component
     commands.spawn((
-        Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(-10.0, 3365.0, -21250.0).looking_at(Vec3::new(10.0, 3355.0, -21250.0), Vec3::Y),
         Camera {
             clear_color: Color::BLACK.into(),
             ..default()

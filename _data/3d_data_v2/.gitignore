@@ -1,0 +1,13 @@
+*.pt
+*.onnx
+*.bak
+*.jpg
+*.png
+.venv/
+street_cleanup/renders/
+street_cleanup/demo/*.jpg
+street_cleanup/demo/*.json
+street_cleanup/tree_color_test.jpg
+street_cleanup/yolo11_direct_test.jpg
+street_cleanup/yolo11_tiled_test.jpg
+street_cleanup/yolov7_test.jpg
