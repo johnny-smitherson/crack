@@ -1,3 +1,13 @@
+We are using bevy 0.19 - there is no more `despawn_recursive()`, just `despawn()` - when in doubt, use `cargo doc into a temp dir` and read the documentation from disk.
+
+Check the code builds by running `cargo check --package ...` from this directory. 
+
+When working on a binary command, you can run it with `cd ... && bash timeout 15s cargo run --bin ... --package ...` from this directory, to verify the code does not crash.
+
+This code is supposed to be cross-platform, to work on both browser and native hosts. That means:
+- do not use std::Instant::now() as it panics on wasm
+- do not use threads. Intead, we will declare API routes to be used in the web worker, see `crack_demo/web_worker` for the web implementation and `crack_demo/thread_worker` for the host implementation.
+- do not do heavy computation in bevy; make an async task and call into the worker using a `declare_api_method_group!` declaration
 
 
 ## Auto-generated signatures
