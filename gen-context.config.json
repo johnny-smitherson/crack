@@ -68,7 +68,7 @@
   "maxDepth": 9,
   "maxSigsPerFile": 35,
   "_maxTokens_comment": "Used only when autoMaxTokens is false. Override to pin a fixed budget.",
-  "maxTokens": 8000,
+  "maxTokens": 2000,
   "_autoMaxTokens_comment": "Auto-scale budget based on repo size. Default: true.",
   "_autoMaxTokens_formula": "effective = clamp(totalSigTokens \u00d7 coverageTarget, 4000, modelContextLimit \u00d7 maxTokensHeadroom)",
   "autoMaxTokens": false,
