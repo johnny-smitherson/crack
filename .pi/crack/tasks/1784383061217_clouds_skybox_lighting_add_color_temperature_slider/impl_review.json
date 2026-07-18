@@ -1,5 +1,5 @@
 {
-  "phase": "running",
+  "phase": "done",
   "turns": [
     {
       "hop": 1,
@@ -423,8 +423,8 @@
     }
   ],
   "total_turns": 60,
-  "stop_reason": null,
+  "stop_reason": "turn_cap",
   "error": "",
   "started_at": 1784388379.867591,
-  "finished_at": null
+  "finished_at": 1784388576.5610232
 }
