@@ -1,9 +1,13 @@
 # crack-pi-server — working notes
 
-Small FastAPI + htmx + pico.css app. Almost all of it lives in two files:
-`src/crack_server/app.py` (routes + inline HTML rendering) and
-`src/crack_server/paths.py` (all filesystem access). `static/app.css` /
-`static/app.js` hold the few bits of real CSS/JS (linked from `_render_base`).
+Small FastAPI + htmx + pico.css app. `src/crack_server/app.py` is a thin
+routing layer (task/prompt CRUD, title regen, delegation); `paths.py` holds all
+filesystem access; `pi_runner.py` the shared `pi` subprocess machinery (rate
+limiting, single-shot calls, the JSON-mode hop runner); `models.py` the
+`pi --list-models` cache; and `stages/` the pipeline stages (auto-discovered
+`sNN_*.py` modules with a module-level `STAGE = <Stage>()` — see
+`stages/base.py`). `static/app.css` / `static/app.js` hold the few bits of real
+CSS/JS (linked from `_render_base`).
 
 ## The server is always running — use it
 
@@ -38,6 +42,18 @@ curl -s http://localhost:9847/tasks/<task_id>/title-regen-status
 # explore the prompt content against the repository (polling)
 curl -s -X POST http://localhost:9847/api/tasks/<task_id>/explore
 curl -s http://localhost:9847/tasks/<task_id>/explore-status
+
+# plan stage (auto-starts after a successful explore; manual Re-plan here)
+curl -s -X POST http://localhost:9847/api/tasks/<task_id>/plan
+curl -s http://localhost:9847/tasks/<task_id>/plan-status
+curl -s -X POST http://localhost:9847/api/tasks/<task_id>/plan/answers -d "q1=yes&q2=freeform"
+
+# stage config screen + models cache
+curl -s http://localhost:9847/stages/plan
+curl -s -X POST http://localhost:9847/api/stages/plan/parts/draft/model -d "model=nvidia/nemotron-3-ultra-550b-a55b"
+curl -s "http://localhost:9847/stages/plan/template-row/draft.md?editing=true"
+curl -s -X PUT http://localhost:9847/api/stages/plan/templates/draft.md -d "content=..."
+curl -s http://localhost:9847/api/models
 ```
 
 Clean up any task directories you create while testing (`DELETE /api/tasks/<id>`
@@ -47,7 +63,7 @@ or `rm -rf .pi/crack/tasks/<id>`) — don't leave scratch tasks behind in
 ### Testing the `pi` CLI itself
 
 The "Regenerate Title" button and the Explore feature shell out to the `pi` CLI
-(`_run_pi_text` and `_run_explore_job` in `app.py`), which is only installed *inside*
+(`pi_runner.run_pi_text` and the stage workers in `stages/`), which is only installed *inside*
 `crack-dev` — it won't be on the host `PATH`. Explore also depends on the new tools
 installed in the container (`rg`, `fd`/`fdfind`, `fzf`, `bat`/`batcat`, `eza`, `zoxide`,
 `jq`). Before debugging a failure, confirm the binaries are available:
@@ -63,8 +79,8 @@ docker exec crack-dev /bin/bash -exc "pi --model nvidia/nemotron-3-nano-30b-a3b 
 Note `pi` has no `run` subcommand and no `--prompt-file` flag — that mismatch
 was the cause of the original "regenerate title does nothing" bug. The prompt
 text goes in as a plain positional argument, not a file. Since the app's own
-server process already runs inside `crack-dev` (see above), `_run_pi_text`
-calls `pi` with a plain `subprocess.run(...)` (via `_run_pi_text`), no `docker exec` wrapper needed —
+server process already runs inside `crack-dev` (see above), pi calls
+run as plain `subprocess.run(...)`/`Popen(...)` (via `pi_runner.py`), no `docker exec` wrapper needed —
 `docker exec` is only for you, testing from the host shell.
 
 The endpoint logs everything needed to diagnose a failure without re-running
@@ -99,7 +115,27 @@ crack-dev`.
 - `.pi/crack/tasks/<task_id>/explore/` — Explore artefact dir:
   `turn_zero.md` and `explore_summary.md` (raw model outputs), plus
   `sessions/` holding the per-task pi session (`explore-<task_id>`) used to
-  chain hops. `_start_explore_job` wipes `sessions/` before each fresh run.
+  chain hops. `S01Explore.start` wipes `sessions/` before each fresh run.
+- `.pi/crack/tasks/<task_id>/plan.json` — Plan stage state machine:
+  `phase` (`draft_running`/`awaiting_answers`/`resuming`/`final_running`/
+  `done`/`error`), `round` (1-based), `rounds[]` (each `{questions, answers}`),
+  `lay_of_the_land`, `final_md`, `error`, timestamps, and the
+  `explore_summary` snapshot the plan was built from.
+- `.pi/crack/tasks/<task_id>/plan/` — Plan artefact dir: `draft.md`,
+  `round_N_questions.json` / `round_N_answers.json`, `final_plan.md`, plus
+  `sessions/` holding the per-task pi session (`plan-<task_id>`) resumed
+  across draft steps. `S02Plan.start` wipes `sessions/` before each fresh run.
+- `.pi/crack/harness/models_list.json` — cache of `pi --list-models`
+  (`{fetched_at, models[]}`), refreshed when older than 24h or via
+  `GET /api/models?force=true`; on fetch failure the stale cache (or a
+  two-model fallback list) is used.
+- `.pi/crack/harness/<slug>.json` — per-stage config, currently just
+  `{"models": {part_key: model_id}}` overrides written by the model dropdowns
+  on `/stages/<slug>`; `Stage.model_for(part)` falls back to the Part's
+  `default_model`.
+- `prompt_templates/<slug>/*.md` — per-stage prompt templates, editable from
+  `/stages/<slug>` (view/edit-in-place rows, same pattern as task prompts).
+  `title.md` stays at the template root — title regen is not a stage.
 - **Task id format is fixed**: `<ms_epoch_timestamp>_<slugified_title>`,
   generated once in `paths.generate_task_id()` at creation time and never
   changed afterward (renaming a task only updates `info.json["title"]`, not
@@ -138,11 +174,25 @@ shape (Form in, matching-fragment out) rather than inventing a new pattern.
 
 ## Background jobs and htmx polling
 
-Both "Regenerate Title" and "Explore" run `pi` in a background
-`threading.Thread` because every route in this app is a sync `def` (FastAPI
-runs them in a threadpool). State is persisted to per-task JSON files
-(`title_regen.json`, `explore.json`), so the browser polls for progress rather
-than blocking the request.
+"Regenerate Title" and every pipeline stage run `pi` in a background
+`threading.Thread` because almost every route in this app is a sync `def`
+(FastAPI runs them in a threadpool; the plan-answers route is `async def`
+only so it can read dynamic form field names via `await request.form()`).
+State is persisted to per-task JSON files (`title_regen.json`, `explore.json`,
+`plan.json`), so the browser polls for progress rather than blocking the
+request.
+
+**Stages** (`stages/` package) are the extensible pipeline concept: each
+`sNN_<slug>.py` module defines a `Stage` subclass instance as module-level
+`STAGE`; `stages/__init__.py` auto-discovers them into `REGISTRY` (order from
+the filename). The home page ("# Harness Stages"), the task page (one
+`<section>` per stage via `stage.render_section(task_id)`), and
+`/stages/<slug>` all iterate the registry — adding a stage is a new file plus
+a `prompt_templates/<slug>/` dir, no app.py changes. Each stage declares
+`parts` (model + template per piece); models are overridable per part from the
+config screen. A stage's background work is step-driven: each kick
+(`start(task_id)`, an answers POST) writes its JSON state and starts one
+background step, so no thread blocks waiting on a human.
 
 The polling pattern is standard htmx: the server returns a wrapper element
 that carries `hx-trigger="every 1.5s" hx-get=".../status" hx-swap="outerHTML"`
@@ -182,9 +232,9 @@ Important implementation details:
   - Stop reasons recorded in `explore.json`: `sentinel`, `gate`, `hop_cap`,
     `turn_cap`, `time_cap`.
 - Turn zero, gate, and summary all use the cheap nano model
-  (`EXPLORE_GATE_MODEL`/`EXPLORE_SUMMARY_MODEL`) with the ~10k-char input
-  limit — `_fit_nano_transcript` tail-truncates transcripts to fit (recent
-  turns matter most; the blind hard cut in `_run_pi_text` would chop them).
+  (the `turn_zero`/`gate`/`summary` parts) with the ~10k-char input
+  limit — `pi_runner.fit_nano_transcript` tail-truncates transcripts to fit (recent
+  turns matter most; the blind hard cut in `run_pi_text` would chop them).
 - Explore's summary is rendered as HTML via markdown-it-py
   (`MarkdownIt("commonmark", {"html": False})` — raw HTML escaped).
 - Title regen auto-saves on the first status poll that sees `"done"`.
@@ -206,22 +256,27 @@ Every model currently in use is hosted behind the **nvidia** provider
 (`--model nvidia/<id>`, no separate `--provider` flag needed — pi parses the
 `provider/id` prefix from `--model` directly):
 
-- `TITLE_MODEL` / `EXPLORE_SUMMARY_MODEL` / `EXPLORE_GATE_MODEL` =
-  `nvidia/nemotron-3-nano-30b-a3b` (small/cheap model for the title,
-  Explore-summary, Explore turn-zero, and Explore gate calls — all single-shot
-  tool-less `_run_pi_text` calls)
-- `EXPLORE_MODEL` = `nvidia/nemotron-3-ultra-550b-a55b` (the Explore agent's
-  multi-turn tool-using model)
+- `TITLE_MODEL` (in `pi_runner.py`) = `nvidia/nemotron-3-nano-30b-a3b`
+  (small/cheap model for the title call — a single-shot tool-less
+  `pi_runner.run_pi_text` call)
+- Stage part defaults live in each stage's `parts` list (`stages/s01_explore.py`,
+  `stages/s02_plan.py`): nano for Explore's turn-zero/gate/summary, ultra
+  (`nvidia/nemotron-3-ultra-550b-a55b`) for the tool-using agents and the final
+  plan. Per-part overrides are stored in `harness/<slug>.json` and resolved via
+  `Stage.model_for(part_key)` — the dropdowns on `/stages/<slug>` take effect on
+  the next run without a restart. The dropdown options come from the
+  `harness/models_list.json` cache (`models.py`); a saved value is always kept
+  as an option even if missing from the cache.
 
 `google/diffusiongemma-26b-a4b-it` was requested at one point but does not
 exist in `pi --list-models` under any provider (confirmed after `pi update`)
 — `nvidia/nemotron-3-nano-30b-a3b` was chosen instead as the nvidia-hosted
 replacement for the title/summary role.
 
-Rate limiting (`_RateLimiter` in `app.py`) is a simple thread-safe
-minimum-interval gate, applied via `_wait_for_rate_limit(model)` right before
-every `pi` subprocess is launched (`_run_pi_text` and the Explore streaming
-`Popen` both call it):
+Rate limiting (`RateLimiter` in `pi_runner.py`) is a simple thread-safe
+minimum-interval gate, applied via `pi_runner.wait_for_rate_limit(model)` right
+before every `pi` subprocess is launched (`run_pi_text` and the streaming hop
+runner both call it):
 
 - `_nvidia_limiter` — 40 calls/minute, shared across *all* models above,
   since they're all nvidia-hosted.
@@ -237,10 +292,13 @@ launches directly (title regen, Explore's initial launch, Explore's summary
 call) — they cannot throttle API calls made *inside* a single already-running
 multi-turn Explore process, since `pi` manages that loop internally.
 
-## Explore feature
+## Explore feature (stage s01)
 
-The Explore section on each task page runs a **hopped, early-stopping** exploration
-agent and persists everything to disk:
+The Explore section on each task page is stage `s01_explore.py` — a **hopped,
+early-stopping** exploration agent that persists everything to disk. Its prompt
+templates live in `prompt_templates/explore/` (editable via `/stages/explore`),
+and a successful run **auto-starts the Plan stage** (plus the Plan section has a
+manual Re-plan button).
 
 1. **Turn zero** (nano, tool-less): reads the concatenated prompts and writes 2–10
    `Q:` questions plus speculative example answers (`turn_zero.md` template; raw
@@ -248,7 +306,7 @@ agent and persists everything to disk:
 2. **sigmap pre-run** (local, not rate-limited): `sigmap ask '<q>'` for up to 6
    questions, collecting `.context/query-context.md` headers into a context blob
    injected into the hop-1 prompt. The explorer may also run `sigmap ask` itself.
-3. **Hops** (`EXPLORE_MODEL`, `bash,read` tools): up to 3 hops × 5 turns, chained
+3. **Hops** (`agent` part, ultra by default, `bash,read` tools): up to 3 hops × 5 turns, chained
    through a per-task pi session. Between hops the nano **gate** decides
    DONE/continue; the explorer can also end the run itself with the
    `EXPLORATION_COMPLETE` sentinel. Hard ceilings: 15 turns total, 300 s wall.
@@ -261,13 +319,48 @@ think/text/read/bash/sigmap action; paths middle-truncated with the filename kep
 bash commands in full multiline `<pre>`, outputs truncated at 200 lines/10 000 chars,
 honest in/out **character** counts — pi JSON exposes no token counts). **Referenced
 files** lists only paths that resolve to real files under the project root
-(`workspace/…` and `/workspace/…` forms are normalized in `_resolve_path_ref`;
+(`workspace/…` and `/workspace/…` forms are normalized in `pi_runner.resolve_path_ref`;
 unresolvable candidates are dropped). When prompts are newer than
 `explored_at`, a "Prompts changed since last exploration — Re-explore?" banner is
 shown above the kept old results; nothing ever auto-runs on page load.
 
 If the Explore run fails (e.g., `pi` rate-limit), the error is surfaced in
 `#explore-content` and the turns/references gathered so far are still shown.
+
+## Plan feature (stage s02)
+
+The Plan section (stage `s02_plan.py`) turns an explored task into a structured
+implementation plan through an agent-driven Q&A loop, persisted as a step state
+machine in `plan.json` (no thread ever blocks on the human):
+
+1. **draft_running** — the draft agent (`draft` part, ultra by default,
+   `bash,read` tools, pi session `plan-<task_id>` resumed across steps) reads
+   the prompts + explore summary, writes a "lay of the land", then emits either
+   ≤5 clarifying questions (a fenced ` ```questions ` JSON block of
+   `{id, text, type: single|multiple|open, options?[]}`) or the
+   `READY_TO_PLAN` sentinel. If a hop cap cuts it off mid-sweep, the session is
+   resumed with a "wrap up now" message (≤3 hops per step).
+2. **awaiting_answers** — the Plan section renders an inline form (radios /
+   checkboxes / textareas keyed by question id) with **no polling** — it waits
+   on the human. `POST /api/tasks/<id>/plan/answers` records
+   `round_N_answers.json`, sets `resuming`, and kicks the follow-up step
+   (`draft_followup.md` template).
+3. Rounds are agent-driven, **hard-capped at 3** (`MAX_ROUNDS`): reaching the
+   cap (or `READY_TO_PLAN`) moves to `final_running`.
+4. **final_running** — a fresh, tool-less single-shot call (`final` part,
+   `final_plan.md` template) whose only context is the original prompt, the
+   explore summary, the lay of the land, and all answered Q&A. The template
+   mandates the report structure (build/check instructions, problem statement,
+   per-path changes with code samples, a NOT-to-change list, automatic + manual
+   verification, overview) and the read-only-phase reminder. Output goes to
+   `…/plan/final_plan.md` + `plan.json["final_md"]`.
+5. **done** — the section renders the final markdown plus a Re-plan button;
+   **error** shows the message plus Re-plan.
+
+Gotcha: if the draft agent replies with neither a valid questions block nor
+`READY_TO_PLAN`, the step goes straight to `final_running` (logged as a
+warning) rather than failing — the alternative is trapping the user in an
+unanswerable form.
 
 ## Misc gotchas
 

@@ -1,0 +1,1 @@
+The crack-pi-server task page should show a small footer note with the server name at the bottom. Figure out where the task page HTML is assembled and where static assets live.

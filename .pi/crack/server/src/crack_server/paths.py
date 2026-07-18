@@ -10,9 +10,12 @@ from pathlib import Path
 
 TASK_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 PROMPT_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.md$")
+STAGE_SLUG_RE = re.compile(r"^[a-z0-9_]+$")
+PLAN_ARTEFACT_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*\.(md|json|txt)$")
 INFO_FILENAME = "info.json"
 TITLE_REGEN_FILENAME = "title_regen.json"
 EXPLORE_FILENAME = "explore.json"
+PLAN_FILENAME = "plan.json"
 
 
 def project_root() -> Path:
@@ -232,3 +235,138 @@ def next_prompt_filename(task_id: str, root: Path | None = None) -> str | None:
         if name not in existing:
             return name
     return None
+
+
+# ---------------------------------------------------------------------------
+# Harness: models cache, per-stage config, stage prompt templates
+# ---------------------------------------------------------------------------
+
+
+def templates_dir() -> Path:
+    """Prompt templates root, inside the server package repo (prompt_templates/)."""
+    return Path(__file__).resolve().parent.parent.parent / "prompt_templates"
+
+
+def harness_dir(root: Path | None = None) -> Path:
+    """Harness-wide state dir: .pi/crack/harness/ (models cache, stage configs)."""
+    return (root or project_root()) / ".pi" / "crack" / "harness"
+
+
+def models_cache_path(root: Path | None = None) -> Path:
+    return harness_dir(root) / "models_list.json"
+
+
+def read_models_cache(root: Path | None = None) -> dict:
+    path = models_cache_path(root)
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def write_models_cache(data: dict, root: Path | None = None) -> None:
+    _atomic_write_json(models_cache_path(root), data)
+
+
+def _validate_stage_slug(slug: str) -> str:
+    if not STAGE_SLUG_RE.fullmatch(slug):
+        raise ValueError("invalid stage slug")
+    return slug
+
+
+def stage_config_path(slug: str, root: Path | None = None) -> Path:
+    return harness_dir(root) / f"{_validate_stage_slug(slug)}.json"
+
+
+def read_stage_config(slug: str, root: Path | None = None) -> dict:
+    path = stage_config_path(slug, root)
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def write_stage_config(slug: str, config: dict, root: Path | None = None) -> None:
+    _atomic_write_json(stage_config_path(slug, root), config)
+
+
+def stage_templates_dir(slug: str) -> Path:
+    """Per-stage prompt template dir: prompt_templates/<slug>/."""
+    return templates_dir() / _validate_stage_slug(slug)
+
+
+def list_stage_templates(slug: str) -> list[dict[str, str | int]]:
+    """Glob *.md in the stage's template dir on every call."""
+    directory = stage_templates_dir(slug)
+    out: list[dict[str, str | int]] = []
+    if not directory.is_dir():
+        return out
+    for path in sorted(directory.glob("*.md"), key=lambda p: p.name.lower()):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        out.append({"name": path.name, "size": stat.st_size, "mtime": int(stat.st_mtime)})
+    return out
+
+
+def read_stage_template(slug: str, filename: str) -> str:
+    fname = validate_prompt_filename(filename)
+    path = stage_templates_dir(slug) / fname
+    if not path.is_file():
+        raise FileNotFoundError(fname)
+    return path.read_text(encoding="utf-8")
+
+
+def write_stage_template(slug: str, filename: str, content: str) -> None:
+    fname = validate_prompt_filename(filename)
+    directory = stage_templates_dir(slug)
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / fname).write_text(content, encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Plan stage: per-task state and artefacts
+# ---------------------------------------------------------------------------
+
+
+def plan_path(task_id: str, root: Path | None = None) -> Path:
+    return task_dir(task_id, root) / PLAN_FILENAME
+
+
+def read_plan_state(task_id: str, root: Path | None = None) -> dict:
+    path = plan_path(task_id, root)
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def write_plan_state(task_id: str, state: dict, root: Path | None = None) -> None:
+    _atomic_write_json(plan_path(task_id, root), state)
+
+
+def plan_dir(task_id: str, root: Path | None = None) -> Path:
+    """Per-task directory for Plan artefacts: …/<task>/plan/."""
+    return task_dir(task_id, root) / "plan"
+
+
+def plan_sessions_dir(task_id: str, root: Path | None = None) -> Path:
+    """Isolated pi session dir used to chain Plan draft steps: …/<task>/plan/sessions/."""
+    return plan_dir(task_id, root) / "sessions"
+
+
+def write_plan_artefact(task_id: str, name: str, text: str, root: Path | None = None) -> None:
+    """Write a Plan artefact as …/<task>/plan/{name} (basename, .md/.json/.txt only)."""
+    base = Path(name).name
+    if not PLAN_ARTEFACT_NAME_RE.fullmatch(base):
+        raise ValueError("invalid plan artefact name")
+    directory = plan_dir(task_id, root)
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / base).write_text(text, encoding="utf-8")

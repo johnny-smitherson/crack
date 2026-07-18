@@ -1,0 +1,1 @@
+All pages (index, task page, stage config) route through `_render_base`. The existing pattern for muted text is `<small style="color: #666;">`. I'll add a footer inside `<main>` in `_render_base` using the server name "crack-pi-server" as the text.

@@ -165,3 +165,91 @@ main {
 .explore-questions ul {
   margin: 0.25rem 0 0.5rem;
 }
+
+/* Plan stage: Q&A form + final plan */
+.plan-meta {
+  color: #666;
+  margin: 0.25rem 0;
+}
+
+.plan-questions .plan-question {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.plan-questions .plan-question legend {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+.plan-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.plan-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-weight: normal;
+}
+
+.plan-option input {
+  margin: 0;
+}
+
+.plan-questions textarea {
+  width: 100%;
+  font-family: inherit;
+}
+
+.plan-draft {
+  margin: 0.75rem 0;
+}
+
+.plan-final {
+  border-left: 3px solid #7ab;
+  padding-left: 0.75rem;
+  margin: 1rem 0;
+}
+
+/* Stage config screen */
+.part-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.part-row .part-label {
+  flex: 0 0 16rem;
+  font-weight: 600;
+}
+
+.part-row code {
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.part-row select {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.stage-source {
+  max-height: 32rem;
+  overflow: auto;
+  font-size: 0.78rem;
+  background: #f6f6f6;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 0.75rem;
+  white-space: pre;
+}

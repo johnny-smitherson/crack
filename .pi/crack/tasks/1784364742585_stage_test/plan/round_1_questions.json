@@ -1,0 +1,35 @@
+[
+  {
+    "id": "q1",
+    "text": "Where should the footer appear in the HTML structure?",
+    "type": "single",
+    "options": [
+      "Inside <main> (part of page content)",
+      "Outside <main> but before </body> (site-wide footer)"
+    ]
+  },
+  {
+    "id": "q2",
+    "text": "Should the footer appear on all pages (index, task page, stage config) or only on the task page?",
+    "type": "single",
+    "options": [
+      "All pages",
+      "Task page only"
+    ]
+  },
+  {
+    "id": "q3",
+    "text": "What exact text should the footer contain?",
+    "type": "open"
+  },
+  {
+    "id": "q4",
+    "text": "Should the footer have any specific styling (e.g., small, muted, centered)?",
+    "type": "single",
+    "options": [
+      "Use existing Pico.css small/muted styles",
+      "Add custom CSS class in app.css",
+      "Inline styles only"
+    ]
+  }
+]

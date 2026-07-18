@@ -1,0 +1,18 @@
+in the .pi/crack/server we have a webserver that handles pi coding agents inside its docker container.
+
+we have a ui with an explore stage that produces the explore summary. we want to abstract this and make it customizable, and then add another stage following the explore stage: the plan stage. 
+
+in the server home page screen, add a second section at the bottom for "# Harness Stages" that has the stages in order: explore, plan. Clicking each stage goes into the stage sub-screen that shows the configuration for that stage: model drop-down (from the pi list of models that we run once and cache into a json in the pi/crack/harness/models_list.json as well as the timestamp, and we re-run it instead of fetching from cache if the cache is older than 24h).
+
+Then add a second stage that will write our plan. This stage will start a new chat session using the ultra model, and will receive into a new prompt template, the original user prompt, the exploration summary, and will then run a similar trajectory where we ask the model to generate some questions and hypothesis about what the user wants to do in the code-base, and speculate on how to verify possible fixes. Have the agent then understand the code and write out a summary "lay of the land" where the code meets the plan, and then shortly point out the main areas where user clarification is needed. We then go into one-to-three rounds of asking at most 5 questions per turn at the same time to the user. The questions can be either single-choice, or multiple-choice, or open-choice. The user will be able to answer them from the webserver interface, by seeing all the questions in the task page and answering them using the form. A final submit button at the bottom collects the answers from this turn and passes them back to the agent which maybe can run a second turn and if needed a third one. Then, make a second plan chat session that receives only this for context: The inital user prompt, the explore summary, the plan draft, the answered questions by the user, and with this additional information will plan out the final plan into a new md file under the task directory structure. The prompt to make the final plan will advise on a general structure of the report, to include: initial build/check instructions ; problem statement ; Changes summary listing all code paths to be changed as well as code samples for each one and motivation for changing it ;  a list of what not to change, automatic verification steps, manual verification steps, Overview/Summary. . Also include text like "Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase."
+
+
+
+Each stage is a separate and numbered python file in the server code: so explore is s01_explore.py, plan is s02_plan.py and so on.
+
+Each stage has a sub-folder under the prompt templates where its template files actually live. This means we should use mv to move around the current template locations.
+
+The server should show for each stage all the prompt files and the python code of the stage (read these all from disk). It should have a drop-down to change the model for each part of the stage. Any settings entered here will be saved on disk in the jsons under stage definition. The UI for asking questions can look something like this : _slop/cc-ask-question-ui.png
+
+
+Think out of an implementation and grill me with details before implementing it fully. We want the code to be flexible enough that we can easily add more stages later , so think of the best boundary where the in-server flexibility meets the in-code elegance. Then, when we agree after 2-3 rounds of questions you ask me to clarify any unclear details, go ahead with the implementation.
