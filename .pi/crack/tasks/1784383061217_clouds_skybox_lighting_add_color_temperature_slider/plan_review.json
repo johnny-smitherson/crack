@@ -1,5 +1,5 @@
 {
-  "phase": "awaiting_approval",
+  "phase": "done",
   "round": 1,
   "rounds": [
     {
@@ -175,5 +175,5 @@
   "iterations": 1,
   "error": "",
   "started_at": 1784385077.0476944,
-  "finished_at": null
+  "finished_at": 1784387964.21636
 }
