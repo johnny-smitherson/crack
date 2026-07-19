@@ -125,7 +125,7 @@ def render_chat_answer(turns: list[dict]) -> list[str]:
     )
     if answer:
         parts.append(
-            '<div class="stage-msg chat-assistant"><strong>Assistant:</strong>'
+            '<div class="stage-msg chat-assistant"><strong>Clanker:</strong>'
             f"{_ui._render_markdown(answer)}</div>"
         )
     return parts
