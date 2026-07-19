@@ -61,6 +61,31 @@ fn encode_url_path(s: &str) -> String {
     }).collect()
 }
 
+fn get_data_base_url() -> String {
+    #[cfg(feature = "web")]
+    {
+        if let Some(window) = web_sys::window() {
+            if let Some(document) = window.document() {
+                if let Ok(url_str) = document.url() {
+                    if url_str.contains("://localhost") 
+                        || url_str.contains("://127.0.0.1") 
+                        || url_str.contains("://192.168.") 
+                        || url_str.contains("://172.") 
+                    {
+                        return "http://127.0.0.1:1973/".to_string();
+                    }
+                }
+            }
+        }
+        "https://pantelimon.alt-f4.ro/".to_string()
+    }
+    #[cfg(not(feature = "web"))]
+    {
+        "http://127.0.0.1:1973/".to_string()
+    }
+}
+
+
 fn get_available_songs() -> Vec<String> {
     let mut songs = Vec::new();
     #[cfg(not(target_family = "wasm"))]
@@ -77,7 +102,9 @@ fn get_available_songs() -> Vec<String> {
         }
     }
     if songs.is_empty() {
-        songs.push("ManeleMp3.Net - NICOLAE GUTA - LOCUL 1 NUMAI 1 [ORIGINALA].mp3".to_string());
+        songs.push("DORU CALOTA - UITE MAMA VIN MASCATII.mp3".to_string());
+        songs.push("NICOLAE GUTA - LOCUL 1 NUMAI 1.mp3".to_string());
+        songs.push("Nicolae Guta - De la 1 pana la 10.mp3".to_string());
     }
     // Sort songs alphabetically for consistent UI
     songs.sort();
@@ -99,10 +126,10 @@ fn main() {
                 gratar_hydraulics_system,
                 smoke_particles_system,
                 rhythm_game_system,
-                rhythm_ui_system,
                 cinematic_camera_system,
             ),
         )
+        .add_systems(bevy_egui::EguiPrimaryContextPass, rhythm_ui_system)
         .run();
 }
 
@@ -175,6 +202,7 @@ struct GratarGame {
     is_generating: bool,
     #[cfg(not(target_family = "wasm"))]
     generator_process: Option<std::process::Child>,
+    audio_offset: f32,
 }
 
 impl Default for GratarGame {
@@ -202,6 +230,7 @@ impl Default for GratarGame {
             is_generating: false,
             #[cfg(not(target_family = "wasm"))]
             generator_process: None,
+            audio_offset: 0.0,
         }
     }
 }
@@ -847,10 +876,20 @@ fn rhythm_game_system(
         }
 
         // Spawn the music player with MusicTrack marker
-        let song_url = encode_url_path(&game.selected_song);
-
+        let base_url = get_data_base_url();
+        let encoded_song = encode_url_path(&game.selected_song);
+        let song_url = format!(
+            "{}sound_data/{}",
+            base_url,
+            encoded_song
+        );
         
-        let chart_url = encode_url_path(&json_filename);
+        let encoded_json = encode_url_path(&json_filename);
+        let chart_url = format!(
+            "{}sound_data/{}",
+            base_url,
+            encoded_json
+        );
 
 
         info!("[AUDIO] Loading song: {} and chart: {}", song_url, chart_url);
@@ -913,10 +952,6 @@ fn rhythm_game_system(
         }
     }
 
-    // Positive = notes arrive earlier (use when audio beats come before the note hits the target).
-    // Tune this value to match the song's actual beat offset.
-    const AUDIO_SYNC_OFFSET_SECS: f32 = -1.0;
-
     // 1. Sync song_time from actual audio playback position
     if let Ok(sink) = sink_query.single() {
         let pos = sink.position().as_secs_f32();
@@ -926,7 +961,7 @@ fn rhythm_game_system(
             game.last_rating_timer = 0.8;
             info!("[AUDIO] Music playback started at pos={:.3}s", pos);
         }
-        game.song_time = pos + AUDIO_SYNC_OFFSET_SECS;
+        game.song_time = pos + game.audio_offset;
     } else if !game.music_playing {
         // AudioSink not yet available — still loading/decoding
         // Keep song_time at 0 so the note chart doesn't scroll ahead of the music
@@ -1059,7 +1094,7 @@ fn rhythm_game_system(
 fn rhythm_ui_system(
     mut contexts: EguiContexts,
     mut game: ResMut<GratarGame>,
-    director: Res<CameraDirector>,
+    mut director: ResMut<CameraDirector>,
     time: Res<Time>,
 ) {
     if time.elapsed_secs() < 0.2 {
@@ -1070,8 +1105,8 @@ fn rhythm_ui_system(
         return;
     };
 
-    let screen_w = ctx.input(|i| i.screen_rect().width());
-    let screen_h = ctx.input(|i| i.screen_rect().height());
+    let screen_w = ctx.input(|i| i.viewport_rect().width());
+    let screen_h = ctx.input(|i| i.viewport_rect().height());
 
     // 1. Show floating rating feedback in center
     if game.last_rating_timer > 0.0 {
@@ -1120,8 +1155,7 @@ fn rhythm_ui_system(
     // 2. Play screen branching
     if game.is_generating {
         egui::Window::new("Analyzing Beat Chart")
-            .pivot(egui::Align2::CENTER_CENTER)
-            .default_pos(egui::pos2(screen_w / 2.0, screen_h / 2.0))
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .collapsible(false)
             .resizable(false)
             .default_width(320.0)
@@ -1146,8 +1180,7 @@ fn rhythm_ui_system(
     if !game.is_started && !game.is_finished {
         // Start Overlay
         egui::Window::new("Cezar's Gratar Challenge")
-            .pivot(egui::Align2::CENTER_CENTER)
-            .default_pos(egui::pos2(screen_w / 2.0, screen_h / 2.0))
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .collapsible(false)
             .resizable(false)
             .default_width(360.0)
@@ -1173,23 +1206,19 @@ fn rhythm_ui_system(
 
                     ui.label("Select Song (W/S or Up/Down Arrow):");
                     
-                    let songs = game.available_songs.clone();
-                    for song in &songs {
-                        let is_selected = game.selected_song == *song;
-                        let display_name = song.replace(".mp3", "");
-                        if is_selected {
-                            ui.label(
-                                egui::RichText::new(format!("▶  {}", display_name))
-                                    .strong()
-                                    .color(egui::Color32::from_rgb(0, 180, 216))
-                            );
-                        } else {
-                            ui.label(
-                                egui::RichText::new(format!("   {}", display_name))
-                                    .color(egui::Color32::from_rgb(160, 160, 160))
-                            );
-                        }
-                    }
+                    egui::ScrollArea::vertical()
+                        .max_height(140.0)
+                        .show(ui, |ui| {
+                            let songs = game.available_songs.clone();
+                            for song in &songs {
+                                let is_selected = game.selected_song == *song;
+                                let display_name = song.replace(".mp3", "");
+                                if ui.selectable_label(is_selected, display_name).clicked() {
+                                    game.selected_song = song.clone();
+                                    info!("Selected song via mouse click: {}", game.selected_song);
+                                }
+                            }
+                        });
 
                     ui.allocate_space(egui::vec2(0.0, 8.0));
                     ui.label(
@@ -1197,6 +1226,13 @@ fn rhythm_ui_system(
                             .small()
                             .color(egui::Color32::from_rgb(140, 140, 140))
                     );
+
+                    ui.allocate_space(egui::vec2(0.0, 8.0));
+                    ui.group(|ui| {
+                        ui.label(egui::RichText::new("Audio Sync Calibration:").strong());
+                        ui.add(egui::Slider::new(&mut game.audio_offset, -0.5..=0.5).suffix("s"));
+                        ui.label(egui::RichText::new("Adjust if visual tiles hit before/after you hear the beat.").small().color(egui::Color32::from_rgb(140, 140, 140)));
+                    });
 
                     ui.allocate_space(egui::vec2(0.0, 12.0));
 
@@ -1221,8 +1257,7 @@ fn rhythm_ui_system(
     } else if game.is_finished {
         // Finish Overlay
         egui::Window::new("Challenge Finished!")
-            .pivot(egui::Align2::CENTER_CENTER)
-            .default_pos(egui::pos2(screen_w / 2.0, screen_h / 2.0))
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
             .collapsible(false)
             .resizable(false)
             .default_width(320.0)
@@ -1280,6 +1315,19 @@ fn rhythm_ui_system(
                 });
             });
     } else {
+        // Real-time Calibration Window
+        egui::Window::new("Audio Sync Settings")
+            .anchor(egui::Align2::LEFT_TOP, egui::vec2(15.0, 15.0))
+            .collapsible(true)
+            .default_open(true)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label("Calibrate audio offset in real-time:");
+                ui.add(egui::Slider::new(&mut game.audio_offset, -0.5..=0.5).suffix("s"));
+                ui.separator();
+                ui.checkbox(&mut director.auto_cycle, "Camera Auto-Cycle");
+            });
+
         // Active Rhythm HUD Panel
         let hud_w = 780.0f32.min(screen_w - 40.0);
         let hud_h = 115.0; // Increased height to fit top and bottom rows nicely
@@ -1290,6 +1338,17 @@ fn rhythm_ui_system(
         egui::Area::new(egui::Id::new("hud_area"))
             .fixed_pos(egui::pos2(hud_x, hud_y))
             .show(ctx, |ui| {
+                // Allocate interactive areas first before borrowing ui immutably
+                let cycle_rect = egui::Rect::from_center_size(
+                    egui::pos2(hud_x + hud_w - 150.0, hud_y + 22.0),
+                    egui::vec2(160.0, 24.0),
+                );
+                let cycle_response = ui.allocate_rect(cycle_rect, egui::Sense::click());
+                if cycle_response.clicked() {
+                    director.auto_cycle = !director.auto_cycle;
+                    director.shot_timer = 0.0;
+                }
+
                 let painter = ui.painter();
                 let rect = egui::Rect::from_min_size(
                     egui::pos2(hud_x, hud_y),
@@ -1366,6 +1425,15 @@ fn rhythm_ui_system(
                 } else {
                     egui::Color32::from_rgb(140, 140, 140)
                 };
+                
+                if cycle_response.hovered() {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                    painter.rect_filled(
+                        cycle_rect,
+                        4.0,
+                        egui::Color32::from_white_alpha(15),
+                    );
+                }
 
                 painter.text(
                     egui::pos2(hud_x + hud_w - 220.0, hud_y + 22.0),

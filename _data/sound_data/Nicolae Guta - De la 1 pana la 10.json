@@ -2,67 +2,51 @@
   "bpm": 100.45,
   "notes": [
     {
-      "time": 1.472,
-      "direction": "Left"
-    },
-    {
       "time": 2.0693,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 2.6773,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 5.0773,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 6.272,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 6.88,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 9.2693,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 11.072,
-      "direction": "Right"
-    },
-    {
-      "time": 11.6693,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 12.672,
-      "direction": "Down"
-    },
-    {
-      "time": 13.28,
-      "direction": "Up"
-    },
-    {
-      "time": 13.8773,
       "direction": "Right"
     },
     {
-      "time": 14.4747,
+      "time": 13.28,
       "direction": "Left"
     },
     {
-      "time": 15.4773,
+      "time": 14.4747,
       "direction": "Down"
     },
     {
-      "time": 16.48,
+      "time": 15.4773,
       "direction": "Up"
     },
     {
-      "time": 17.0773,
+      "time": 16.48,
       "direction": "Right"
     },
     {
@@ -74,79 +58,63 @@
       "direction": "Down"
     },
     {
-      "time": 20.0747,
-      "direction": "Up"
-    },
-    {
       "time": 20.672,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 21.8773,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 23.072,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 25.472,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 26.6773,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 27.2747,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 28.576,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 29.8773,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 30.4747,
-      "direction": "Right"
-    },
-    {
-      "time": 31.072,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 32.4693,
-      "direction": "Down"
+      "direction": "Right"
     },
     {
       "time": 33.0773,
-      "direction": "Up"
-    },
-    {
-      "time": 33.6747,
-      "direction": "Right"
-    },
-    {
-      "time": 34.272,
       "direction": "Left"
     },
     {
-      "time": 35.4773,
+      "time": 34.272,
       "direction": "Down"
     },
     {
-      "time": 37.8773,
+      "time": 35.4773,
       "direction": "Up"
     },
     {
-      "time": 39.072,
+      "time": 37.8773,
       "direction": "Right"
     },
     {
-      "time": 39.6693,
+      "time": 39.072,
       "direction": "Left"
     },
     {
@@ -162,79 +130,63 @@
       "direction": "Right"
     },
     {
-      "time": 43.872,
-      "direction": "Left"
-    },
-    {
       "time": 45.6747,
-      "direction": "Down"
-    },
-    {
-      "time": 46.272,
-      "direction": "Up"
+      "direction": "Left"
     },
     {
       "time": 46.8693,
-      "direction": "Right"
+      "direction": "Down"
     },
     {
       "time": 47.4773,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 49.8773,
-      "direction": "Down"
+      "direction": "Right"
     },
     {
       "time": 52.2773,
-      "direction": "Up"
+      "direction": "Left"
     },
     {
       "time": 54.88,
-      "direction": "Right"
+      "direction": "Down"
     },
     {
       "time": 57.2693,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 59.072,
-      "direction": "Down"
+      "direction": "Right"
     },
     {
       "time": 60.2773,
-      "direction": "Up"
+      "direction": "Left"
     },
     {
       "time": 62.08,
-      "direction": "Right"
-    },
-    {
-      "time": 62.6773,
-      "direction": "Left"
+      "direction": "Down"
     },
     {
       "time": 63.872,
-      "direction": "Down"
-    },
-    {
-      "time": 65.6747,
       "direction": "Up"
     },
     {
-      "time": 66.272,
+      "time": 65.6747,
       "direction": "Right"
     },
     {
-      "time": 68.672,
+      "time": 66.272,
       "direction": "Left"
     },
     {
-      "time": 69.8773,
+      "time": 68.672,
       "direction": "Down"
     },
     {
-      "time": 70.4747,
+      "time": 69.8773,
       "direction": "Up"
     },
     {
@@ -286,71 +238,55 @@
       "direction": "Up"
     },
     {
-      "time": 86.4747,
-      "direction": "Right"
-    },
-    {
       "time": 87.072,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 88.2773,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 89.472,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 90.08,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 90.6773,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 91.872,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 93.6747,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 94.272,
-      "direction": "Right"
-    },
-    {
-      "time": 94.8693,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 95.872,
-      "direction": "Down"
-    },
-    {
-      "time": 96.48,
-      "direction": "Up"
-    },
-    {
-      "time": 97.0773,
       "direction": "Right"
     },
     {
-      "time": 97.6747,
+      "time": 96.48,
       "direction": "Left"
     },
     {
-      "time": 98.6773,
+      "time": 97.6747,
       "direction": "Down"
     },
     {
-      "time": 99.68,
+      "time": 98.6773,
       "direction": "Up"
     },
     {
-      "time": 100.2773,
+      "time": 99.68,
       "direction": "Right"
     },
     {
@@ -358,47 +294,31 @@
       "direction": "Left"
     },
     {
-      "time": 101.472,
-      "direction": "Down"
-    },
-    {
       "time": 102.6773,
-      "direction": "Up"
-    },
-    {
-      "time": 103.2747,
-      "direction": "Right"
+      "direction": "Down"
     },
     {
       "time": 103.872,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 105.0773,
-      "direction": "Down"
-    },
-    {
-      "time": 105.6747,
-      "direction": "Up"
-    },
-    {
-      "time": 106.272,
       "direction": "Right"
     },
     {
-      "time": 108.0747,
+      "time": 105.6747,
       "direction": "Left"
     },
     {
-      "time": 108.672,
+      "time": 106.272,
       "direction": "Down"
     },
     {
-      "time": 109.8773,
+      "time": 108.0747,
       "direction": "Up"
     },
     {
-      "time": 110.4747,
+      "time": 109.8773,
       "direction": "Right"
     },
     {
@@ -410,79 +330,63 @@
       "direction": "Down"
     },
     {
-      "time": 113.472,
-      "direction": "Up"
-    },
-    {
       "time": 114.0693,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 114.6773,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 116.4693,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 118.272,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 119.4773,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 120.672,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 122.4747,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 123.072,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 123.68,
-      "direction": "Right"
-    },
-    {
-      "time": 124.2773,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 124.8747,
-      "direction": "Down"
+      "direction": "Right"
     },
     {
       "time": 126.272,
-      "direction": "Up"
-    },
-    {
-      "time": 126.8693,
-      "direction": "Right"
-    },
-    {
-      "time": 127.4773,
       "direction": "Left"
     },
     {
-      "time": 129.28,
+      "time": 127.4773,
       "direction": "Down"
     },
     {
-      "time": 131.072,
+      "time": 129.28,
       "direction": "Up"
     },
     {
-      "time": 131.68,
+      "time": 131.072,
       "direction": "Right"
     },
     {
-      "time": 132.2773,
+      "time": 131.68,
       "direction": "Left"
     },
     {
@@ -510,47 +414,31 @@
       "direction": "Up"
     },
     {
-      "time": 143.072,
-      "direction": "Right"
-    },
-    {
       "time": 144.2773,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 145.472,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 146.08,
-      "direction": "Up"
-    },
-    {
-      "time": 146.6773,
-      "direction": "Right"
-    },
-    {
-      "time": 147.872,
-      "direction": "Left"
-    },
-    {
-      "time": 149.0773,
       "direction": "Down"
     },
     {
-      "time": 149.6747,
+      "time": 147.872,
       "direction": "Up"
     },
     {
-      "time": 150.272,
+      "time": 149.0773,
       "direction": "Right"
     },
     {
-      "time": 151.872,
+      "time": 150.272,
       "direction": "Left"
     },
     {
-      "time": 152.4693,
+      "time": 151.872,
       "direction": "Down"
     },
     {
@@ -578,71 +466,55 @@
       "direction": "Right"
     },
     {
-      "time": 162.6773,
-      "direction": "Left"
-    },
-    {
       "time": 163.2747,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 163.872,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 165.0773,
-      "direction": "Right"
-    },
-    {
-      "time": 165.6747,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 166.272,
-      "direction": "Down"
+      "direction": "Right"
     },
     {
       "time": 166.88,
-      "direction": "Up"
+      "direction": "Left"
     },
     {
       "time": 168.672,
-      "direction": "Right"
+      "direction": "Down"
     },
     {
       "time": 169.8773,
-      "direction": "Left"
+      "direction": "Up"
     },
     {
       "time": 170.4747,
-      "direction": "Down"
-    },
-    {
-      "time": 171.072,
-      "direction": "Up"
-    },
-    {
-      "time": 173.28,
       "direction": "Right"
     },
     {
-      "time": 173.8773,
+      "time": 172.6827,
       "direction": "Left"
     },
     {
-      "time": 175.072,
+      "time": 173.8773,
       "direction": "Down"
     },
     {
-      "time": 176.8747,
+      "time": 175.072,
       "direction": "Up"
     },
     {
-      "time": 177.472,
+      "time": 176.8747,
       "direction": "Right"
     },
     {
-      "time": 178.0693,
+      "time": 177.472,
       "direction": "Left"
     },
     {
@@ -654,47 +526,31 @@
       "direction": "Up"
     },
     {
-      "time": 180.2773,
-      "direction": "Right"
-    },
-    {
       "time": 180.8747,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 181.8773,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 182.88,
-      "direction": "Up"
-    },
-    {
-      "time": 183.4773,
-      "direction": "Right"
-    },
-    {
-      "time": 184.672,
-      "direction": "Left"
-    },
-    {
-      "time": 185.8773,
       "direction": "Down"
     },
     {
-      "time": 186.4747,
+      "time": 184.672,
       "direction": "Up"
     },
     {
-      "time": 187.072,
+      "time": 185.8773,
       "direction": "Right"
     },
     {
-      "time": 188.2773,
+      "time": 186.4747,
       "direction": "Left"
     },
     {
-      "time": 188.8747,
+      "time": 188.2773,
       "direction": "Down"
     },
     {
@@ -726,83 +582,67 @@
       "direction": "Left"
     },
     {
-      "time": 201.8773,
-      "direction": "Down"
-    },
-    {
       "time": 203.072,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 204.2773,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 205.472,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 207.872,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 209.0773,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 210.272,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 212.6187,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 214.88,
-      "direction": "Down"
+      "direction": "Left"
     },
     {
       "time": 217.2693,
-      "direction": "Up"
+      "direction": "Down"
     },
     {
       "time": 219.072,
-      "direction": "Right"
+      "direction": "Up"
     },
     {
       "time": 220.2773,
-      "direction": "Left"
+      "direction": "Right"
     },
     {
       "time": 222.08,
-      "direction": "Down"
-    },
-    {
-      "time": 222.6773,
-      "direction": "Up"
-    },
-    {
-      "time": 223.872,
-      "direction": "Right"
-    },
-    {
-      "time": 225.0773,
       "direction": "Left"
     },
     {
-      "time": 225.6747,
+      "time": 223.872,
       "direction": "Down"
     },
     {
-      "time": 226.272,
+      "time": 225.0773,
       "direction": "Up"
     },
     {
-      "time": 228.672,
+      "time": 226.272,
       "direction": "Right"
     },
     {
-      "time": 229.2693,
+      "time": 228.672,
       "direction": "Left"
     },
     {
