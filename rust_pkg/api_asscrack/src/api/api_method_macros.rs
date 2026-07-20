@@ -248,3 +248,24 @@ macro_rules! implement_api_group2 {
         }
     };
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_method_info_and_impl_fullname() {
+        let info = ApiMethodInfo {
+            name: "Ping",
+            grp: "Grp",
+            arg: "()",
+            ret: "()",
+        };
+        assert_eq!(info.fullname(), "Grp.Ping");
+
+        let decl = ApiGroupDeclStatic { group: "Grp" };
+        assert_eq!(decl.group, "Grp");
+    }
+}

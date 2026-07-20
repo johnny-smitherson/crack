@@ -87,6 +87,41 @@ respawn web-search-fwd \
     python3 /workspace/_docker/tcp_forward.py "${MCP_WEBSEARCH_PORT}" 127.0.0.1 "$((MCP_WEBSEARCH_PORT + 10000))"
 # --------------------------------------------------------------------------
 
+# --- Blender MCP (ports 9876 addon socket, 9877 HTTP) ---------------------
+# Blender addon runs inside Blender (xvfb) on TCP 9876.
+# blender-mcp MCP server (stdio) connects to it; we bridge via supergateway to HTTP :9877.
+export BLENDER_ADDON_PORT=9876
+export MCP_BLENDER_HTTP_PORT=9877
+export BLENDER_HOST=127.0.0.1
+export BLENDER_PORT=9876
+# Force X11 backend, disable Wayland
+export QT_QPA_PLATFORM=offscreen
+export WAYLAND_DISPLAY=""
+export DISPLAY=:99
+
+# Start Xvfb on display :99
+Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +extension RANDR +extension RENDER >/workspace/.pi/crack/harness/mcp-http/xvfb.log 2>&1 &
+
+# Wait for Xvfb to be ready
+sleep 2
+
+# Start Blender with the addon enabled via --addons flag (auto-starts server on port 9876)
+# The addon's auto_start_server defaults to True and uses blendermcp_port (default 9876)
+# Use the already-running Xvfb on :99 (don't use xvfb-run which would start another)
+respawn blender
+    blender --noaudio --addons blendermcp
+
+# Give Blender time to start the socket server
+sleep 5
+
+# Bridge blender-mcp MCP server (stdio) to HTTP on port 9877 via supergateway
+respawn blender-mcp \
+    npx -y supergateway --cors --port "$((MCP_BLENDER_HTTP_PORT + 10000))" \
+        --stdio "uvx --python 3.11 blender-mcp"
+respawn blender-mcp-fwd \
+    python3 /workspace/_docker/tcp_forward.py "${MCP_BLENDER_HTTP_PORT}" 127.0.0.1 "$((MCP_BLENDER_HTTP_PORT + 10000))"
+# --------------------------------------------------------------------------
+
 # Single process: the queue worker runs inside the server (uvicorn app lifespan,
 # in-process asyncio tasks — see crack_server/worker.py).
 uv run crack-server

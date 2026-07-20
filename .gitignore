@@ -26,3 +26,5 @@ gain.ndjson
 
 # Runtime logs from the network-reachable MCP HTTP bridges (see _cont_start.sh).
 .pi/crack/harness/mcp-http/
+
+/tmp/

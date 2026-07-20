@@ -46,3 +46,18 @@ pub enum GameplayChatMessageContent {
 pub struct GameplayPresence {
     pub url: String,
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_bootstrap_topics() {
+        assert_eq!(
+            bootstrap_topics(),
+            vec![GLOBAL_GAMEPLAY_TOPIC_ID.to_string()]
+        );
+    }
+}

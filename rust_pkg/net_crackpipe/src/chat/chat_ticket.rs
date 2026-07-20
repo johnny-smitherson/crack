@@ -23,3 +23,33 @@ impl ChatTicket {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_new_str_bs() {
+        let peer = iroh::SecretKey::generate(rand::thread_rng()).public();
+        let bs = BTreeSet::from([peer]);
+        let ticket = ChatTicket::new_str_bs("hello", bs.clone());
+        let mut expected = [0u8; 32];
+        expected[..5].copy_from_slice(b"hello");
+        assert_eq!(ticket.topic_id, TopicId::from_bytes(expected));
+        assert_eq!(ticket.bootstrap, bs);
+    }
+
+    #[test]
+    fn smoke_new_str_bs_truncates_long_topic() {
+        // Topic strings longer than 30 bytes are truncated, not a panic.
+        let ticket = ChatTicket::new_str_bs(
+            "this-topic-name-is-far-longer-than-thirty-bytes",
+            BTreeSet::new(),
+        );
+        let mut expected = [0u8; 32];
+        expected[..30].copy_from_slice(b"this-topic-name-is-far-longer-"[..30].as_ref());
+        assert_eq!(ticket.topic_id, TopicId::from_bytes(expected));
+    }
+}

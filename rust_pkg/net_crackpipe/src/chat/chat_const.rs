@@ -14,3 +14,25 @@ pub fn get_relay_domain() -> (String, String) {
         String::from("https://net.sparganothis.org/pkarr"),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_get_relay_domain() {
+        let (relay, pkarr) = get_relay_domain();
+        assert_eq!(relay, "https://net2.sparganothis.org");
+        assert_eq!(pkarr, "https://net.sparganothis.org/pkarr");
+    }
+
+    #[test]
+    fn smoke_presence_constant_ordering() {
+        // Idle must outlive a broadcast interval, expiration must outlive idle.
+        assert!(PRESENCE_IDLE > PRESENCE_INTERVAL);
+        assert!(PRESENCE_EXPIRATION > PRESENCE_IDLE);
+        assert_eq!(GLOBAL_CHAT_TOPIC_ID, "global");
+    }
+}

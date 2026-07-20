@@ -130,3 +130,32 @@ pub async fn web_worker_registration(
 
     Ok(())
 }
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    // Build/link smoke only: this crate needs a real dedicated-worker scope at
+    // runtime, which the wasm-pack browser test harness does not provide. So we
+    // reference the public entry points (pulling them through the linker) and
+    // construct the payload type WITHOUT invoking any worker-scope APIs.
+    #[wasm_bindgen_test]
+    fn links() {
+        let _init = _js_init_dedicated_worker;
+        let _compute = _js_compute_payload_reply;
+        let _register = web_worker_registration;
+        let _spawn = spawn_local::<std::future::Ready<()>>;
+
+        let msg = WorkerMessage {
+            msg_id: 1,
+            msg_type: "ping".to_string(),
+            msg_content: vec![1, 2, 3],
+        };
+        assert_eq!(msg.msg_id, 1);
+        assert_eq!(msg.msg_type, "ping");
+        assert_eq!(msg.msg_content, vec![1, 2, 3]);
+    }
+}

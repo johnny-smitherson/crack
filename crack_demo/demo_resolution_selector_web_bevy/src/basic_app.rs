@@ -97,6 +97,70 @@ pub fn make_basic_app(title: &str) -> App {
     app
 }
 
+/// Create a headless variant of [`make_basic_app`]: same memory asset source,
+/// asset meta-check, logging and clear color, but no window, no winit event
+/// loop and no GPU backend (`backends: None` keeps the render types and the
+/// `AssetServer` around without initializing a device). Used by the headless
+/// smoke tests; do NOT insert `WinitSettings` here — it needs an event loop.
+pub fn make_headless_app(title: &str) -> App {
+    info!("exec make_headless_app({title})...");
+
+    let mut app = App::new();
+
+    let memory_dir = MemoryDir::default();
+    let reader = bevy::asset::io::memory::MemoryAssetReader {
+        root: memory_dir.dir.clone(),
+    };
+    app.register_asset_source(
+        bevy::asset::io::AssetSourceId::new(Some("memory")),
+        bevy::asset::io::AssetSourceBuilder::new(move || Box::new(reader.clone())),
+    );
+    app.insert_resource(memory_dir);
+
+    app.add_plugins(
+        DefaultPlugins
+            .build()
+            .set(WindowPlugin {
+                primary_window: None,
+                exit_condition: bevy::window::ExitCondition::DontExit,
+                ..default()
+            })
+            .set(RenderPlugin {
+                render_creation: WgpuSettings {
+                    backends: None,
+                    ..default()
+                }
+                .into(),
+                ..default()
+            })
+            .set(bevy::asset::io::web::WebAssetPlugin {
+                silence_startup_warning: true,
+            })
+            .set(AssetPlugin {
+                meta_check: bevy::asset::AssetMetaCheck::Never,
+                ..default()
+            })
+            .set(LogPlugin {
+                level: Level::INFO,
+                filter: LOG_FILTER.to_string(),
+                ..default()
+            })
+            .disable::<bevy::winit::WinitPlugin>(),
+    )
+    .insert_resource(ClearColor(Color::BLACK))
+    .add_systems(Update, log_dt);
+
+    // avian3d's collider-tree/spatial-query systems unconditionally require
+    // these diagnostics resources (normally inserted alongside the render
+    // sub-app, which doesn't exist here since `backends: None` skips
+    // creating it). They're plain `Default` timing counters, so pre-inserting
+    // them is harmless and lets physics run headless.
+    app.init_resource::<avian3d::collider_tree::ColliderTreeDiagnostics>();
+    app.init_resource::<avian3d::spatial_query::SpatialQueryDiagnostics>();
+
+    app
+}
+
 /// Log times for slow frames, when they happen.
 fn log_dt(time: Res<Time<Real>>, frames: Res<bevy::diagnostic::FrameCount>) {
     if (frames.0 < 120 && time.delta_secs() > 0.1) || time.delta_secs() > 2.0 {

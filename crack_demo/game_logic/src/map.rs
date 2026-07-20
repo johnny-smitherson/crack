@@ -87,3 +87,28 @@ pub struct MapManifestResult {
     pub roots: Vec<MapRootNodeSummary>,
     pub lod_budget: u32,
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_map_tree_node_info_serde_round_trip() {
+        let node = MapTreeNodeInfo {
+            path: MapTreeNodePath("02".to_string()),
+            assets: vec![MapTileAssetId("tile_02".to_string())],
+            bbox: BBox {
+                min: Vec3::new(-1.0, 0.0, -1.0),
+                max: Vec3::new(1.0, 10.0, 1.0),
+            },
+        };
+        let json = serde_json::to_string(&node).unwrap();
+        let back: MapTreeNodeInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.path, node.path);
+        assert_eq!(back.assets, node.assets);
+        assert_eq!(back.bbox.min, node.bbox.min);
+        assert_eq!(back.bbox.max, node.bbox.max);
+    }
+}

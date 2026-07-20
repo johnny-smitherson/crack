@@ -43,3 +43,32 @@ pub struct GeoJsonFeature {
 pub struct OsmDataResult {
     pub categories: BTreeMap<String, Vec<GeoJsonFeature>>,
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_osm_data_result_serde_round_trip() {
+        let mut tags = BTreeMap::new();
+        tags.insert("highway".to_string(), "residential".to_string());
+        let feature = GeoJsonFeature {
+            id: Some(42),
+            osm_type: "way".to_string(),
+            name: Some("Main St".to_string()),
+            tags,
+            geometry: FeatureGeometry::LineString(vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 1.0)]),
+            center: Vec3::new(0.5, 0.0, 0.5),
+            bbox_min: Vec3::new(0.0, 0.0, 0.0),
+            bbox_max: Vec3::new(1.0, 0.0, 1.0),
+        };
+        let mut categories = BTreeMap::new();
+        categories.insert("roads".to_string(), vec![feature]);
+        let result = OsmDataResult { categories };
+        let json = serde_json::to_string(&result).unwrap();
+        let back: OsmDataResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    }
+}

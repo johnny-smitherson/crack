@@ -203,3 +203,21 @@ async fn make_worker() -> anyhow::Result<WorkerPipe> {
     // c.forget();
     Ok(WorkerPipe { req_tx, resp_rx })
 }
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+    use api_asscrack::crack_worker::WorkerLoaderFactory;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn smoke_construct_factory() {
+        // Constructing the API surface must not require a real service-worker
+        // registration; only `load_worker()` touches the JS `init_workers2` hook.
+        let factory = WebWorkerFactory {};
+        let cloned = factory.clone();
+        let _boxed: Box<dyn WorkerLoaderFactory> = Box::new(cloned);
+    }
+}

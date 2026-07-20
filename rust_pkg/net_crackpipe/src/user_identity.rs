@@ -115,3 +115,23 @@ impl NodeIdentity {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_generate() {
+        let secrets = UserIdentitySecrets::generate();
+        // The public identity must match the generated secret key.
+        assert_eq!(
+            secrets.secret_key().public(),
+            *secrets.user_identity().user_id()
+        );
+        // Two generations must not collide (guards against a stubbed RNG).
+        let other = UserIdentitySecrets::generate();
+        assert_ne!(secrets, other);
+    }
+}

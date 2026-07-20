@@ -90,3 +90,15 @@ async fn main() -> anyhow::Result<()> {
     network.shutdown().await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn network_manager_config_builds_with_gameplay_bootstrap_topic() {
+        let config = game_logic::network::network_manager_config();
+        assert_eq!(
+            config.bootstrap_topics,
+            vec![game_logic::network::GLOBAL_GAMEPLAY_TOPIC_ID.to_string()]
+        );
+    }
+}

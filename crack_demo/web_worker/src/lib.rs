@@ -56,3 +56,50 @@ pub async fn run_bootstrap_if_needed() -> anyhow::Result<()> {
     )
     .await
 }
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+    use crack::api_asscrack::crack_worker::{
+        WorkerMessage, api_worker::compute_response_message,
+    };
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    // Same group composition as `init_worker()`; `make_api_mapping` panics on
+    // duplicate or unimplemented declarations, so building it is itself the
+    // assertion. No real Worker scope is required.
+    fn worker_mapping() -> Arc<crack::api_asscrack::crack_worker::api_worker::ApiImplMapping> {
+        make_api_mapping(vec![
+            Arc::new(StorageCrackhouseApiGroup),
+            Arc::new(WorkerApiGroup2),
+            Arc::new(game_logic::api::GameLogicApiGroup),
+        ])
+    }
+
+    #[wasm_bindgen_test]
+    fn smoke_make_api_mapping() {
+        let _mapping = worker_mapping();
+    }
+
+    #[wasm_bindgen_test]
+    async fn smoke_compute_response_unknown_method() {
+        let mapping = worker_mapping();
+        let resp = compute_response_message(
+            WorkerMessage {
+                msg_id: 7,
+                msg_type: "no_such_method".to_string(),
+                msg_content: vec![],
+            },
+            mapping,
+        )
+        .await;
+        assert_eq!(resp.msg_id, 7);
+        assert!(
+            resp.msg_type.contains("no_such_method"),
+            "expected missing-key error, got: {}",
+            resp.msg_type
+        );
+    }
+}

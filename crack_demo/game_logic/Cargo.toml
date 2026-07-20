@@ -40,3 +40,9 @@ futures = { version = "0.3", default-features = false, features = ["alloc"], opt
 [target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen-futures = { workspace = true }
 
+[dev-dependencies]
+serde_json.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+

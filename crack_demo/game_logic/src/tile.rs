@@ -20,3 +20,26 @@ pub struct FetchTileResponse {
     pub collider_mesh: Option<MeshColliderData>,
     pub from_cache: bool,
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_fetch_tile_response_serde_round_trip() {
+        let resp = FetchTileResponse {
+            tile_id: "tile_02".to_string(),
+            glb_bytes: vec![1, 2, 3],
+            collider_mesh: Some(MeshColliderData {
+                vertices: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+                indices: vec![[0, 1, 2]],
+            }),
+            from_cache: false,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let back: FetchTileResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(serde_json::to_string(&back).unwrap(), json);
+    }
+}

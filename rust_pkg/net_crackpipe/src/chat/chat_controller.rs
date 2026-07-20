@@ -391,3 +391,124 @@ pub trait IChatRoomRaw: Send + Sync + 'static + std::fmt::Debug {
     async fn join_peers(&self, peers: Vec<NodeId>) -> anyhow::Result<()>;
     async fn shutdown(&self) -> anyhow::Result<()>;
 }
+
+// Living-guard regression tests (native only: they need a tokio runtime and
+// multi-task scheduling). Both target past production trouble:
+//  1. chatcontroller-lifetime-footgun: a `ChatController` must be owned for the
+//     room's whole life — cloning the sender/receiver does NOT keep the
+//     dispatch/presence tasks alive; dropping the last controller aborts them
+//     (`AbortOnDropHandle`) and the room silently dies.
+//  2. multiplayer-gossip-join-peers: high-rate gossip rooms need `join_peers`,
+//     not bootstrap-only relay, so the sender must expose it end-to-end.
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use crate::chat::chat_ticket::ChatTicket;
+    use crate::user_identity::UserIdentitySecrets;
+    use std::collections::BTreeSet;
+    use std::sync::Mutex;
+
+    #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+    struct TestRoomType;
+    impl IChatRoomType for TestRoomType {
+        type M = String;
+        type P = String;
+        fn default_presence() -> String {
+            "online".to_string()
+        }
+    }
+
+    #[derive(Debug, Default)]
+    struct FakeRoomRaw {
+        broadcast_log: Mutex<Vec<Vec<u8>>>,
+        joined_peers: Mutex<Vec<NodeId>>,
+    }
+
+    #[async_trait::async_trait]
+    impl IChatRoomRaw for FakeRoomRaw {
+        async fn broadcast_message(&self, message: Vec<u8>) -> anyhow::Result<()> {
+            self.broadcast_log.lock().unwrap().push(message);
+            Ok(())
+        }
+        async fn direct_message(
+            &self,
+            _to: NodeIdentity,
+            _message: Vec<u8>,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+        async fn next_message(&self) -> anyhow::Result<Option<Arc<Vec<u8>>>> {
+            // No inbound traffic: pend forever so the dispatch task stays alive.
+            futures::future::pending::<()>().await;
+            unreachable!()
+        }
+        async fn join_peers(&self, peers: Vec<NodeId>) -> anyhow::Result<()> {
+            self.joined_peers.lock().unwrap().extend(peers);
+            Ok(())
+        }
+        async fn shutdown(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn make_controller() -> (ChatController<TestRoomType>, Arc<FakeRoomRaw>) {
+        let raw = Arc::new(FakeRoomRaw::default());
+        let node_secret_key = iroh::SecretKey::generate(rand::thread_rng());
+        let user_secrets = UserIdentitySecrets::generate();
+        let node_identity = NodeIdentity::new(
+            *user_secrets.user_identity(),
+            node_secret_key.public(),
+            None,
+        );
+        let message_signer = MessageSigner {
+            node_secret_key: Arc::new(node_secret_key),
+            user_secrets: Arc::new(user_secrets),
+            node_identity: Arc::new(node_identity),
+        };
+        let ticket = ChatTicket::new_str_bs("test-room", BTreeSet::new());
+        let controller = ChatController::new(
+            ticket,
+            raw.clone(),
+            message_signer,
+            SleepManager::new(),
+            node_identity,
+        );
+        (controller, raw)
+    }
+
+    #[tokio::test]
+    async fn regression_controller_lifetime_footgun() {
+        let (controller, raw) = make_controller();
+        // Cloning the sender is fine *while the controller is alive*...
+        let sender = controller.sender();
+        let sent = sender
+            .broadcast_message("hello".to_string())
+            .await
+            .expect("send should work while the controller is alive");
+        assert_eq!(sent.message, "hello");
+        // ...and the bytes on the wire are a valid signed ChatMessage.
+        let log = raw.broadcast_log.lock().unwrap();
+        assert_eq!(log.len(), 1);
+        let wire =
+            SignedMessage::verify_and_decode::<ChatMessage<TestRoomType>>(&log[0]).unwrap();
+        assert!(matches!(wire.message, ChatMessage::Message(ref m) if m == "hello"));
+        drop(log);
+        // The room is only alive because `controller` is still owned here:
+        // its `_dispatch_task`/`_presence_task` are AbortOnDropHandle, so
+        // dropping the last controller clone kills the room even if senders
+        // or receivers are still around. Keep controllers for the room's life!
+        drop(controller);
+    }
+
+    #[tokio::test]
+    async fn regression_join_peers_reaches_room() {
+        let (controller, raw) = make_controller();
+        let sender = controller.sender();
+        let peer = iroh::SecretKey::generate(rand::thread_rng()).public();
+        sender
+            .join_peers(vec![peer])
+            .await
+            .expect("join_peers should reach the raw room");
+        assert_eq!(raw.joined_peers.lock().unwrap().as_slice(), &[peer]);
+    }
+}

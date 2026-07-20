@@ -354,3 +354,36 @@ pub fn project_point(
         &coord_res.rot_matrix,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_geo_coordinate_invariants() {
+        // Root octant "02" covers the south-west quadrant of the globe.
+        let bb = octant_path_to_geobbox("02").unwrap();
+        assert_eq!(bb.north, 0.0);
+        assert_eq!(bb.south, -90.0);
+        assert_eq!(bb.west, -180.0);
+        assert_eq!(bb.east, -90.0);
+        assert!(bb.contains(-45.0, -135.0));
+        assert!(!bb.contains(45.0, -135.0));
+
+        // Too-short or unknown paths yield None.
+        assert!(octant_path_to_geobbox("0").is_none());
+        assert!(octant_path_to_geobbox("99").is_none());
+
+        // Equator / prime meridian maps to (earth_radius, 0, 0).
+        let p = lat_lon_to_ecef(0.0, 0.0);
+        assert!((p.x - 6378137.0).abs() < 1.0);
+        assert!(p.y.abs() < 1e-3);
+        assert!(p.z.abs() < 1e-3);
+
+        // Any lat/lon lands at roughly earth radius from the origin.
+        let q = lat_lon_to_ecef(52.52, 13.405);
+        assert!((q.length() - 6378137.0).abs() < 30_000.0);
+    }
+}

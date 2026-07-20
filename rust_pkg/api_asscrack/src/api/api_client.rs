@@ -103,3 +103,46 @@ impl ApiClient {
         ret.map_err(|e| anyhow::anyhow!("{e}"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        api::api_worker_declarations::{WorkerApiGroup2, WorkerPing},
+        crack_worker::api_worker::{compute_response_message, make_api_mapping},
+    };
+
+    // In-process worker: drains requests and answers them via the API mapping.
+    fn start_test_worker() -> WorkerPipe {
+        let (req_tx, mut req_rx) = tokio::sync::mpsc::channel::<WorkerMessage>(1024);
+        let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<WorkerMessage>(1024);
+        let mapping = make_api_mapping(vec![Arc::new(WorkerApiGroup2)]);
+        _crack_utils::spawn(async move {
+            while let Some(req) = req_rx.recv().await {
+                let resp = compute_response_message(req, mapping.clone()).await;
+                let _ = resp_tx.send(resp).await;
+            }
+        });
+        WorkerPipe { req_tx, resp_rx }
+    }
+
+    async fn call_worker_ping_body() {
+        let client = ApiClient::new(start_test_worker());
+        client
+            .call::<WorkerPing>(())
+            .await
+            .expect("WorkerPing call should succeed");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn smoke_call_worker_ping() {
+        call_worker_ping_body().await;
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn smoke_call_worker_ping() {
+        call_worker_ping_body().await;
+    }
+}

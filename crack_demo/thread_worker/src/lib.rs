@@ -35,3 +35,16 @@ pub async fn run_bootstrap_if_needed() -> anyhow::Result<()> {
     )
     .await
 }
+
+#[cfg(test)]
+mod tests {
+    use crack::api_asscrack::api::{api_client::ApiClient, api_worker_declarations::WorkerPing};
+
+    #[tokio::test]
+    async fn smoke_spawn_in_process_worker_ping() -> anyhow::Result<()> {
+        let pipe = crate::spawn_in_process_worker().await?;
+        let c = ApiClient::new(pipe);
+        c.call::<WorkerPing>(()).await?;
+        Ok(())
+    }
+}

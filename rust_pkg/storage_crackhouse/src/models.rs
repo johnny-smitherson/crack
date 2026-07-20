@@ -330,8 +330,11 @@ macro_rules! declare_model_group {
     }
 }
 
-#[allow(unused_imports, unused, dead_code)]
-mod test {
+// Native-only: exercises the real rusqlite file-backed connection directly.
+// The wasm/OPFS-backed equivalent lives in `lib.rs` (needs a browser + an
+// `install_opfs_sahpool()` call before the VFS is registered).
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
 
     use std::sync::Arc;
 

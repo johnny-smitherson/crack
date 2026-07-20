@@ -117,3 +117,38 @@ fn _get_impls2(grps: Vec<Arc<dyn ApiGroupImpls>>) -> Vec<ApiMethodImpl> {
     }
     v
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::{
+        api_method_macros::ApiMethodDecl,
+        api_worker_declarations::{WorkerApiGroup2, WorkerPing},
+    };
+
+    async fn dispatch_worker_ping_body() {
+        let mapping = make_api_mapping(vec![Arc::new(WorkerApiGroup2)]);
+        let req = WorkerMessage {
+            msg_id: 42,
+            msg_type: <WorkerPing as ApiMethodDecl>::fullname(),
+            msg_content: postcard::to_stdvec(&()).unwrap(),
+        };
+        let resp = compute_response_message(req, mapping).await;
+        assert_eq!(resp.msg_id, 42);
+        assert_eq!(resp.msg_type, "return");
+        let ret: Result<(), String> = postcard::from_bytes(&resp.msg_content).unwrap();
+        assert!(ret.is_ok(), "WorkerPing returned err: {ret:?}");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn smoke_compute_response_message_worker_ping() {
+        dispatch_worker_ping_body().await;
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    async fn smoke_compute_response_message_worker_ping() {
+        dispatch_worker_ping_body().await;
+    }
+}

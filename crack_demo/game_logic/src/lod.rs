@@ -537,3 +537,27 @@ pub async fn compute_lod_changes(
         culled_nodes,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_compute_distance_to_aabb() {
+        let bbox = BBox {
+            min: Vec3::new(0.0, 0.0, 0.0),
+            max: Vec3::new(2.0, 2.0, 2.0),
+        };
+        // Center of the box: zero distance to surface and to middle.
+        assert_eq!(
+            compute_distance_to_aabb(&bbox, Vec3::new(1.0, 1.0, 1.0)),
+            0.0
+        );
+        // Outside point: average of surface distance and middle distance.
+        // p = (4,1,1): surface distance 2, middle distance 3 -> (2 + 3) / 2.
+        let d = compute_distance_to_aabb(&bbox, Vec3::new(4.0, 1.0, 1.0));
+        assert!((d - 2.5).abs() < 1e-6);
+    }
+}

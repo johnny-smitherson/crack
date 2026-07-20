@@ -1,1 +1,0 @@
-https://github.com/justinrubek/wasm-bindgen-service-worker/tree/main/crates/worker

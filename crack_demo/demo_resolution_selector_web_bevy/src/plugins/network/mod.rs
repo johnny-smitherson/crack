@@ -167,8 +167,13 @@ fn install_network_setup(
     mut commands: Commands,
     setup_state: Res<NetworkSetupState>,
     #[cfg(not(target_family = "wasm"))] rt: Option<Res<NetworkRuntime>>,
-    proxy_wrapper: Res<EventLoopProxyWrapper>,
+    // `None` when there is no winit event loop (e.g. the headless test app) —
+    // there is nothing to wake up, so just skip network setup entirely.
+    proxy_wrapper: Option<Res<EventLoopProxyWrapper>>,
 ) {
+    let Some(proxy_wrapper) = proxy_wrapper else {
+        return;
+    };
     let mut guard = setup_state.slot.lock().unwrap();
     if let Some(res) = guard.take() {
         match res {

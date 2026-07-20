@@ -174,3 +174,55 @@ pub struct SqlResultSet {
 pub struct SqlResultRow {
     pub cols: Vec<DbValue>,
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_db_value_serde_roundtrip() {
+        let values = vec![
+            DbValue::Null,
+            DbValue::Integer(42),
+            DbValue::Real(3.14),
+            DbValue::Text("hello".into()),
+            DbValue::Blob(vec![1, 2, 3]),
+        ];
+        for v in values {
+            let json = serde_json::to_string(&v).unwrap();
+            let back: DbValue = serde_json::from_str(&json).unwrap();
+            assert_eq!(v, back);
+        }
+    }
+
+    #[test]
+    fn smoke_result_set_serde_roundtrip() {
+        let set = SqlResultSet {
+            column_names: vec!["id".into(), "name".into()],
+            rows: vec![SqlResultRow {
+                cols: vec![DbValue::Integer(1), DbValue::Text("a".into())],
+            }],
+        };
+        let json = serde_json::to_string(&set).unwrap();
+        let back: SqlResultSet = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.column_names, set.column_names);
+        assert_eq!(back.rows.len(), 1);
+        assert_eq!(back.rows[0].cols[0], DbValue::Integer(1));
+    }
+
+    #[test]
+    fn smoke_db_value_conversions() {
+        assert_eq!(DbValueType::Integer.to_sql_str(), "Integer");
+        assert_eq!(DbValueType::Text.to_sql_str(), "Text");
+
+        let i: i64 = DbValue::Integer(7).try_into().unwrap();
+        assert_eq!(i, 7);
+
+        let none: Option<String> = DbValue::Null.try_into().unwrap();
+        assert_eq!(none, None);
+
+        assert!(i64::try_from(DbValue::Text("x".into())).is_err());
+    }
+}

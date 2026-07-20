@@ -60,6 +60,11 @@ pub fn update_mouse_capture(
     keys: Res<ButtonInput<KeyCode>>,
     mut contexts: bevy_egui::EguiContexts,
 ) {
+    // No primary window (e.g. the headless test app) — nothing to grab/show.
+    let Ok((mut window, mut cursor_options)) = q_window.single_mut() else {
+        return;
+    };
+
     let current_state = *state.get();
     let is_grab_mode = matches!(
         current_state,
@@ -99,7 +104,6 @@ pub fn update_mouse_capture(
         }
 
         // Apply grab and visibility to the primary window
-        let (mut window, mut cursor_options) = q_window.single_mut().unwrap();
         if capture_state.is_captured {
             let grab_mode = bevy::window::CursorGrabMode::Locked;
             if cursor_options.grab_mode != grab_mode {
@@ -123,7 +127,6 @@ pub fn update_mouse_capture(
     } else {
         // Not in a grab state
         capture_state.is_captured = false;
-        let (_window, mut cursor_options) = q_window.single_mut().unwrap();
         let grab_mode = bevy::window::CursorGrabMode::None;
         if cursor_options.grab_mode != grab_mode {
             cursor_options.grab_mode = grab_mode;

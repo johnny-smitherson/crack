@@ -60,6 +60,27 @@ pub async fn sql_query(sql: SQLAndParams) -> anyhow::Result<SqlResultSet> {
     Ok(r)
 }
 
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use crate::types::DbValue;
+
+    #[tokio::test]
+    async fn smoke_sql_query_literal_select() {
+        let result = sql_query(SQLAndParams {
+            sql: "SELECT 1 AS x, 'hello' AS y".to_string(),
+            params: vec![],
+        })
+        .await
+        .expect("sql_query on a literal SELECT should succeed");
+
+        assert_eq!(result.column_names, vec!["x".to_string(), "y".to_string()]);
+        assert_eq!(result.rows.len(), 1);
+        assert_eq!(result.rows[0].cols[0], DbValue::Integer(1));
+        assert_eq!(result.rows[0].cols[1], DbValue::Text("hello".to_string()));
+    }
+}
+
 // impl SqlResultSet {
 //     pub fn deserialize<T: DeserializeOwned>(&self) -> anyhow::Result<Vec<T>> {
 //         let mut objs = vec![];

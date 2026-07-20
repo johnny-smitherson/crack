@@ -31,3 +31,17 @@ pub async fn execute_sql2(sql: String) -> anyhow::Result<SqlResultSet> {
 pub async fn execute_sql_params(req: SQLAndParams) -> anyhow::Result<SqlResultSet> {
     crate::impl_rusqulite::sql_query(req).await
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn smoke_execute_sql2_literal_select() {
+        let result = execute_sql2("SELECT 41 + 1 AS answer".to_string())
+            .await
+            .expect("execute_sql2 on a literal SELECT should succeed");
+        assert_eq!(result.column_names, vec!["answer".to_string()]);
+        assert_eq!(result.rows[0].cols[0], crate::types::DbValue::Integer(42));
+    }
+}

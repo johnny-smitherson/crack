@@ -19,11 +19,11 @@ getrandom = {version="0.4.2", features=["wasm_js"]}
 # wasm-bindgen-futures= {workspace=true}
 # gloo-timers ={version= "0.3.0", features = ["futures"]}
 
-
-
-
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 tokio.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
 
 [lints]
 workspace = true

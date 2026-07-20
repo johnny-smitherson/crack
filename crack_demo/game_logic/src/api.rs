@@ -18,3 +18,20 @@ declare_api_group2! { GameLogicApiGroup, [
     (FetchWeaponManifest, FetchArgs, crate::weapon::WeaponManifestResult),
     (FetchWeaponModel, crate::glb::FetchGlbRequest, crate::glb::FetchGlbResponse),
 ] }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
+
+    #[test]
+    fn smoke_fetch_args_serde_round_trip() {
+        let args = FetchArgs {
+            base_url: "http://localhost:8080".to_string(),
+        };
+        let json = serde_json::to_string(&args).unwrap();
+        let back: FetchArgs = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.base_url, args.base_url);
+    }
+}
