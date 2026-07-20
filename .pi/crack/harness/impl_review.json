@@ -1,5 +1,5 @@
 {
   "models": {
-    "reviewer": "nvidia/nemotron-3-ultra-550b-a55b"
+    "reviewer": "nvidia/z-ai/glm-5.2"
   }
 }

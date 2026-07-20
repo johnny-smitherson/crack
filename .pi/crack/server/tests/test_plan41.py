@@ -248,18 +248,67 @@ def test_broken_error_recorder_never_wedges_retries(fake_pi, tmp_path):
     assert fake_pi.invocations() == 1 + len(ratelimit.HARD_RETRY_DELAYS)
 
 
-def test_hard_backoff_schedule_is_1_3_9_27(monkeypatch):
+# ---------------------------------------------------------------------------
+# Terminal-aware exit grace — no phantom SIGKILL after agent_end
+# ---------------------------------------------------------------------------
+
+
+def test_terminal_linger_past_grace_is_not_sigkill(fake_pi, tmp_path, monkeypatch):
+    # Fake pi emits agent_end then sleeps longer than EXIT_GRACE_SECONDS.
+    # The harness must detach (not SIGKILL) and must not record "pi exited -9".
+    monkeypatch.setattr(pi_proc, "EXIT_GRACE_SECONDS", 0.4)
+    fake_pi.set_script(["linger:2"])
+    errors: list[dict] = []
+    reason, turns = run_hop(
+        tmp_path,
+        record_error=lambda e: errors.append(e) or len(errors),
+    )
+    assert reason == "agent_end"
+    assert len(turns) == 1
+    assert turns[0]["text"] == "done, lingering (invocation 1)"
+    assert fake_pi.invocations() == 1
+    assert errors == []
+    assert not any("pi exited -9" in (e.get("message") or "") for e in errors)
+
+
+def test_nonzero_exit_without_terminal_still_retries(fake_pi, tmp_path):
+    # Guards the not-sink.terminal branch: a hard crash with no agent_end must
+    # still count as failed and be retried (not short-circuited by terminality).
+    fake_pi.set_script(["hard", "turns:1"])
+    errors: list[dict] = []
+    reason, turns = run_hop(
+        tmp_path,
+        record_error=lambda e: errors.append(e) or len(errors),
+    )
+    assert reason == "agent_end"
+    assert len(turns) == 1
+    assert fake_pi.invocations() == 2
+    assert len(errors) == 1
+    assert errors[0]["message"] == "pi exited 1"
+    assert errors[0]["rc"] == 1
+
+
+def test_hard_backoff_schedule_matches_hard_retry_delays(monkeypatch):
     sleeps: list[float] = []
 
     async def fake_sleep(delay: float) -> None:
         sleeps.append(delay)
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
-    for streak in (0, 1, 2, 3, 4, 5):
+    # Cover a progress-reset streak of 0, every indexed delay, and one past the
+    # end (clamps at the last HARD_RETRY_DELAYS entry).
+    streaks = list(range(0, len(ratelimit.HARD_RETRY_DELAYS) + 2))
+    for streak in streaks:
         asyncio.run(ratelimit._async_hard_backoff_sleep(streak))
-    # streak 1..4 → [1,3,9,27]; a progress-reset streak of 0 maps to index 0
-    # (1s); anything past the end clamps at 27s.
-    assert sleeps == [1.0, 1.0, 3.0, 9.0, 27.0, 27.0]
+    # streak 0 → index 0 (1s); streak k → HARD_RETRY_DELAYS[k-1]; past end clamps.
+    expected = [
+        ratelimit.HARD_RETRY_DELAYS[
+            max(0, min(s - 1, len(ratelimit.HARD_RETRY_DELAYS) - 1))
+        ]
+        for s in streaks
+    ]
+    assert sleeps == expected
+    assert sleeps == [1.0, 1.0, 3.0, 6.0, 9.0, 16.0, 27.0, 27.0]
 
 
 def test_no_progress_streak_resets_on_progress(fake_pi, tmp_path, monkeypatch):
@@ -321,9 +370,11 @@ def test_run_pi_text_records_each_failed_attempt(fake_pi):
             model="moonshotai/x",
             record_error=lambda e: errors.append(e) or len(errors),
         )
-    # One durable error row per failed attempt; the schedule itself is unchanged.
+    # One durable error row per failed attempt (PI_RETRY_ATTEMPTS total).
     assert len(errors) == pi_runner.PI_RETRY_ATTEMPTS
-    assert [e["attempt"] for e in errors] == [1, 2, 3, 4]
+    assert [e["attempt"] for e in errors] == list(
+        range(1, pi_runner.PI_RETRY_ATTEMPTS + 1)
+    )
     assert all(e["message"] == "pi exited 1" for e in errors)
     assert all(e["phase"] == "t" for e in errors)
 

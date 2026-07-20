@@ -129,6 +129,12 @@ def _record_attempt_error(record_error, entry: dict, log_prefix: str) -> int:
 # Idle-poll cadence of the file-tailing stream loop.
 TAIL_POLL_SECONDS = 0.2
 
+# After a hop's event stream ends, wait this long for the pi *process* to exit
+# before deciding what to do. A terminal event (agent_end / sentinel / time_cap)
+# means pi is only lingering on MCP teardown — never SIGKILL it. A non-terminal
+# hang still gets killed after this grace (see ``_attempt_once`` finally).
+EXIT_GRACE_SECONDS = 8
+
 # The manifest keeps the attempt message for debugging; compiled prompts can
 # be huge, so it is truncated.
 MANIFEST_MESSAGE_MAX_CHARS = 4000
@@ -757,16 +763,30 @@ async def _attempt_once(p: _HopParams, attempt_idx: int, attempt_message: str) -
     finally:
         if not detached:
             try:
-                await asyncio.wait_for(proc.wait(), timeout=5)
+                await asyncio.wait_for(proc.wait(), timeout=EXIT_GRACE_SECONDS)
             except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
+                if sink.terminal:
+                    # Terminal event already fired: pi is lingering on MCP
+                    # client teardown. Do not SIGKILL — leave it running
+                    # (tini / PID 1 reaps it). returncode stays None (= clean).
+                    logger.info(
+                        "%s hop %d: pi pid %d still alive %.0fs after terminal "
+                        "event; detaching (no SIGKILL)",
+                        p.log_prefix, p.hop, proc.pid, EXIT_GRACE_SECONDS,
+                    )
+                else:
+                    proc.kill()
+                    await proc.wait()
             if p.pid_file is not None:
                 try:
                     p.pid_file.unlink()
                 except OSError:
                     pass
-            crashed = not sink.terminated_by_us and proc.returncode not in (0, None)
+            crashed = (
+                not sink.terminated_by_us
+                and not sink.terminal
+                and proc.returncode not in (0, None)
+            )
             sink.manifest.update({
                 "offset": sink.offset,
                 "status": "crashed" if crashed else "done",
@@ -791,6 +811,7 @@ async def _attempt_once(p: _HopParams, attempt_idx: int, attempt_message: str) -
     return {
         "reason": sink.reason,
         "terminated_by_us": sink.terminated_by_us,
+        "terminal": sink.terminal,
         "returncode": proc.returncode,
         "persisted": sink.persisted,
         "detail": _compose_detail("\n".join(sink.output_tail), "\n".join(sink.stderr_tail)),
@@ -848,6 +869,7 @@ async def _reattach_attempt(
     return {
         "reason": sink.reason,
         "terminated_by_us": sink.terminated_by_us,
+        "terminal": sink.terminal,
         # Unknown rc for a re-attached process: a terminal event is a clean
         # end (None); anything else is treated as a crash so it is retried.
         "returncode": None if sink.terminal else -1,
@@ -921,7 +943,14 @@ async def _run_hop_with_retries(
             res = await _attempt_once(p, total_attempts, attempt_message)
         total_attempts += 1
 
-        failed = not res["terminated_by_us"] and res["returncode"] not in (0, None)
+        # A terminal stream (agent_end / sentinel / time_cap) is a clean hop
+        # end even when the process linger-detaches (rc None) or exits nonzero
+        # during teardown — never treat that as a crash to retry.
+        failed = (
+            not res["terminated_by_us"]
+            and not res["terminal"]
+            and res["returncode"] not in (0, None)
+        )
         if not failed:
             # A clean exit that persisted no real turns means the model returned
             # only content-less responses: an "empty" attempt, retried like a

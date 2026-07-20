@@ -14,6 +14,8 @@
 #   sentinel:STR   emit one turn ending with STR on its own line, then agent_end
 #   inline:STR     emit one turn with STR embedded mid-line, then agent_end
 #   sleepy:N       emit one turn, sleep N seconds, then agent_end
+#   linger:N       emit one turn + agent_end, then sleep N seconds before exit
+#                  (MCP-teardown linger: harness must not SIGKILL after terminal)
 #   turnsgap:N:M   emit N turns with M seconds between each, then agent_end
 #   transient      print a transient-looking error to stderr and exit 1
 #   midfail:N      emit N turns, then print "connection reset" and exit 1
@@ -67,6 +69,26 @@ $arg"
     emit_turn "about to nap (invocation $n)"
     sleep "$arg"
     printf '{"type":"agent_end"}\n'
+    ;;
+  linger)
+    # agent_end first, then linger — mirrors a real pi that finished the run
+    # but is still tearing down MCP clients. Emit + flush via python so the
+    # harness sees the terminal event before we sleep (bash stdout is fully
+    # buffered when redirected to the hop output file).
+    python3 -c '
+import json, sys, time
+n, arg = int(sys.argv[1]), float(sys.argv[2])
+text = json.dumps(f"done, lingering (invocation {n})")
+sys.stdout.write("{\"type\":\"turn_start\"}\n")
+sys.stdout.write(
+    "{\"type\":\"message_end\",\"message\":{\"role\":\"assistant\","
+    "\"content\":[{\"type\":\"text\",\"text\":%s}]}}\n" % text
+)
+sys.stdout.write("{\"type\":\"turn_end\"}\n")
+sys.stdout.write("{\"type\":\"agent_end\"}\n")
+sys.stdout.flush()
+time.sleep(arg)
+' "$n" "$arg"
     ;;
   turnsgap)
     count="${arg%%:*}"
