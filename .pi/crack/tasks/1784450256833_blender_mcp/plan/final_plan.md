@@ -1,24 +1,48 @@
 # Plan
 
-## Initial build/check instructions
+## Initial build/check instructions (run inside container)
 ```bash
-# Build the Docker image (from repo root)
-cd /workspace
-./_docker/build.sh
+# Inside container: verify base tools and install Blender + blender-mcp
+blender --version 2>&1 || echo 'blender not installed'
+xvfb-run --version 2>&1 || echo 'xvfb not installed'
+pip show blender-mcp 2>&1 || echo 'blender-mcp not installed'
 
-# Run the container (from repo root)
-./_docker/run.sh
+# Install Blender 5.1.2, xvfb, blender-mcp, and addon directly in container
+apt-get update && apt-get install -y --no-install-recommends \
+    xvfb \
+    libgl1-mesa-glx \
+    libxi6 \
+    libxrender1 \
+    libxxf86vm1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Verify existing services are up
-curl -s http://localhost:9847/api/tasks      # crack-server
-curl -s http://localhost:9930/mcp           # playwright-mcp (firefox)
-curl -s http://localhost:9931/sse           # chrome-devtools-mcp (via supergateway)
-curl -s http://localhost:9932/sse           # web-search-mcp (via supergateway)
+# Download and install Blender 5.1.2
+BLENDER_VERSION=5.1.2
+BLENDER_SHA256=aaccb355f50183979b698bcce7467103a76261b5fa59f4972295842662a285fb
+BLENDER_URL=https://download.blender.org/release/Blender5.1/blender-5.1.2-linux-x64.tar.xz
 
-# Inside container: verify base tools
-docker exec crack-dev /bin/bash -exc "blender --version 2>&1 || echo 'blender not installed'"
-docker exec crack-dev /bin/bash -exc "xvfb-run --version 2>&1 || echo 'xvfb not installed'"
-docker exec crack-dev /bin/bash -exc "pip show blender-mcp 2>&1 || echo 'blender-mcp not installed'"
+cd /opt \
+    && wget -q "${BLENDER_URL}" -O blender.tar.xz \
+    && echo "${BLENDER_SHA256}  blender.tar.xz" | sha256sum -c - \
+    && tar -xf blender.tar.xz \
+    && mv blender-${BLENDER_VERSION}-linux-x64 blender-${BLENDER_VERSION} \
+    && ln -sf /opt/blender-${BLENDER_VERSION}/blender /usr/local/bin/blender \
+    && rm blender.tar.xz
+
+# Install blender-mcp (provides MCP server CLI + addon.py)
+pip install --no-cache-dir --break-system-packages blender-mcp==1.6.4
+
+# Install blender-mcp addon for Blender 5.1
+# The addon module must be named 'blendermcp.py' to match bl_info["name"] = "Blender MCP"
+BLENDER_ADDON_DIR="/root/.config/blender/5.1/scripts/addons"
+mkdir -p "${BLENDER_ADDON_DIR}"
+python3 -c "import blender_mcp; import os; print(os.path.dirname(blender_mcp.__file__))" | xargs -I{} cp {}/addon.py "${BLENDER_ADDON_DIR}/blendermcp.py"
+
+# Verify installations
+blender --version
+xvfb-run --version
+pip show blender-mcp
+ls -la /root/.config/blender/5.1/scripts/addons/blendermcp.py
 ```
 
 ## Problem statement
@@ -283,36 +307,33 @@ if __name__ == "__main__":
 
 ## Automatic verification
 ```bash
-# 1. Rebuild and restart container
+# 1. Start container services (if not already running)
 cd /workspace
-./_docker/build.sh
-./_docker/run.sh
+./_docker/_cont_start.sh &
+sleep 10
 
-# 2. Wait for services to stabilize (~15s)
-sleep 15
+# 2. Check Blender process and ports
+ps aux | grep -E '(blender|Xvfb)' | grep -v grep
+ss -ltn | grep -E '9876|9877'
 
-# 3. Check Blender process and ports
-docker exec crack-dev /bin/bash -exc "ps aux | grep -E '(blender|Xvfb)' | grep -v grep"
-docker exec crack-dev /bin/bash -exc "ss -ltn | grep -E '9876|9877'"
-
-# 4. Test MCP HTTP endpoint (port 9877)
+# 3. Test MCP HTTP endpoint (port 9877)
 curl -s -X POST http://localhost:9877/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}'
 
-# 5. Run verification script (inside container)
-docker exec crack-dev /bin/bash -exc "cd /workspace && python3 _docker/verify_blender_mcp.py"
+# 4. Run verification script (inside container)
+cd /workspace && python3 _docker/verify_blender_mcp.py
 
-# 6. Verify output file exists and is valid
-docker exec crack-dev /bin/bash -exc "ls -la /workspace/tmp/test.blend && blender -b /workspace/tmp/test.blend --python-expr \"import bpy; print([o.name for o in bpy.data.objects])\""
+# 5. Verify output file exists and is valid
+ls -la /workspace/tmp/test.blend && blender -b /workspace/tmp/test.blend --python-expr "import bpy; print([o.name for o in bpy.data.objects])"
 ```
 
 ---
 
 ## Manual verification
 1. **Host browser:** Open `http://localhost:9877/mcp` — should show MCP endpoint responding
-2. **Container logs:** `docker logs crack-dev -f | grep -E '(blender|Xvfb|blender-mcp)'` — verify Blender starts, addon loads, server binds 9876
-3. **Blender file inspection:** `docker exec crack-dev blender -b /workspace/tmp/test.blend --python-expr "import bpy; print('Objects:', [o.name for o in bpy.data.objects]); print('Mesh:', [m.name for m in bpy.data.meshes])"` — should show `TestSphere` with UV sphere mesh
+2. **Container logs:** `tail -f /workspace/_docker/logs/*.log | grep -E '(blender|Xvfb|blender-mcp)'` — verify Blender starts, addon loads, server binds 9876
+3. **Blender file inspection:** `blender -b /workspace/tmp/test.blend --python-expr "import bpy; print('Objects:', [o.name for o in bpy.data.objects]); print('Mesh:', [m.name for m in bpy.data.meshes])"` — should show `TestSphere` with UV sphere mesh
 4. **MCP tool call via pi:** In the web UI (http://localhost:9847), create a task and use the chat to ask pi to call `execute_blender_code` — verify it works through the stdio MCP path too
 
 ---
