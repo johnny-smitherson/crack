@@ -54,6 +54,7 @@ cp /workspace/.mcp.json /root/.config/mcp/mcp.json
 #   firefox     : http://<host>:9930/mcp   (Streamable HTTP)
 #   chromium    : http://<host>:9931/sse   (SSE)
 #   web-search  : http://<host>:9932/sse   (SSE)
+#   blender     : http://<host>:9877/mcp   (Streamable HTTP, native)
 export MCP_FIREFOX_PORT=9930
 export MCP_CHROMIUM_PORT=9931
 export MCP_WEBSEARCH_PORT=9932
@@ -88,38 +89,34 @@ respawn web-search-fwd \
 # --------------------------------------------------------------------------
 
 # --- Blender MCP (ports 9876 addon socket, 9877 HTTP) ---------------------
-# Blender addon runs inside Blender (xvfb) on TCP 9876.
-# blender-mcp MCP server (stdio) connects to it; we bridge via supergateway to HTTP :9877.
+# Blender addon runs inside Blender (Xvfb) on TCP 9876; blender-mcp serves HTTP on 9877.
 export BLENDER_ADDON_PORT=9876
 export MCP_BLENDER_HTTP_PORT=9877
 export BLENDER_HOST=127.0.0.1
 export BLENDER_PORT=9876
+export DISABLE_TELEMETRY=true
+# /root is a named volume — sync addon from image path every boot (like mcp.json above).
+BLENDER_ADDON_DIR="/root/.config/blender/5.1/scripts/addons"
+mkdir -p "${BLENDER_ADDON_DIR}"
+rm -f "${BLENDER_ADDON_DIR}/blender_mcp.py"
+cp /opt/blender_mcp_addon.py "${BLENDER_ADDON_DIR}/blendermcp.py"
 # Force X11 backend, disable Wayland
 export QT_QPA_PLATFORM=offscreen
 export WAYLAND_DISPLAY=""
 export DISPLAY=:99
 
-# Start Xvfb on display :99
+# Start Xvfb on display :99 (one display for all Blender respawns — not xvfb-run per launch)
 Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +extension RANDR +extension RENDER >/workspace/.pi/crack/harness/mcp-http/xvfb.log 2>&1 &
 
-# Wait for Xvfb to be ready
 sleep 2
 
-# Start Blender with the addon enabled via --addons flag (auto-starts server on port 9876)
-# The addon's auto_start_server defaults to True and uses blendermcp_port (default 9876)
-# Use the already-running Xvfb on :99 (don't use xvfb-run which would start another)
-respawn blender
+respawn blender \
     blender --noaudio --addons blendermcp
 
-# Give Blender time to start the socket server
 sleep 5
 
-# Bridge blender-mcp MCP server (stdio) to HTTP on port 9877 via supergateway
 respawn blender-mcp \
-    npx -y supergateway --cors --port "$((MCP_BLENDER_HTTP_PORT + 10000))" \
-        --stdio "uvx --python 3.11 blender-mcp"
-respawn blender-mcp-fwd \
-    python3 /workspace/_docker/tcp_forward.py "${MCP_BLENDER_HTTP_PORT}" 127.0.0.1 "$((MCP_BLENDER_HTTP_PORT + 10000))"
+    python3 -c "from blender_mcp.server import mcp; mcp.settings.host='0.0.0.0'; mcp.settings.port=${MCP_BLENDER_HTTP_PORT}; mcp.settings.stateless_http=True; mcp.settings.json_response=True; mcp.run(transport='streamable-http')"
 # --------------------------------------------------------------------------
 
 # Single process: the queue worker runs inside the server (uvicorn app lifespan,

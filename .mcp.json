@@ -37,8 +37,7 @@
       ]
     },
     "blender": {
-      "command": "uvx",
-      "args": ["--python", "3.11", "blender-mcp"],
+      "command": "blender-mcp",
       "env": {
         "BLENDER_HOST": "localhost",
         "BLENDER_PORT": "9876",

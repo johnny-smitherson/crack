@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     imagemagick \
     xvfb \
-    libgl1-mesa-glx \
+    libgl1 \
     libxi6 \
     libxrender1 \
     libxxf86vm1 \
@@ -24,19 +24,16 @@ RUN cd /opt \
     && ln -sf /opt/blender-${BLENDER_VERSION}/blender /usr/local/bin/blender \
     && rm blender.tar.xz
 
-# Install blender-mcp (provides MCP server CLI + addon.py)
+# Install blender-mcp (MCP server CLI; Blender addon is vendored separately)
 # Use --break-system-packages since container is isolated
 RUN pip install --no-cache-dir --break-system-packages blender-mcp==1.6.4
 
-# Install blender-mcp addon for Blender 5.1
-# The addon module must be named 'blendermcp.py' to match bl_info["name"] = "Blender MCP"
-RUN BLENDER_ADDON_DIR="/root/.config/blender/5.1/scripts/addons" \
-    && mkdir -p "${BLENDER_ADDON_DIR}" \
-    && python3 -c "import blender_mcp; import os; print(os.path.dirname(blender_mcp.__file__))" | xargs -I{} cp {}/addon.py "${BLENDER_ADDON_DIR}/blendermcp.py"
+# Stable path for the addon (synced into /root on every boot — see _cont_start.sh)
+COPY blender_mcp_addon.py /opt/blender_mcp_addon.py
 
 VOLUME /root
 WORKDIR /workspace
 
-EXPOSE 22 9877
+EXPOSE 22 9876 9877
 
 CMD ["/usr/sbin/sshd", "-D"]

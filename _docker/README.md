@@ -157,6 +157,7 @@ serves each one over HTTP (ports published in `run.sh`):
 | firefox (playwright) | `http://localhost:9930/mcp` | Streamable HTTP (native `--host 0.0.0.0 --port`) |
 | chromium (chrome-devtools) | `http://localhost:9931/sse` | SSE via `supergateway` |
 | web-search | `http://localhost:9932/sse` | SSE via `supergateway` |
+| blender (blender-mcp) | `http://localhost:9877/mcp` | Streamable HTTP (native, stateless) |
 
 Notes / gotchas discovered while wiring this:
 - **playwright/mcp** serves HTTP natively but its default `--allowed-hosts`
@@ -177,7 +178,8 @@ Host client config example (points at the container over localhost):
   "mcpServers": {
     "firefox":    { "url": "http://localhost:9930/mcp" },
     "chromium":   { "url": "http://localhost:9931/sse" },
-    "web-search": { "url": "http://localhost:9932/sse" }
+    "web-search": { "url": "http://localhost:9932/sse" },
+    "blender":    { "url": "http://localhost:9877/mcp" }
   }
 }
 ```
@@ -230,6 +232,10 @@ answers — prefer verbatim-quoting prompts when accuracy matters.
   containers (volume initialized from image content at creation). The existing
   `crack-dev` container keeps its current `/root` volume — image rebuilds will
   NOT update it; re-run the install commands inside the live container instead.
+  **Blender MCP addon:** do not install the addon only at image build time under
+  `/root/.config/blender/...` — the volume shadows it. `_cont_start.sh` copies
+  `/opt/blender_mcp_addon.py` (from `_docker/blender_mcp_addon.py` in the repo)
+  into the volume on every boot, same rationale as syncing `.mcp.json`.
 - **stdio MCP servers are not daemons**: the pi-mcp-adapter launches them
   lazily per session (first use) and kills them afterwards. `npx -y` servers
   (chromium, firefox) are cached by npm after first run.
