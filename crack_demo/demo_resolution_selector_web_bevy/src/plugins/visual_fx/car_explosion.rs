@@ -6,24 +6,24 @@ use bevy::prelude::*;
 /// car explosion event.
 #[derive(Event, Debug, Clone)]
 pub struct CarExplosionEvent {
-/// position field.
+    /// position field.
     pub position: Vec3,
 }
 
 /// explosion flash.
 pub struct ExplosionFlash {
-/// position field.
+    /// position field.
     pub position: Vec3,
-/// elapsed field.
+    /// elapsed field.
     pub elapsed: f32,
-/// lifetime field.
+    /// lifetime field.
     pub lifetime: f32,
 }
 
 /// explosion flashes.
 #[derive(Resource, Default)]
 pub struct ExplosionFlashes {
-/// flashes field.
+    /// flashes field.
     pub flashes: Vec<ExplosionFlash>,
 }
 

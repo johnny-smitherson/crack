@@ -11,17 +11,17 @@ pub struct CameraControlsPlugin;
 /// active camera animation.
 #[derive(Resource)]
 pub struct ActiveCameraAnimation {
-/// start pos field.
+    /// start pos field.
     pub start_pos: Vec3,
-/// start rot field.
+    /// start rot field.
     pub start_rot: Quat,
-/// target pos field.
+    /// target pos field.
     pub target_pos: Vec3,
-/// target rot field.
+    /// target rot field.
     pub target_rot: Quat,
-/// elapsed field.
+    /// elapsed field.
     pub elapsed: f32,
-/// duration field.
+    /// duration field.
     pub duration: f32,
 }
 

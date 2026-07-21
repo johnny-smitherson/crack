@@ -11,15 +11,15 @@ pub const DEATH_ANIM_TIME: f32 = 2.5;
 /// Static faction roster. `Neutral` never fights and is never targeted.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Faction {
-/// neutral variant.
+    /// neutral variant.
     Neutral,
-/// red variant.
+    /// red variant.
     Red,
-/// green variant.
+    /// green variant.
     Green,
-/// blue variant.
+    /// blue variant.
     Blue,
-/// yellow variant.
+    /// yellow variant.
     Yellow,
 }
 
@@ -39,7 +39,7 @@ impl Faction {
         }
     }
 
-/// label.
+    /// label.
     pub fn label(self) -> &'static str {
         match self {
             Faction::Neutral => "Neutral",
@@ -54,7 +54,7 @@ impl Faction {
 /// Static war matrix resource. `wars` holds unordered pairs of warring factions.
 #[derive(Resource, Default)]
 pub struct WarMatrix {
-/// wars field.
+    /// wars field.
     pub wars: Vec<(Faction, Faction)>,
 }
 
@@ -97,14 +97,14 @@ impl WarMatrix {
 /// Hit points. Death handled centrally when `current <= 0`.
 #[derive(Component, Clone, Copy)]
 pub struct Health {
-/// current field.
+    /// current field.
     pub current: f32,
-/// max field.
+    /// max field.
     pub max: f32,
 }
 
 impl Health {
-/// full.
+    /// full.
     pub fn full(max: f32) -> Self {
         Self { current: max, max }
     }

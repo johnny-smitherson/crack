@@ -15,9 +15,9 @@ const MAX_HORIZON_RINGS: u8 = 4;
 /// cosmetic map tile.
 #[derive(Component)]
 pub struct CosmeticMapTile {
-/// octant path field.
+    /// octant path field.
     pub octant_path: String,
-/// bbox field.
+    /// bbox field.
     pub bbox: BBox,
 }
 

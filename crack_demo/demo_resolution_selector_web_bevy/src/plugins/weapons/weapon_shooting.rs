@@ -17,11 +17,11 @@ const REFLECT_LEN: f32 = 0.5;
 /// Ammo state for a character holding a gun. Inserted on gun equip, removed otherwise.
 #[derive(Component, Clone, Debug)]
 pub struct GunState {
-/// rounds field.
+    /// rounds field.
     pub rounds: u32,
-/// clip size field.
+    /// clip size field.
     pub clip_size: u32,
-/// gunshot sound idx field.
+    /// gunshot sound idx field.
     pub gunshot_sound_idx: usize,
     /// Seconds remaining in an active reload (0 = idle).
     pub reload_timer: f32,
@@ -61,26 +61,26 @@ pub fn tick_reload(time: Res<Time>, mut q: Query<&mut GunState>) {
 /// Fire the shooter's gun once (ammo permitting).
 #[derive(Event)]
 pub struct FireGunEvent {
-/// shooter field.
+    /// shooter field.
     pub shooter: Entity,
 }
 
 /// Refill the shooter's clip.
 #[derive(Event)]
 pub struct ReloadGunEvent {
-/// shooter field.
+    /// shooter field.
     pub shooter: Entity,
 }
 
 /// shot tracer.
 pub struct ShotTracer {
-/// from field.
+    /// from field.
     pub from: Vec3,
-/// to field.
+    /// to field.
     pub to: Vec3,
     /// End point of the short ricochet segment, when the shot hit something.
     pub reflect_to: Option<Vec3>,
-/// ttl field.
+    /// ttl field.
     pub ttl: f32,
 }
 
@@ -90,13 +90,13 @@ pub struct ShotTracers(pub Vec<ShotTracer>);
 
 /// bullet spark.
 pub struct BulletSpark {
-/// position field.
+    /// position field.
     pub position: Vec3,
-/// velocity field.
+    /// velocity field.
     pub velocity: Vec3,
-/// is person field.
+    /// is person field.
     pub is_person: bool,
-/// lifetime field.
+    /// lifetime field.
     pub lifetime: f32,
 }
 
@@ -106,11 +106,11 @@ pub struct BulletSparks(pub Vec<BulletSpark>);
 
 /// melee debug box.
 pub struct MeleeDebugBox {
-/// position field.
+    /// position field.
     pub position: Vec3,
-/// rotation field.
+    /// rotation field.
     pub rotation: Quat,
-/// ttl field.
+    /// ttl field.
     pub ttl: f32,
 }
 
@@ -453,9 +453,9 @@ pub fn draw_bullet_sparks(
 /// pending melee hit.
 #[derive(Component)]
 pub struct PendingMeleeHit {
-/// timer field.
+    /// timer field.
     pub timer: f32,
-/// is melee field.
+    /// is melee field.
     pub is_melee: bool,
 }
 

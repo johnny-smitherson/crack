@@ -17,19 +17,19 @@ use crate::plugins::{
 /// pending traffic peds.
 #[derive(Resource, Default)]
 pub struct PendingTrafficPeds {
-/// pending field.
+    /// pending field.
     pub pending: Vec<PendingTrafficPedEntry>,
 }
 
 /// pending traffic ped entry.
 pub struct PendingTrafficPedEntry {
-/// spawn pos field.
+    /// spawn pos field.
     pub spawn_pos: Vec3,
-/// path field.
+    /// path field.
     pub path: Vec<Vec3>,
-/// current seg field.
+    /// current seg field.
     pub current_seg: usize,
-/// offset sign field.
+    /// offset sign field.
     pub offset_sign: f32,
 }
 

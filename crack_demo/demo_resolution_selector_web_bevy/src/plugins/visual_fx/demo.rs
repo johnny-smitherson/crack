@@ -9,26 +9,26 @@ use bevy_egui::{EguiContexts, EguiPrimaryContextPass, egui};
 /// demo effect.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DemoEffect {
-/// fireball variant.
+    /// fireball variant.
     Fireball,
-/// explosion smoke variant.
+    /// explosion smoke variant.
     ExplosionSmoke,
-/// black smoke variant.
+    /// black smoke variant.
     BlackSmoke,
-/// muzzle flash variant.
+    /// muzzle flash variant.
     MuzzleFlash,
-/// spark burst variant.
+    /// spark burst variant.
     SparkBurst,
-/// tracer variant.
+    /// tracer variant.
     Tracer,
-/// muzzle smoke variant.
+    /// muzzle smoke variant.
     MuzzleSmoke,
-/// car explosion variant.
+    /// car explosion variant.
     CarExplosion,
 }
 
 impl DemoEffect {
-/// all constant.
+    /// all constant.
     pub const ALL: [DemoEffect; 8] = [
         DemoEffect::Fireball,
         DemoEffect::ExplosionSmoke,
@@ -40,7 +40,7 @@ impl DemoEffect {
         DemoEffect::CarExplosion,
     ];
 
-/// label.
+    /// label.
     pub fn label(self) -> &'static str {
         match self {
             DemoEffect::Fireball => "Fireball",
@@ -58,13 +58,13 @@ impl DemoEffect {
 /// vfx demo state.
 #[derive(Resource)]
 pub struct VfxDemoState {
-/// selected field.
+    /// selected field.
     pub selected: DemoEffect,
-/// last pick field.
+    /// last pick field.
     pub last_pick: Option<Vec3>,
-/// last spawn field.
+    /// last spawn field.
     pub last_spawn: f32,
-/// auto face camera field.
+    /// auto face camera field.
     pub auto_face_camera: bool,
 }
 

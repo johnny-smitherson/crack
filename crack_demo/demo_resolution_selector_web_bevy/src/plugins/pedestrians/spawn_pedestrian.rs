@@ -14,31 +14,31 @@ use crate::plugins::pedestrians::skeleton::{
 /// Public spawn request: spawn the pedestrian at `url` at `position`.
 #[derive(Event, Clone)]
 pub struct SpawnPedestrianEvent {
-/// url field.
+    /// url field.
     pub url: PedestrianUrl,
-/// position field.
+    /// position field.
     pub position: Vec3,
-/// controller field.
+    /// controller field.
     pub controller: Entity,
-/// parent field.
+    /// parent field.
     pub parent: Entity,
 }
 
 /// model root.
 #[derive(Component)]
 pub struct ModelRoot {
-/// index field.
+    /// index field.
     pub index: usize,
-/// name field.
+    /// name field.
     pub name: String,
-/// size field.
+    /// size field.
     pub size: Vec3,
 }
 
 /// pedestrian gltf.
 #[derive(Component)]
 pub struct PedestrianGltf {
-/// handle field.
+    /// handle field.
     pub handle: Handle<bevy::gltf::Gltf>,
 }
 
@@ -72,11 +72,11 @@ fn parse_url_to_rpc_args(url: &str) -> (String, String) {
 /// pending pedestrian glb fetch.
 #[derive(Component)]
 pub struct PendingPedestrianGlbFetch {
-/// task field.
+    /// task field.
     pub task: bevy::tasks::Task<anyhow::Result<game_logic::glb::FetchGlbResponse>>,
-/// controller field.
+    /// controller field.
     pub controller: Entity,
-/// model name field.
+    /// model name field.
     pub model_name: String,
 }
 

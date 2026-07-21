@@ -97,11 +97,11 @@ pub use game_logic::map::{
 /// map tree.
 #[derive(Resource, Default, Debug)]
 pub struct MapTree {
-/// bbox field.
+    /// bbox field.
     pub bbox: BBox,
-/// roots field.
+    /// roots field.
     pub roots: Vec<MapRootNodeSummary>,
-/// parsed field.
+    /// parsed field.
     pub parsed: bool,
 }
 
@@ -109,26 +109,26 @@ pub struct MapTree {
 #[derive(Resource, Default, Debug)]
 pub struct MapLODState {
     // pub rendered_nodes: BTreeSet<String>,
-/// selected node field.
+    /// selected node field.
     pub selected_node: Option<String>,
-/// reference points field.
+    /// reference points field.
     pub reference_points: Vec<Vec3>,
-/// lod budget field.
+    /// lod budget field.
     pub lod_budget: u32,
-/// lod timer field.
+    /// lod timer field.
     pub lod_timer: Option<Timer>,
-/// max lod field.
+    /// max lod field.
     pub max_lod: i32,
     /// Detail floor: below this level tiles always split (no visibility rays).
     pub min_tiles_per_diagonal: f32,
     /// Detail ceiling: between min and max, splits require BVH visibility.
     pub max_tiles_per_diagonal: f32,
-/// enable visibility cull field.
+    /// enable visibility cull field.
     pub enable_visibility_cull: bool,
-/// sample radius freecam field.
+    /// sample radius freecam field.
     pub sample_radius_freecam: f32,
-/// sample radius car field.
+    /// sample radius car field.
     pub sample_radius_car: f32,
-/// sample radius pedestrian field.
+    /// sample radius pedestrian field.
     pub sample_radius_pedestrian: f32,
 }

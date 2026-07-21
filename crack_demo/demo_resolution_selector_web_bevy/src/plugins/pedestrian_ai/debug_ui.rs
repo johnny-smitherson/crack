@@ -11,7 +11,7 @@ use super::{
 /// Toggle for AI debug visualization.
 #[derive(Resource, Default)]
 pub struct AiDebug {
-/// show rays field.
+    /// show rays field.
     pub show_rays: bool,
 }
 

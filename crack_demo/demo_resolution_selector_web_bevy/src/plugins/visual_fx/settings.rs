@@ -4,41 +4,41 @@ use bevy::prelude::*;
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct VfxSettings {
     // category master toggles (default true)
-/// car fireball field.
+    /// car fireball field.
     pub car_fireball: bool,
-/// car smoke field.
+    /// car smoke field.
     pub car_smoke: bool,
-/// car black smoke field.
+    /// car black smoke field.
     pub car_black_smoke: bool,
-/// gun gizmos field.
+    /// gun gizmos field.
     pub gun_gizmos: bool, // keep gizmos (alpha 0.3)
-/// gun tracer field.
+    /// gun tracer field.
     pub gun_tracer: bool,
-/// gun hit sparks field.
+    /// gun hit sparks field.
     pub gun_hit_sparks: bool,
-/// gun muzzle flash field.
+    /// gun muzzle flash field.
     pub gun_muzzle_flash: bool,
-/// gun muzzle smoke field.
+    /// gun muzzle smoke field.
     pub gun_muzzle_smoke: bool,
-/// car explosion gizmos field.
+    /// car explosion gizmos field.
     pub car_explosion_gizmos: bool, // 3 damage wireframe spheres (default off)
-/// disabled car gizmos field.
-    pub disabled_car_gizmos: bool,  // green warning sphere around disabled cars (default off)
+    /// disabled car gizmos field.
+    pub disabled_car_gizmos: bool, // green warning sphere around disabled cars (default off)
 
     // sliders
-/// fireball lifetime field.
+    /// fireball lifetime field.
     pub fireball_lifetime: f32,
-/// fireball radius field.
+    /// fireball radius field.
     pub fireball_radius: f32,
-/// smoke lifetime field.
+    /// smoke lifetime field.
     pub smoke_lifetime: f32,
-/// smoke opacity field.
+    /// smoke opacity field.
     pub smoke_opacity: f32,
-/// tracer width field.
+    /// tracer width field.
     pub tracer_width: f32,
-/// spark count scale field.
+    /// spark count scale field.
     pub spark_count_scale: f32,
-/// muzzle smoke every field.
+    /// muzzle smoke every field.
     pub muzzle_smoke_every: u32,
 }
 

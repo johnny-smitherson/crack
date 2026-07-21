@@ -11,7 +11,7 @@ use crate::plugins::pedestrians::spawn_pedestrian::ModelRoot;
 /// Toggles skeleton gizmo drawing.
 #[derive(Resource, Default)]
 pub struct SkeletonDebug {
-/// show field.
+    /// show field.
     pub show: bool,
 }
 

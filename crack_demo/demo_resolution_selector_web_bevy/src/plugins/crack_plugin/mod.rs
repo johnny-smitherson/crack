@@ -26,11 +26,11 @@ pub struct CrackRuntime(pub Arc<tokio::runtime::Runtime>);
 /// crack tasks.
 #[derive(Resource, Default)]
 pub struct CrackTasks {
-/// manifest field.
+    /// manifest field.
     pub manifest: Option<Task<anyhow::Result<game_logic::map::MapManifestResult>>>,
-/// osm field.
+    /// osm field.
     pub osm: Option<Task<anyhow::Result<game_logic::osm::OsmDataResult>>>,
-/// lod field.
+    /// lod field.
     pub lod: Option<Task<anyhow::Result<game_logic::lod::LodComputeResponse>>>,
 }
 

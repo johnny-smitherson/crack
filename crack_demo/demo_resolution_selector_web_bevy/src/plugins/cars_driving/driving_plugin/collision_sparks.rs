@@ -13,35 +13,35 @@ const GRAVITY: f32 = 9.81;
 /// spark rate limiter.
 #[derive(Resource, Default)]
 pub struct SparkRateLimiter {
-/// per car field.
+    /// per car field.
     pub per_car: HashMap<Entity, Vec<f32>>,
-/// global field.
+    /// global field.
     pub global: Vec<f32>,
 }
 
 /// collision marker.
 #[derive(Component)]
 pub struct CollisionMarker {
-/// position field.
+    /// position field.
     pub position: Vec3,
-/// relative speed field.
+    /// relative speed field.
     pub relative_speed: f32,
-/// spawn time field.
+    /// spawn time field.
     pub spawn_time: f32,
-/// lifetime field.
+    /// lifetime field.
     pub lifetime: f32,
 }
 
 /// spark particle.
 #[derive(Component)]
 pub struct SparkParticle {
-/// velocity field.
+    /// velocity field.
     pub velocity: Vec3,
-/// spawn time field.
+    /// spawn time field.
     pub spawn_time: f32,
-/// lifetime field.
+    /// lifetime field.
     pub lifetime: f32,
-/// history field.
+    /// history field.
     pub history: Vec<(Vec3, f32)>,
 }
 

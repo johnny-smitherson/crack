@@ -5,24 +5,24 @@ use bevy::prelude::*;
 /// traffic agent state.
 #[derive(Clone, Debug)]
 pub struct TrafficAgentState {
-/// path field.
+    /// path field.
     pub path: Vec<Vec3>,
-/// next idx field.
+    /// next idx field.
     pub next_idx: usize,
-/// current seg field.
+    /// current seg field.
     pub current_seg: usize,
-/// stuck timer field.
+    /// stuck timer field.
     pub stuck_timer: f32,
-/// still timer field.
+    /// still timer field.
     pub still_timer: f32, // Accumulator for still (no movement) time
-/// out of view timer field.
+    /// out of view timer field.
     pub out_of_view_timer: f32,
-/// last visible field.
+    /// last visible field.
     pub last_visible: bool,
 }
 
 impl TrafficAgentState {
-/// new.
+    /// new.
     pub fn new(path: Vec<Vec3>, current_seg: usize) -> Self {
         Self {
             path,

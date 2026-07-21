@@ -25,7 +25,7 @@ hickory_proto=error,hickory_resolver=error,pkarr=error,mainline=error";
 /// memory dir.
 #[derive(Resource, Clone, Default)]
 pub struct MemoryDir {
-/// dir field.
+    /// dir field.
     pub dir: bevy::asset::io::memory::Dir,
 }
 

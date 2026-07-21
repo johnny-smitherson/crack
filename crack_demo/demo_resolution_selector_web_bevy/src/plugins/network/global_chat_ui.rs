@@ -5,9 +5,9 @@ use bevy_egui::{EguiContexts, egui};
 /// global chat ui state.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct GlobalChatUiState {
-/// show window field.
+    /// show window field.
     pub show_window: bool,
-/// always visible field.
+    /// always visible field.
     pub always_visible: bool,
 }
 
@@ -22,7 +22,7 @@ impl Default for GlobalChatUiState {
 
 /// global chat plugin.
 pub struct GlobalChatPlugin {
-/// always visible field.
+    /// always visible field.
     pub always_visible: bool,
 }
 

@@ -3,22 +3,22 @@ use bevy::prelude::*;
 /// initial map load finished.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
 pub enum InitialMapLoadFinished {
-/// loading variant.
+    /// loading variant.
     #[default]
     Loading,
-/// finished variant.
+    /// finished variant.
     Finished,
 }
 
 /// osm database load finished.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
 pub enum OsmDatabaseLoadFinished {
-/// loading variant.
+    /// loading variant.
     #[default]
     Loading,
-/// map finished variant.
+    /// map finished variant.
     MapFinished,
-/// osm finished variant.
+    /// osm finished variant.
     OsmFinished,
 }
 
@@ -27,10 +27,10 @@ pub enum OsmDatabaseLoadFinished {
 /// text has been fetched and parsed into the sound resource.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
 pub enum SoundManifestLoadFinished {
-/// loading variant.
+    /// loading variant.
     #[default]
     Loading,
-/// finished variant.
+    /// finished variant.
     Finished,
 }
 
@@ -38,12 +38,12 @@ pub enum SoundManifestLoadFinished {
 /// exclusive since they are values of the same state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
 pub enum GameControlState {
-/// map freecam variant.
+    /// map freecam variant.
     #[default]
     MapFreecam,
-/// driving car variant.
+    /// driving car variant.
     DrivingCar,
-/// controlling pedestrian variant.
+    /// controlling pedestrian variant.
     ControllingPedestrian,
     // todo: spectating, cutscene, etc.
 }
@@ -51,17 +51,17 @@ pub enum GameControlState {
 /// Whether the p2p network (global matchmaker / chat) has connected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, States)]
 pub enum NetworkConnectionState {
-/// connecting variant.
+    /// connecting variant.
     #[default]
     Connecting,
-/// connected variant.
+    /// connected variant.
     Connected,
 }
 
 /// mouse capture state.
 #[derive(Resource, Default)]
 pub struct MouseCaptureState {
-/// is captured field.
+    /// is captured field.
     pub is_captured: bool,
 }
 

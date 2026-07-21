@@ -4,20 +4,20 @@ use std::collections::HashMap;
 /// traffic road graph.
 #[derive(Resource, Default)]
 pub struct TrafficRoadGraph {
-/// segments field.
+    /// segments field.
     pub segments: Vec<RoadSegment>,
     /// Quantized endpoint -> segment indices touching it
     pub node_index: HashMap<IVec2, Vec<usize>>,
-/// built field.
+    /// built field.
     pub built: bool,
 }
 
 /// road segment.
 #[derive(Clone, Debug)]
 pub struct RoadSegment {
-/// points field.
+    /// points field.
     pub points: Vec<Vec3>,
-/// length field.
+    /// length field.
     pub length: f32,
 }
 
@@ -123,9 +123,9 @@ fn process_points(
 /// reroute mode.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RerouteMode {
-/// Documented public item.
+    /// Documented public item.
     ClosestAngle(Vec3), // incoming forward dir
-/// random variant.
+    /// random variant.
     Random,
 }
 

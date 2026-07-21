@@ -30,21 +30,21 @@ pub struct NetworkRuntime(pub Arc<tokio::runtime::Runtime>);
 /// chat state.
 #[derive(Resource)]
 pub struct ChatState {
-/// own nickname field.
+    /// own nickname field.
     pub own_nickname: String,
-/// own color field.
+    /// own color field.
     pub own_color: (u8, u8, u8),
-/// presence list field.
+    /// presence list field.
     pub presence_list: Vec<(String, (u8, u8, u8))>,
-/// msg history field.
+    /// msg history field.
     pub msg_history: Vec<(String, String, (u8, u8, u8))>, // (nickname, text, rgb_color)
-/// status message field.
+    /// status message field.
     pub status_message: String,
-/// input buffer field.
+    /// input buffer field.
     pub input_buffer: String,
-/// outgoing tx field.
+    /// outgoing tx field.
     pub outgoing_tx: async_channel::Sender<String>,
-/// incoming rx field.
+    /// incoming rx field.
     pub incoming_rx: async_channel::Receiver<ChatEvent>,
     /// Number of chat messages that have arrived since the user last had the
     /// chat window open. Reset to 0 by the chat UI while the window is visible.
@@ -53,24 +53,24 @@ pub struct ChatState {
 
 /// chat event.
 pub enum ChatEvent {
-/// connected variant.
+    /// connected variant.
     Connected,
-/// gameplay connected variant.
+    /// gameplay connected variant.
     GameplayConnected,
-/// message variant.
+    /// message variant.
     Message {
-/// Documented public item.
+        /// Documented public item.
         nickname: String,
-/// Documented public item.
+        /// Documented public item.
         text: String,
-/// Documented public item.
+        /// Documented public item.
         color: (u8, u8, u8),
-/// Documented public item.
+        /// Documented public item.
         node_id: PublicKey,
     },
-/// Documented public item.
+    /// Documented public item.
     PresenceUpdate(Vec<(String, (u8, u8, u8))>),
-/// Documented public item.
+    /// Documented public item.
     StatusUpdate(String),
 }
 
@@ -79,18 +79,18 @@ use crate::plugins::crack_plugin::CrackClient;
 /// chat bubbles.
 #[derive(Resource, Default)]
 pub struct ChatBubbles {
-/// by node field.
+    /// by node field.
     pub by_node: std::collections::HashMap<PublicKey, (String, f64)>, // node_id -> (text, expiry_secs)
-/// own field.
+    /// own field.
     pub own: Option<(String, f64)>,
 }
 
 /// network setup state.
 #[derive(Resource, Default)]
 pub struct NetworkSetupState {
-/// started field.
+    /// started field.
     pub started: bool,
-/// slot field.
+    /// slot field.
     pub slot: Arc<std::sync::Mutex<Option<anyhow::Result<(UserIdentitySecrets, CrackClient)>>>>,
 }
 

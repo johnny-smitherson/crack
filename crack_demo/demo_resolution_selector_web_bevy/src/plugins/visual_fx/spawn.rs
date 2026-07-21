@@ -5,21 +5,21 @@ use bevy::prelude::*;
 /// vfx lifetime.
 #[derive(Component, Debug)]
 pub struct VfxLifetime {
-/// despawn at field.
+    /// despawn at field.
     pub despawn_at: f64, // seconds, absolute time elapsed
 }
 
 /// vfx drift.
 #[derive(Component, Debug)]
 pub struct VfxDrift {
-/// velocity field.
+    /// velocity field.
     pub velocity: Vec3,
 }
 
 /// vfx meshes.
 #[derive(Resource, Debug)]
 pub struct VfxMeshes {
-/// quad field.
+    /// quad field.
     pub quad: Handle<Mesh>,
 }
 

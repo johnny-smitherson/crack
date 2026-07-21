@@ -24,7 +24,7 @@ pub struct SkyParamsUniform {
 /// sky dome material.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct SkyDomeMaterial {
-/// params field.
+    /// params field.
     #[uniform(0)]
     pub params: SkyParamsUniform,
 }
@@ -70,7 +70,7 @@ impl Material for SkyDomeMaterial {
 /// precip overlay material.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct PrecipOverlayMaterial {
-/// params field.
+    /// params field.
     #[uniform(0)]
     pub params: SkyParamsUniform,
 }
@@ -122,10 +122,10 @@ pub struct GroundShadowUniform {
 /// cloud ground shadow material.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct CloudGroundShadowMaterial {
-/// params field.
+    /// params field.
     #[uniform(0)]
     pub params: GroundShadowUniform,
-/// texture field.
+    /// texture field.
     #[texture(1)]
     #[sampler(2)]
     pub texture: Handle<Image>,

@@ -12,11 +12,11 @@ use std::collections::{BTreeSet, HashMap};
 /// tree map tile.
 #[derive(Component)]
 pub struct TreeMapTile {
-/// node path field.
+    /// node path field.
     pub node_path: MapTreeNodePath,
-/// asset id field.
+    /// asset id field.
     pub asset_id: MapTileAssetId,
-/// bbox field.
+    /// bbox field.
     pub bbox: game_logic::map::BBox,
 }
 
@@ -128,9 +128,9 @@ pub fn spawn_root_map_tiles(
 /// tile should merge.
 #[derive(Component, Debug)]
 pub struct TileShouldMerge {
-/// drop children field.
+    /// drop children field.
     pub drop_children: BTreeSet<MapTreeNodePath>,
-/// load parent field.
+    /// load parent field.
     pub load_parent: (
         MapTreeNodePath,
         Vec<(
@@ -145,7 +145,7 @@ pub struct TileShouldMerge {
 /// tile should split.
 #[derive(Component, Debug)]
 pub struct TileShouldSplit {
-/// load children field.
+    /// load children field.
     pub load_children: Vec<(
         MapTreeNodePath,
         Vec<(
@@ -155,18 +155,18 @@ pub struct TileShouldSplit {
             game_logic::map::BBox,
         )>,
     )>,
-/// drop parent field.
+    /// drop parent field.
     pub drop_parent: MapTreeNodePath,
 }
 
 /// tile swap requests.
 #[derive(Resource, Default)]
 pub struct TileSwapRequests {
-/// split requests field.
+    /// split requests field.
     pub split_requests: Vec<game_logic::lod::SplitRequestSummary>,
-/// merge requests field.
+    /// merge requests field.
     pub merge_requests: Vec<game_logic::lod::MergeRequestSummary>,
-/// culled nodes field.
+    /// culled nodes field.
     pub culled_nodes: Vec<game_logic::lod::CulledNodeSummary>,
 }
 
@@ -175,36 +175,36 @@ const TILE_REVEAL_DELAY_FRAMES: u8 = 2;
 /// pending tile reveal.
 #[derive(Component)]
 pub struct PendingTileReveal {
-/// new tiles field.
+    /// new tiles field.
     pub new_tiles: Vec<Entity>,
-/// drop parent field.
+    /// drop parent field.
     pub drop_parent: Option<MapTreeNodePath>,
-/// drop descendants of field.
+    /// drop descendants of field.
     pub drop_descendants_of: Vec<MapTreeNodePath>,
-/// countdown field.
+    /// countdown field.
     pub countdown: u8,
 }
 
 /// tile group fetch purpose.
 #[derive(Debug, Clone)]
 pub enum TileGroupFetchPurpose {
-/// root variant.
+    /// root variant.
     Root {
-/// Documented public item.
+        /// Documented public item.
         asset_to_node: HashMap<MapTileAssetId, MapTreeNodePath>,
     },
-/// split variant.
+    /// split variant.
     Split {
-/// Documented public item.
+        /// Documented public item.
         split_summary: game_logic::lod::SplitRequestSummary,
     },
-/// merge variant.
+    /// merge variant.
     Merge {
-/// Documented public item.
+        /// Documented public item.
         drop_children: BTreeSet<MapTreeNodePath>,
-/// Documented public item.
+        /// Documented public item.
         parent_path: MapTreeNodePath,
-/// Documented public item.
+        /// Documented public item.
         merge_summary: game_logic::lod::MergeRequestSummary,
     },
 }
@@ -212,15 +212,15 @@ pub enum TileGroupFetchPurpose {
 /// pending tile group fetch.
 #[derive(Component)]
 pub struct PendingTileGroupFetch {
-/// purpose field.
+    /// purpose field.
     pub purpose: TileGroupFetchPurpose,
-/// tasks field.
+    /// tasks field.
     pub tasks: Vec<Option<bevy::tasks::Task<anyhow::Result<game_logic::tile::FetchTileResponse>>>>,
-/// asset ids field.
+    /// asset ids field.
     pub asset_ids: Vec<MapTileAssetId>,
-/// results field.
+    /// results field.
     pub results: Vec<(MapTileAssetId, game_logic::tile::FetchTileResponse)>,
-/// asset bboxes field.
+    /// asset bboxes field.
     pub asset_bboxes: HashMap<MapTileAssetId, game_logic::map::BBox>,
 }
 

@@ -47,11 +47,11 @@ const REFLECT_LEN: f32 = 0.5;
 /// Inflict `amount` damage on `target`.
 #[derive(Event)]
 pub struct DamageEvent {
-/// target field.
+    /// target field.
     pub target: Entity,
-/// amount field.
+    /// amount field.
     pub amount: f32,
-/// source field.
+    /// source field.
     #[allow(dead_code)]
     pub source: Entity,
 }

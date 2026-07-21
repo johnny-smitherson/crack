@@ -7,39 +7,39 @@ use bevy::prelude::*;
 pub struct GunInfo {
     /// Full loadable URL/Path of the model.
     pub path: String,
-/// clip size field.
+    /// clip size field.
     pub clip_size: u32,
-/// bullet type field.
+    /// bullet type field.
     pub bullet_type: String,
-/// damage field.
+    /// damage field.
     pub damage: f32,
-/// range field.
+    /// range field.
     pub range: f32,
-/// rpm field.
+    /// rpm field.
     pub rpm: f32,
-/// automatic field.
+    /// automatic field.
     pub automatic: bool,
-/// reload secs field.
+    /// reload secs field.
     pub reload_secs: f32,
 }
 
 /// Melee stats parsed from the manifest.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeleeInfo {
-/// path field.
+    /// path field.
     pub path: String,
-/// rpm field.
+    /// rpm field.
     pub rpm: f32,
 }
 
 /// A selectable weapon.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WeaponId {
-/// unarmed variant.
+    /// unarmed variant.
     Unarmed,
-/// Documented public item.
+    /// Documented public item.
     Melee(MeleeInfo),
-/// Documented public item.
+    /// Documented public item.
     Gun(GunInfo),
 }
 
@@ -74,15 +74,15 @@ fn resolve_gun_reload_secs(path: &str, csv_secs: f32) -> f32 {
 }
 
 impl WeaponId {
-/// is unarmed.
+    /// is unarmed.
     pub fn is_unarmed(&self) -> bool {
         matches!(self, WeaponId::Unarmed)
     }
-/// is gun.
+    /// is gun.
     pub fn is_gun(&self) -> bool {
         matches!(self, WeaponId::Gun(_))
     }
-/// is melee.
+    /// is melee.
     pub fn is_melee(&self) -> bool {
         matches!(self, WeaponId::Melee(_))
     }
@@ -123,7 +123,7 @@ impl WeaponId {
             Some(p) => p.rsplit('/').next().unwrap_or(p).replace(".glb", ""),
         }
     }
-/// from label.
+    /// from label.
     pub fn from_label(label: &str, manifest: &WeaponManifest) -> Self {
         for w in &manifest.all {
             if w.label() == label {
@@ -137,20 +137,20 @@ impl WeaponId {
 /// Public manifest resource: the parsed weapon lists plus a combined `all` list (Unarmed first).
 #[derive(Resource, Default)]
 pub struct WeaponManifest {
-/// guns field.
+    /// guns field.
     pub guns: Vec<WeaponId>,
-/// melee field.
+    /// melee field.
     pub melee: Vec<WeaponId>,
     /// `[Unarmed]` + guns + melee, in that order — the order the UI/mouse-wheel cycles through.
     pub all: Vec<WeaponId>,
-/// loaded field.
+    /// loaded field.
     pub loaded: bool,
 }
 
 /// weapon manifest tasks.
 #[derive(Resource, Default)]
 pub struct WeaponManifestTasks {
-/// manifest task field.
+    /// manifest task field.
     pub manifest_task:
         Option<bevy::tasks::Task<anyhow::Result<game_logic::weapon::WeaponManifestResult>>>,
 }

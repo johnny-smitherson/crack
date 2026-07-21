@@ -51,46 +51,46 @@ pub const FOOTSTEP_SOUND: &str = "pedestrian-sounds/barefoot_footsteps_on_gravel
 pub enum AudioFxEventType {
     /// Gunshot using the sound index chosen at weapon equip time.
     GunShot { sound_idx: usize },
-/// gun reload variant.
+    /// gun reload variant.
     GunReload,
-/// empty click variant.
+    /// empty click variant.
     EmptyClick,
-/// bullet impact variant.
+    /// bullet impact variant.
     BulletImpact, // random from BULLET_IMPACT_SOUNDS
-/// draw gun variant.
-    DrawGun,      // get_weapon_from_holster
-/// draw melee variant.
-    DrawMelee,    // sword-getout
+    /// draw gun variant.
+    DrawGun, // get_weapon_from_holster
+    /// draw melee variant.
+    DrawMelee, // sword-getout
     /// Melee swing whoosh at the given linear volume.
     MeleeWhoosh { volume: f32 },
-/// melee hit meat variant.
+    /// melee hit meat variant.
     MeleeHitMeat, // sword_hit_meat
-/// melee clash variant.
+    /// melee clash variant.
     MeleeClash,
-/// punch hit variant.
+    /// punch hit variant.
     PunchHit,
     /// Vehicle impact scaled by relative collision speed.
     CarCrash { rel_speed: f32 },
-/// gear shift whoosh variant.
+    /// gear shift whoosh variant.
     GearShiftWhoosh,
-/// footstep loop variant.
-    FootstepLoop,                    // looped, attached
+    /// footstep loop variant.
+    FootstepLoop, // looped, attached
     /// Looping engine idle clip index from ENGINE_IDLE_SOUNDS.
     EngineLoop { sound_idx: usize },
-/// climb variant.
+    /// climb variant.
     Climb,
-/// death thud variant.
+    /// death thud variant.
     DeathThud, // played when a pedestrian dies
 }
 
 /// audio fx event.
 #[derive(Event, Clone, Copy, Debug)]
 pub struct AudioFxEvent {
-/// fx field.
+    /// fx field.
     pub fx: AudioFxEventType,
-/// position field.
+    /// position field.
     pub position: Vec3,
-/// follow field.
+    /// follow field.
     pub follow: Option<Entity>, // for loops
 }
 
@@ -191,7 +191,7 @@ pub fn audio_fx_observer(
 /// engine sound emitter.
 #[derive(Component)]
 pub struct EngineSoundEmitter {
-/// emitter field.
+    /// emitter field.
     pub emitter: Entity,
 }
 
@@ -275,7 +275,7 @@ pub fn manage_car_engine_sound_pitch_volume(
 /// footstep emitter.
 #[derive(Component)]
 pub struct FootstepEmitter {
-/// emitter field.
+    /// emitter field.
     pub emitter: Entity,
 }
 

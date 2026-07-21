@@ -69,7 +69,7 @@ fn unpark_car(drive_state: &mut CarDriveState) {
 
 /// driving plugin.
 pub struct DrivingPlugin<S: States> {
-/// state field.
+    /// state field.
     pub state: S,
 }
 
@@ -130,31 +130,31 @@ pub fn configure_gizmo_depth(mut gizmo_store: ResMut<GizmoConfigStore>) {
 /// game physics layer.
 #[derive(PhysicsLayer, Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum GamePhysicsLayer {
-/// map variant.
+    /// map variant.
     #[default]
     Map,
-/// car variant.
+    /// car variant.
     Car,
-/// wheel variant.
+    /// wheel variant.
     Wheel,
 }
 
 /// wheel contact data.
 #[derive(Clone, Debug)]
 pub struct WheelContactData {
-/// ray distances field.
+    /// ray distances field.
     pub ray_distances: [f32; 9],
     // Low-passed ray distances (~0.06s) that the hover controller reads; raw
     // distances stay available for gizmos so seam artifacts remain visible.
-/// smoothed distances field.
+    /// smoothed distances field.
     pub smoothed_distances: [f32; 9],
-/// hit points field.
+    /// hit points field.
     pub hit_points: [Vec3; 9],
-/// ray origins field.
+    /// ray origins field.
     pub ray_origins: [Vec3; 9],
-/// contact normal field.
+    /// contact normal field.
     pub contact_normal: Vec3,
-/// hits count field.
+    /// hits count field.
     pub hits_count: u8,
 }
 
@@ -175,48 +175,48 @@ impl Default for WheelContactData {
 #[derive(Component, Clone, Debug, Default)]
 pub struct CarWheelsContactData {
     // 0: FL, 1: FR, 2: RL, 3: RR
-/// wheels field.
+    /// wheels field.
     pub wheels: [WheelContactData; 4],
 }
 
 /// drive.
 #[derive(EntityEvent, Clone, Debug)]
 pub struct Drive {
-/// entity field.
+    /// entity field.
     pub entity: Entity,
-/// accelerate field.
+    /// accelerate field.
     pub accelerate: f32, // 0.0 ..= 1.0
-/// brake field.
-    pub brake: f32,      // 0.0 ..= 1.0
-/// steer field.
-    pub steer: f32,      // -1.0 ..= 1.0
+    /// brake field.
+    pub brake: f32, // 0.0 ..= 1.0
+    /// steer field.
+    pub steer: f32, // -1.0 ..= 1.0
 }
 
 /// sim state.
 #[derive(Resource, Default)]
 pub struct SimState {
-/// time elapsed field.
+    /// time elapsed field.
     pub time_elapsed: f32,
-/// spawned field.
+    /// spawned field.
     pub spawned: bool,
-/// is sim field.
+    /// is sim field.
     pub is_sim: bool,
 }
 
 /// car drive state.
 #[derive(Component, Clone)]
 pub struct CarDriveState {
-/// history field.
+    /// history field.
     pub history: Vec<(f32, Drive)>,
-/// current steer integrated field.
+    /// current steer integrated field.
     pub current_steer_integrated: f32,
-/// avg accelerate field.
+    /// avg accelerate field.
     pub avg_accelerate: f32,
-/// avg brake field.
+    /// avg brake field.
     pub avg_brake: f32,
-/// avg steer field.
+    /// avg steer field.
     pub avg_steer: f32,
-/// is reverse field.
+    /// is reverse field.
     pub is_reverse: bool,
     /// True when the car is settled at rest; hover holds ride height but drive forces are off.
     pub parked: bool,
@@ -224,14 +224,14 @@ pub struct CarDriveState {
     pub park_timer: f32,
 
     // Spawn position for reset functionality
-/// spawn position field.
+    /// spawn position field.
     pub spawn_position: Option<Vec3>,
 
     // Ride height model: rays start just above the car's bottom bed and go down
     // max_ray_length; the car hovers at rest_length_pct% of that length.
-/// max ray length field.
+    /// max ray length field.
     pub max_ray_length: f32,
-/// rest length pct field.
+    /// rest length pct field.
     pub rest_length_pct: f32,
     /// Derived each frame: max_ray_length * rest_length_pct.
     pub suspension_rest: f32,
@@ -243,42 +243,42 @@ pub struct CarDriveState {
     pub smoothed_wheel_height: [f32; 4],
 
     // Hover controller response times & grip.
-/// height response field.
+    /// height response field.
     pub height_response: f32,
-/// tilt response field.
+    /// tilt response field.
     pub tilt_response: f32,
-/// grip field.
+    /// grip field.
     pub grip: f32,
 
-/// ray grid width frac field.
+    /// ray grid width frac field.
     pub ray_grid_width_frac: f32,
-/// ray grid length frac field.
+    /// ray grid length frac field.
     pub ray_grid_length_frac: f32,
-/// ray start y offset field.
+    /// ray start y offset field.
     pub ray_start_y_offset: f32,
 
-/// car mass field.
+    /// car mass field.
     pub car_mass: f32,
 
-/// car half width field.
+    /// car half width field.
     pub car_half_width: f32,
-/// car half length field.
+    /// car half length field.
     pub car_half_length: f32,
-/// car half height field.
+    /// car half height field.
     pub car_half_height: f32,
 
     /// Nominal wheel radius (engine RPM calc + cosmetic wheel fallback until measured).
     pub wheel_radius: f32,
 
-/// car max speed field.
+    /// car max speed field.
     pub car_max_speed: f32,
 
     // Hand-simulated engine and gearbox parameters
-/// horsepower field.
+    /// horsepower field.
     pub horsepower: f32,
-/// current gear field.
+    /// current gear field.
     pub current_gear: usize,
-/// engine rpm field.
+    /// engine rpm field.
     pub engine_rpm: f32,
 }
 
@@ -803,11 +803,11 @@ pub fn detect_gear_shifts(
 /// cosmetic wheel.
 #[derive(Component)]
 pub struct CosmeticWheel {
-/// wheel idx field.
+    /// wheel idx field.
     pub wheel_idx: usize,
-/// parent car field.
+    /// parent car field.
     pub parent_car: Entity,
-/// accumulated rotation field.
+    /// accumulated rotation field.
     pub accumulated_rotation: f32,
     /// World-space wheel radius measured from the loaded GLB (None until loaded).
     pub measured_radius: Option<f32>,

@@ -39,13 +39,13 @@ pub fn locomotion_clip(speed: f32, crouch: bool, _sprint: bool) -> &'static [&'s
 /// Metadata about a single animation clip, exposed for UI listing.
 #[derive(Clone, Debug)]
 pub struct AnimationInfo {
-/// name field.
+    /// name field.
     pub name: String,
-/// duration field.
+    /// duration field.
     pub duration: f32,
-/// frames field.
+    /// frames field.
     pub frames: u32,
-/// node field.
+    /// node field.
     pub node: AnimationNodeIndex,
 }
 
@@ -53,13 +53,13 @@ pub struct AnimationInfo {
 /// pedestrian asset is loaded.
 #[derive(Resource, Default)]
 pub struct PedestrianAnimations {
-/// graph handle field.
+    /// graph handle field.
     pub graph_handle: Handle<AnimationGraph>,
-/// nodes field.
+    /// nodes field.
     pub nodes: std::collections::HashMap<String, AnimationNodeIndex>,
-/// catalog field.
+    /// catalog field.
     pub catalog: std::collections::BTreeMap<String, AnimationInfo>,
-/// ready field.
+    /// ready field.
     pub ready: bool,
 }
 
@@ -77,11 +77,11 @@ impl PedestrianAnimations {
 /// Control event: make `ped` play `animation` at `speed`.
 #[derive(Event, Clone)]
 pub struct PedestrianAnimationControlEvent {
-/// ped field.
+    /// ped field.
     pub ped: Entity,
-/// animation field.
+    /// animation field.
     pub animation: String,
-/// speed field.
+    /// speed field.
     pub speed: f32,
 }
 
@@ -98,9 +98,9 @@ pub struct PlayOnceAnimation;
 /// Tracks a transient one-shot animation playing on this player.
 #[derive(Component)]
 pub struct ActiveOneShot {
-/// node field.
+    /// node field.
     pub node: AnimationNodeIndex,
-/// name field.
+    /// name field.
     pub name: String,
 }
 
@@ -108,18 +108,18 @@ pub struct ActiveOneShot {
 /// [`play_animations_system`].
 #[derive(Component, Clone)]
 pub struct TargetAnimation {
-/// name field.
+    /// name field.
     pub name: String,
-/// speed field.
+    /// speed field.
     pub speed: f32,
 }
 
 /// Tracks what is currently playing on an animation player, to avoid redundant restarts.
 #[derive(Component)]
 pub struct CurrentPlayingAnimation {
-/// name field.
+    /// name field.
     pub name: String,
-/// speed field.
+    /// speed field.
     pub speed: f32,
 }
 

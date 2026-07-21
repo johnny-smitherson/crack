@@ -20,9 +20,9 @@ pub struct MainCamera;
 /// Orbit state for the follow camera, driven by left-mouse drag.
 #[derive(Resource)]
 pub struct CameraRig {
-/// yaw field.
+    /// yaw field.
     pub yaw: f32,
-/// pitch field.
+    /// pitch field.
     pub pitch: f32,
     /// True while RMB is held (and not over egui); drives aim zoom and narrower shoulder offset.
     pub aiming: bool,

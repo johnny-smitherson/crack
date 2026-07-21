@@ -6,10 +6,10 @@ use bevy::prelude::*;
 /// smoke emitter.
 #[derive(Component, Debug, Clone)]
 pub struct SmokeEmitter {
-/// next spawn time field.
+    /// next spawn time field.
     pub next_spawn_time: f32, // elapsed seconds when next smoke puff should spawn
-/// active until field.
-    pub active_until: f32,    // elapsed seconds when this emitter should stop
+    /// active until field.
+    pub active_until: f32, // elapsed seconds when this emitter should stop
 }
 
 /// tick smoke emitters.

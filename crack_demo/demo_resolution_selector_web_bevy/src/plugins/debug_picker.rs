@@ -38,71 +38,71 @@ impl Plugin for DebugPickerPlugin {
 /// debug picker state.
 #[derive(Resource, Default)]
 pub struct DebugPickerState {
-/// show window field.
+    /// show window field.
     pub show_window: bool,
-/// last pick field.
+    /// last pick field.
     pub last_pick: Option<PickResult>,
 }
 
 /// pick result.
 pub struct PickResult {
-/// hit point field.
+    /// hit point field.
     pub hit_point: Vec3,
-/// distance field.
+    /// distance field.
     pub distance: f32,
-/// entity field.
+    /// entity field.
     pub entity: Entity,
-/// kind field.
+    /// kind field.
     pub kind: PickKind,
 }
 
 /// pick kind.
 pub enum PickKind {
-/// car variant.
+    /// car variant.
     Car {
-/// Documented public item.
+        /// Documented public item.
         car_type: String,
-/// Documented public item.
+        /// Documented public item.
         player_driven: bool,
-/// Documented public item.
+        /// Documented public item.
         ai_driven: bool,
-/// Documented public item.
+        /// Documented public item.
         disabled: bool,
-/// Documented public item.
+        /// Documented public item.
         health: Option<CarHealth>,
-/// Documented public item.
+        /// Documented public item.
         has_driver: bool,
     },
-/// pedestrian variant.
+    /// pedestrian variant.
     Pedestrian {
-/// Documented public item.
+        /// Documented public item.
         player_controlled: bool,
-/// Documented public item.
+        /// Documented public item.
         ai_controlled: bool,
-/// Documented public item.
+        /// Documented public item.
         faction: Option<Faction>,
-/// Documented public item.
+        /// Documented public item.
         weapon: Option<WeaponId>,
     },
-/// weapon variant.
+    /// weapon variant.
     Weapon {
-/// Documented public item.
+        /// Documented public item.
         kind: Option<WeaponKind>,
-/// Documented public item.
+        /// Documented public item.
         weapon_id: Option<WeaponId>,
     },
-/// ground variant.
+    /// ground variant.
     Ground {
-/// Documented public item.
+        /// Documented public item.
         octant_path: String,
-/// Documented public item.
+        /// Documented public item.
         depth: usize,
-/// Documented public item.
+        /// Documented public item.
         asset_id: String,
-/// Documented public item.
+        /// Documented public item.
         bbox: game_logic::map::BBox,
     },
-/// unknown variant.
+    /// unknown variant.
     Unknown,
 }
 

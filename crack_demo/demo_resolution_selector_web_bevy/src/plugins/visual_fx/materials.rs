@@ -6,38 +6,38 @@ use bevy::shader::ShaderRef;
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FxKind {
-/// Documented public item.
+    /// Documented public item.
     Fireball = 0,
-/// Documented public item.
+    /// Documented public item.
     SmokePuff = 1,
-/// Documented public item.
+    /// Documented public item.
     BlackSmoke = 2,
-/// Documented public item.
+    /// Documented public item.
     MuzzleFlash = 3,
-/// Documented public item.
+    /// Documented public item.
     SparkBurst = 4,
-/// Documented public item.
+    /// Documented public item.
     Tracer = 5,
 }
 
 /// billboard params.
 #[derive(Clone, Copy, ShaderType, Debug)]
 pub struct BillboardParams {
-/// color field.
-    pub color: Vec4,     // base tint incl. alpha multiplier
-/// spawn time field.
+    /// color field.
+    pub color: Vec4, // base tint incl. alpha multiplier
+    /// spawn time field.
     pub spawn_time: f32, // globals.time at spawn
-/// lifetime field.
-    pub lifetime: f32,   // seconds
-/// start radius field.
+    /// lifetime field.
+    pub lifetime: f32, // seconds
+    /// start radius field.
     pub start_radius: f32,
-/// end radius field.
+    /// end radius field.
     pub end_radius: f32, // for expanding fireball/smoke
-/// seed field.
-    pub seed: f32,       // per-instance noise offset
-/// kind field.
-    pub kind: u32,       // FxKind
-/// pad field.
+    /// seed field.
+    pub seed: f32, // per-instance noise offset
+    /// kind field.
+    pub kind: u32, // FxKind
+    /// pad field.
     pub _pad: f32,
 }
 
@@ -45,7 +45,7 @@ pub struct BillboardParams {
 /// additive fx material.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct AdditiveFxMaterial {
-/// params field.
+    /// params field.
     #[uniform(0)]
     pub params: BillboardParams,
 }
@@ -81,7 +81,7 @@ impl Material for AdditiveFxMaterial {
 /// blend fx material.
 #[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
 pub struct BlendFxMaterial {
-/// params field.
+    /// params field.
     #[uniform(0)]
     pub params: BillboardParams,
 }

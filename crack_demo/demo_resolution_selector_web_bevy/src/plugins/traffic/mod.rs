@@ -23,30 +23,30 @@ pub mod spawn;
 /// traffic drive mode.
 #[derive(Default, PartialEq, Clone, Copy, Debug)]
 pub enum TrafficDriveMode {
-/// normal variant.
+    /// normal variant.
     #[default]
     Normal,
-/// Documented public item.
+    /// Documented public item.
     Reversing(f32), // f32 = remaining reverse secs
 }
 
 /// traffic config.
 #[derive(Resource)]
 pub struct TrafficConfig {
-/// enabled field.
-    pub enabled: bool,          // default false
-/// spawn radius field.
-    pub spawn_radius: f32,      // slider 50.0..=500.0, default 150.0
-/// max cars field.
-    pub max_cars: usize,        // slider 10..=100, default 30
-/// speed kmh field.
-    pub speed_kmh: f32,         // cruise speed target, default 30.0
-/// draw road gizmos field.
+    /// enabled field.
+    pub enabled: bool, // default false
+    /// spawn radius field.
+    pub spawn_radius: f32, // slider 50.0..=500.0, default 150.0
+    /// max cars field.
+    pub max_cars: usize, // slider 10..=100, default 30
+    /// speed kmh field.
+    pub speed_kmh: f32, // cruise speed target, default 30.0
+    /// draw road gizmos field.
     pub draw_road_gizmos: bool, // debug polyline rendering
-/// ped enabled field.
-    pub ped_enabled: bool,      // default false
-/// max peds field.
-    pub max_peds: usize,        // slider 0..=100, default 20
+    /// ped enabled field.
+    pub ped_enabled: bool, // default false
+    /// max peds field.
+    pub max_peds: usize, // slider 0..=100, default 20
 }
 
 impl Default for TrafficConfig {
@@ -66,36 +66,36 @@ impl Default for TrafficConfig {
 /// Marker + path state on the car root entity.
 #[derive(Component)]
 pub struct TrafficCar {
-/// state field.
+    /// state field.
     pub state: common::TrafficAgentState,
-/// half height field.
-    pub half_height: f32,       // cached car half height
-/// mode field.
+    /// half height field.
+    pub half_height: f32, // cached car half height
+    /// mode field.
     pub mode: TrafficDriveMode, // drive mode (Normal or Reversing)
 }
 
 /// Trigger: spawn one traffic car whose path starts at/near `position`.
 #[derive(Event, Clone, Debug)]
 pub struct SpawnTrafficCarEvent {
-/// position field.
+    /// position field.
     pub position: Vec3,
 }
 
 /// traffic pedestrian.
 #[derive(Component)]
 pub struct TrafficPedestrian {
-/// state field.
+    /// state field.
     pub state: common::TrafficAgentState,
-/// offset sign field.
+    /// offset sign field.
     pub offset_sign: f32, // +1 / -1: which side of the road centre
-/// last pos field.
-    pub last_pos: Vec3,   // for stuck check
+    /// last pos field.
+    pub last_pos: Vec3, // for stuck check
 }
 
 /// spawn traffic pedestrian event.
 #[derive(Event, Clone, Debug)]
 pub struct SpawnTrafficPedestrianEvent {
-/// position field.
+    /// position field.
     pub position: Vec3,
 }
 

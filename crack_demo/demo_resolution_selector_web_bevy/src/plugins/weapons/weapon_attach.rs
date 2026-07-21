@@ -24,9 +24,9 @@ pub struct EquippedWeapon(pub WeaponId);
 /// Request to equip `weapon` on `character` (the character/controller entity).
 #[derive(Event)]
 pub struct EquipWeaponEvent {
-/// character field.
+    /// character field.
     pub character: Entity,
-/// weapon field.
+    /// weapon field.
     pub weapon: WeaponId,
 }
 
@@ -43,9 +43,9 @@ impl Default for WeaponGripOffset {
 /// Tracks which weapon model is currently spawned for a character.
 #[derive(Component, Default)]
 pub struct WeaponModelState {
-/// spawned for field.
+    /// spawned for field.
     pub spawned_for: Option<WeaponId>,
-/// entity field.
+    /// entity field.
     pub entity: Option<Entity>,
 }
 
@@ -56,9 +56,9 @@ pub struct WeaponModel;
 /// Classification of equipped weapon model for transform and orientation calculations.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WeaponKind {
-/// gun variant.
+    /// gun variant.
     Gun,
-/// melee variant.
+    /// melee variant.
     Melee,
 }
 
@@ -69,9 +69,9 @@ pub struct PendingWeaponExtents;
 /// A weapon's coordinate extents (in weapon-local space): `max_x` ≈ gun length, `max_y` ≈ blade length.
 #[derive(Component, Debug)]
 pub struct WeaponExtents {
-/// max x field.
+    /// max x field.
     pub max_x: f32,
-/// max y field.
+    /// max y field.
     pub max_y: f32,
 }
 
@@ -163,9 +163,9 @@ fn parse_url_to_rpc_args(url: &str) -> (String, String) {
 /// pending weapon model fetch.
 #[derive(Component)]
 pub struct PendingWeaponModelFetch {
-/// task field.
+    /// task field.
     pub task: bevy::tasks::Task<anyhow::Result<game_logic::glb::FetchGlbResponse>>,
-/// kind field.
+    /// kind field.
     pub kind: WeaponKind,
 }
 

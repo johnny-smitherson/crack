@@ -157,9 +157,9 @@ use crate::plugins::states::GameControlState;
 /// Where the driver mesh sits inside the car (car-local), tunable from the Debug menu.
 #[derive(Resource)]
 pub struct CarSeatOffset {
-/// offset field.
+    /// offset field.
     pub offset: Vec3,
-/// y rot field.
+    /// y rot field.
     pub y_rot: f32,
 }
 
@@ -181,7 +181,7 @@ pub struct EnteringCarTimer {
 /// The pedestrian's visual model, re-parented into the car while driving.
 #[derive(Component)]
 pub struct DriverMesh {
-/// car field.
+    /// car field.
     pub car: Entity,
     /// The animation graph node currently playing on this mesh's player.
     pub anim_node: Option<AnimationNodeIndex>,
@@ -469,18 +469,18 @@ pub fn tick_entering_car(
 /// ejected driver.
 #[derive(Component)]
 pub struct EjectedDriver {
-/// timer field.
+    /// timer field.
     pub timer: Timer,
-/// stage field.
+    /// stage field.
     pub stage: EjectedStage,
 }
 
 /// ejected stage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EjectedStage {
-/// on ground variant.
+    /// on ground variant.
     OnGround,
-/// standing up variant.
+    /// standing up variant.
     StandingUp,
 }
 
@@ -1023,7 +1023,7 @@ pub fn weapon_wheel(
 /// driver mesh, so without this the player had no weapon until getting out and back in.
 #[derive(Event)]
 pub struct SpawnPlayerDriverEvent {
-/// car field.
+    /// car field.
     pub car: Entity,
 }
 

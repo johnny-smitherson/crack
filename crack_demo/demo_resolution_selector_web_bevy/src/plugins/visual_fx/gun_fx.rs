@@ -7,15 +7,15 @@ use bevy::prelude::*;
 /// gun fx event.
 #[derive(Event, Debug, Clone)]
 pub struct GunFxEvent {
-/// muzzle field.
+    /// muzzle field.
     pub muzzle: Vec3,
-/// impact field.
+    /// impact field.
     pub impact: Vec3,
-/// is person field.
+    /// is person field.
     pub is_person: bool,
-/// is miss field.
+    /// is miss field.
     pub is_miss: bool,
-/// shooter field.
+    /// shooter field.
     pub shooter: Entity,
 }
 
@@ -26,9 +26,9 @@ pub struct GunFxCounter(pub u32);
 /// gun smoke emitter.
 #[derive(Component, Debug, Clone)]
 pub struct GunSmokeEmitter {
-/// next spawn time field.
+    /// next spawn time field.
     pub next_spawn_time: f32,
-/// active until field.
+    /// active until field.
     pub active_until: f32,
 }
 

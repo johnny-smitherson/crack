@@ -6,7 +6,7 @@ use bevy_egui::EguiContexts;
 /// driving aim.
 #[derive(Resource, Default)]
 pub struct DrivingAim {
-/// aiming field.
+    /// aiming field.
     pub aiming: bool,
 }
 

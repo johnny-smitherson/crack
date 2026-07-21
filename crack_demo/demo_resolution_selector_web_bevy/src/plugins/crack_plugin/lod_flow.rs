@@ -13,11 +13,11 @@ use std::collections::BTreeSet;
 /// Feeds the velocity-predictive occlusion sampling in the worker.
 #[derive(Resource, Default)]
 pub struct CameraKinematics {
-/// position field.
+    /// position field.
     pub position: Vec3,
-/// velocity field.
+    /// velocity field.
     pub velocity: Vec3,
-/// initialized field.
+    /// initialized field.
     pub initialized: bool,
 }
 

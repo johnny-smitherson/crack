@@ -24,7 +24,7 @@ pub use spawn_ai::SpawnAiPedestrianEvent;
 /// Emitted whenever any pedestrian (AI or player) dies, so grudge lists can be pruned.
 #[derive(Message, Clone, Copy)]
 pub struct PedestrianDied {
-/// entity field.
+    /// entity field.
     pub entity: Entity,
 }
 
@@ -39,7 +39,7 @@ pub struct AiPedestrian;
 /// Current behavior state. Logged on every transition.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub enum AiState {
-/// idle variant.
+    /// idle variant.
     Idle,
     /// Has a visible enemy: move to engage + attack per weapon.
     Hunt,
@@ -56,9 +56,9 @@ pub struct AiPerception {
     pub target: Option<Entity>,
     /// Enemy head position (LOS endpoint) when visible.
     pub target_pos: Vec3,
-/// target dist field.
+    /// target dist field.
     pub target_dist: f32,
-/// visible field.
+    /// visible field.
     pub visible: bool,
     /// True when the current `target` is an enemy-driven car rather than a pedestrian.
     pub target_is_car: bool,
@@ -93,7 +93,7 @@ pub struct AiModel(pub Entity);
 /// Animation state tracker for AI peds (avoid re-triggering every frame).
 #[derive(Component, Default)]
 pub struct AiAnim {
-/// last field.
+    /// last field.
     pub last: Option<String>,
 }
 
@@ -103,11 +103,11 @@ pub struct AiAnim {
 /// does not all think on the same frame (thundering herd).
 #[derive(Component)]
 pub struct AiThink {
-/// timer field.
+    /// timer field.
     pub timer: f32,
-/// period field.
+    /// period field.
     pub period: f32,
-/// ready field.
+    /// ready field.
     pub ready: bool,
 }
 

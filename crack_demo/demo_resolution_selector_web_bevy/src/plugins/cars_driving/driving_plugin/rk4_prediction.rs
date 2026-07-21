@@ -13,25 +13,25 @@ pub const STEP_DELTA_TIME: f32 = 0.030; // 30ms per step -> 240ms horizon
 /// speculative step data.
 #[derive(Clone, Debug)]
 pub struct SpeculativeStepData {
-/// predicted position field.
+    /// predicted position field.
     pub predicted_position: Vec3,
-/// predicted ground pos field.
+    /// predicted ground pos field.
     pub predicted_ground_pos: Vec3,
-/// predicted rotation field.
+    /// predicted rotation field.
     pub predicted_rotation: Quat,
-/// left hit point field.
+    /// left hit point field.
     pub left_hit_point: Option<Vec3>,
-/// right hit point field.
+    /// right hit point field.
     pub right_hit_point: Option<Vec3>,
-/// center hit point field.
+    /// center hit point field.
     pub center_hit_point: Option<Vec3>,
-/// left ray origin field.
+    /// left ray origin field.
     pub left_ray_origin: Vec3,
-/// right ray origin field.
+    /// right ray origin field.
     pub right_ray_origin: Vec3,
-/// center ray origin field.
+    /// center ray origin field.
     pub center_ray_origin: Vec3,
-/// has ground contact field.
+    /// has ground contact field.
     pub has_ground_contact: bool,
 }
 
@@ -55,7 +55,7 @@ impl Default for SpeculativeStepData {
 /// car speculative contact data.
 #[derive(Component, Clone, Debug, Default)]
 pub struct CarSpeculativeContactData {
-/// steps field.
+    /// steps field.
     pub steps: Vec<SpeculativeStepData>,
 }
 

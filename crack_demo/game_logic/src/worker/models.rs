@@ -35,8 +35,7 @@ impl storage_crackhouse::models::ModelDef for GameKvEntry_Entity {
             },
             storage_crackhouse::models::ModelColumnImpl {
                 column_name: "val",
-                column_type:
-                    <Option<String> as storage_crackhouse::models::DbTypeMapping>::DB_TYPE,
+                column_type: <Option<String> as storage_crackhouse::models::DbTypeMapping>::DB_TYPE,
                 is_nullable:
                     <Option<String> as storage_crackhouse::models::DbTypeMapping>::IS_NULLABLE,
             },
@@ -75,9 +74,7 @@ impl storage_crackhouse::models::ModelDef for GameKvEntry {
 }
 
 impl storage_crackhouse::models::ModelSerial for GameKvEntry {
-    fn from_values(
-        values: Vec<storage_crackhouse::types::DbValue>,
-    ) -> anyhow::Result<Self> {
+    fn from_values(values: Vec<storage_crackhouse::types::DbValue>) -> anyhow::Result<Self> {
         let mut i = values.into_iter();
         let r = Self {
             id: storage_crackhouse::types::DbValue::fold_option(i.next()).try_into()?,

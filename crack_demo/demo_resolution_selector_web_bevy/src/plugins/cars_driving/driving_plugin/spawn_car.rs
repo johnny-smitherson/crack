@@ -29,31 +29,31 @@ pub const CAR_SEAT_OFFSETS: [Vec3; 4] = [
 /// car passenger.
 #[derive(Component)]
 pub struct CarPassenger {
-/// seat index field.
+    /// seat index field.
     pub seat_index: usize,
-/// car field.
+    /// car field.
     pub car: Entity,
 }
 
 /// spawn car passenger.
 #[derive(Clone)]
 pub struct SpawnCarPassenger {
-/// url field.
+    /// url field.
     pub url: Option<PedestrianUrl>, // None = random from manifest
-/// weapon field.
-    pub weapon: Option<WeaponId>,   // None = random from manifest
-/// faction field.
+    /// weapon field.
+    pub weapon: Option<WeaponId>, // None = random from manifest
+    /// faction field.
     pub faction: Faction,
 }
 
 /// spawn car request event.
 #[derive(Event)]
 pub struct SpawnCarRequestEvent {
-/// position field.
+    /// position field.
     pub position: Vec3,
-/// car type field.
+    /// car type field.
     pub car_type: String,
-/// rotation field.
+    /// rotation field.
     pub rotation: Option<Quat>,
     /// Optional passengers to spawn in the car's seats.
     /// Index 0 = driver, 1 = front passenger, 2 = rear left, 3 = rear right.
@@ -64,7 +64,7 @@ pub struct SpawnCarRequestEvent {
 /// wheel assets.
 #[derive(Resource)]
 pub struct WheelAssets {
-/// wheels field.
+    /// wheels field.
     pub wheels: Vec<Handle<WorldAsset>>,
 }
 
@@ -81,16 +81,16 @@ pub fn preload_wheels(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// car.
 #[derive(Component)]
 pub struct Car {
-/// car type field.
+    /// car type field.
     pub _car_type: String,
 }
 
 /// car health.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct CarHealth {
-/// current field.
+    /// current field.
     pub current: f32,
-/// max field.
+    /// max field.
     pub max: f32,
 }
 

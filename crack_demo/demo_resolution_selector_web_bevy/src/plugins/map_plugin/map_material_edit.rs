@@ -29,23 +29,23 @@ impl Plugin for MapMaterialEditPlugin {
 /// map material edit state.
 #[derive(Resource, Debug, Clone)]
 pub struct MapMaterialEditState {
-/// show window field.
+    /// show window field.
     pub show_window: bool,
 
     // Material settings
-/// metallic field.
+    /// metallic field.
     pub metallic: f32,
-/// roughness field.
+    /// roughness field.
     pub roughness: f32,
-/// reflectance field.
+    /// reflectance field.
     pub reflectance: f32,
-/// ior field.
+    /// ior field.
     pub ior: f32,
 
     // Lighting settings
-/// dir light illuminance field.
+    /// dir light illuminance field.
     pub dir_light_illuminance: f32,
-/// ambient light brightness field.
+    /// ambient light brightness field.
     pub ambient_light_brightness: f32,
 }
 

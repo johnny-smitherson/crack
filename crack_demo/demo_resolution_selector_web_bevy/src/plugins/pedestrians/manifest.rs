@@ -11,22 +11,22 @@ pub struct PedestrianUrl(pub String);
 /// Public manifest resource: the list of available pedestrian URLs and whether loading finished.
 #[derive(Resource, Default)]
 pub struct PedestrianManifest {
-/// urls field.
+    /// urls field.
     pub urls: Vec<PedestrianUrl>,
-/// loaded field.
+    /// loaded field.
     pub loaded: bool,
 }
 
 /// pedestrian manifest tasks.
 #[derive(Resource, Default)]
 pub struct PedestrianManifestTasks {
-/// manifest task field.
+    /// manifest task field.
     pub manifest_task:
         Option<bevy::tasks::Task<anyhow::Result<game_logic::pedestrian::PedestrianManifestResult>>>,
-/// first glb task field.
+    /// first glb task field.
     pub first_glb_task:
         Option<bevy::tasks::Task<anyhow::Result<game_logic::glb::FetchGlbResponse>>>,
-/// first gltf field.
+    /// first gltf field.
     pub first_gltf: Option<Handle<bevy::gltf::Gltf>>,
 }
 
@@ -236,7 +236,7 @@ pub fn load_pedestrian_manifest_system(
 /// text asset.
 #[derive(Asset, bevy::reflect::TypePath, Debug, Clone)]
 pub struct TextAsset {
-/// text field.
+    /// text field.
     pub text: String,
 }
 

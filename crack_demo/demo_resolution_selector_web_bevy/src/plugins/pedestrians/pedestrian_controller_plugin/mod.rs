@@ -206,9 +206,9 @@ pub struct CharacterScale(pub f32);
 /// Held movement modifiers, updated from the keyboard each frame.
 #[derive(Component, Default)]
 pub struct MovementModifiers {
-/// crouch field.
+    /// crouch field.
     pub crouch: bool,
-/// sprint field.
+    /// sprint field.
     pub sprint: bool,
     /// Seconds the sprint has been held continuously (drives the sprint speed ramp).
     pub sprint_secs: f32,
@@ -219,15 +219,15 @@ pub struct MovementModifiers {
 /// Movement settings for a character controller.
 #[derive(Component)]
 pub struct CharacterMovementSettings {
-/// acceleration field.
+    /// acceleration field.
     pub acceleration: Scalar,
-/// damping field.
+    /// damping field.
     pub damping: Scalar,
-/// jump impulse field.
+    /// jump impulse field.
     pub jump_impulse: Scalar,
-/// gravity field.
+    /// gravity field.
     pub gravity: Vector,
-/// terminal velocity field.
+    /// terminal velocity field.
     pub terminal_velocity: Scalar,
 }
 
@@ -246,11 +246,11 @@ impl Default for CharacterMovementSettings {
 /// Ground detection configuration for a character controller.
 #[derive(Component)]
 pub struct GroundDetection {
-/// max angle field.
+    /// max angle field.
     pub max_angle: Scalar,
-/// max distance field.
+    /// max distance field.
     pub max_distance: Scalar,
-/// cast shape field.
+    /// cast shape field.
     pub cast_shape: Option<Collider>,
 }
 
@@ -273,22 +273,22 @@ pub struct Grounded;
 /// controller transform is tweened up-then-over onto the ledge.
 #[derive(Component)]
 pub struct Climbing {
-/// start field.
+    /// start field.
     pub start: Vec3,
-/// target field.
+    /// target field.
     pub target: Vec3,
-/// elapsed field.
+    /// elapsed field.
     pub elapsed: f32,
-/// duration field.
+    /// duration field.
     pub duration: f32,
 }
 
 /// An in-progress crouch roll (crouch + Space): a short forward dash with the Roll animation.
 #[derive(Component)]
 pub struct Rolling {
-/// elapsed field.
+    /// elapsed field.
     pub elapsed: f32,
-/// duration field.
+    /// duration field.
     pub duration: f32,
 }
 
@@ -298,26 +298,26 @@ pub struct CharacterCollisions(Vec<CharacterCollision>);
 
 /// character collision.
 pub struct CharacterCollision {
-/// collider field.
+    /// collider field.
     pub collider: Entity,
-/// point field.
+    /// point field.
     pub point: Vector,
-/// normal field.
+    /// normal field.
     pub normal: Dir3,
-/// character velocity field.
+    /// character velocity field.
     pub character_velocity: Vector,
 }
 
 /// Jump animation phase.
 #[derive(Clone, Copy, PartialEq)]
 pub enum JumpPhase {
-/// grounded variant.
+    /// grounded variant.
     Grounded,
-/// start variant.
+    /// start variant.
     Start,
-/// loop variant.
+    /// loop variant.
     Loop,
-/// land variant.
+    /// land variant.
     Land,
 }
 
@@ -326,9 +326,9 @@ pub enum JumpPhase {
 pub struct AnimState {
     /// The graph node of the base locomotion clip currently playing.
     pub base_node: Option<AnimationNodeIndex>,
-/// phase field.
+    /// phase field.
     pub phase: JumpPhase,
-/// timer field.
+    /// timer field.
     pub timer: f32,
     /// True once we have taken over the model's `AnimationPlayer` (cleared its default clip).
     pub took_over: bool,
@@ -357,7 +357,7 @@ pub struct CombatState {
 /// combat kind.
 #[derive(Default, Clone, Copy, PartialEq)]
 pub enum CombatKind {
-/// none variant.
+    /// none variant.
     #[default]
     None,
     /// A one-shot attack (punch / sword swing / gun shot); reverts when finished.

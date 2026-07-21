@@ -23,45 +23,45 @@ impl Plugin for UiEguiPlugin {
 /// ui state.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct UiState {
-/// resolution field.
+    /// resolution field.
     pub resolution: i32,
-/// ui scale field.
+    /// ui scale field.
     pub ui_scale: i32,
-/// smooth field.
+    /// smooth field.
     pub smooth: bool,
-/// show settings field.
+    /// show settings field.
     pub show_settings: bool,
-/// draw map bboxes field.
+    /// draw map bboxes field.
     pub draw_map_bboxes: bool,
-/// draw physics debug field.
+    /// draw physics debug field.
     pub draw_physics_debug: bool,
-/// draw car rays field.
+    /// draw car rays field.
     pub draw_car_rays: bool,
-/// draw rk4 gizmos field.
+    /// draw rk4 gizmos field.
     pub draw_rk4_gizmos: bool,
-/// draw spark origin gizmos field.
+    /// draw spark origin gizmos field.
     pub draw_spark_origin_gizmos: bool,
-/// show lod configurator field.
+    /// show lod configurator field.
     pub show_lod_configurator: bool,
-/// show bvh minimap field.
+    /// show bvh minimap field.
     pub show_bvh_minimap: bool,
-/// show geojson database field.
+    /// show geojson database field.
     pub show_geojson_database: bool,
-/// show traffic debug field.
+    /// show traffic debug field.
     pub show_traffic_debug: bool,
-/// show pedestrian ai field.
+    /// show pedestrian ai field.
     pub show_pedestrian_ai: bool,
-/// show vehicle tuning field.
+    /// show vehicle tuning field.
     pub show_vehicle_tuning: bool,
-/// show multiplayer debug field.
+    /// show multiplayer debug field.
     pub show_multiplayer_debug: bool,
-/// show sound settings field.
+    /// show sound settings field.
     pub show_sound_settings: bool,
-/// master volume field.
+    /// master volume field.
     pub master_volume: f32,
-/// show vfx shaders field.
+    /// show vfx shaders field.
     pub show_vfx_shaders: bool,
-/// show clouds sky field.
+    /// show clouds sky field.
     pub show_clouds_sky: bool,
 }
 impl Default for UiState {
@@ -91,7 +91,7 @@ impl Default for UiState {
     }
 }
 impl UiState {
-/// with physics debug.
+    /// with physics debug.
     pub fn with_physics_debug() -> Self {
         Self {
             resolution: 75,
