@@ -441,12 +441,16 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
-src/crack_server/paths.py ← __future__, crack_server
+src/crack_server/chat_engine.py ← __future__, crack_server
+src/crack_server/models.py ← __future__, crack_server
 src/crack_server/pi_proc.py ← __future__, crack_server, shlex
-src/crack_server/stages/render.py ← __future__, crack_server
-src/crack_server/worker.py ← __future__
-tests/test_detached_hops.py ← __future__, crack_server, tests, pytest
-tests/test_vision_media.py ← __future__, fastapi, starlette, crack_server, tests
+src/crack_server/render.py ← __future__, crack_server
+src/crack_server/routes_settings.py ← __future__, fastapi, crack_server
+src/crack_server/steprun.py ← __future__, crack_server
+src/crack_server/sub_agents/base.py ← __future__, crack_server
+src/crack_server/sub_agents/runner.py ← __future__, crack_server
+tests/test_ask_user.py ← __future__, crack_server, tests, pytest
+tests/test_model_switch.py ← __future__, crack_server, tests
 ```
 
 ## versions (installed direct deps)
@@ -456,114 +460,149 @@ python-multipart@0.0.32
 uvicorn@0.51.0
 ```
 
+## todos
+```
+src/crack_server/chat_engine.py:221  # TODO: list still has open items, nudge (bounded); otherwise done.
+src/crack_server/sub_agents/base.py:175  # TODO: -aware nudge: names the still-open items when a todo list
+```
+
 ## src
 
-### src/crack_server/paths.py
+### src/crack_server/chat_engine.py
 ```
-def project_root() → Path  :39-41
-def tasks_dir(root: Path | None) → Path  :44-45
-def task_dir(task_id: str, root: Path | None) → Path  :48-51
-def validate_prompt_filename(name: str) → str  :54-58
-def list_task_ids(root: Path | None) → list[str]  :61-65
-def list_prompt_files(task_id: str, root: Path | None) → list[dict[str, str | int]]  :68-86  # Glob *
-def read_prompt(task_id: str, filename: str, root: Path | None) → str  :89-94
-def write_prompt(task_id: str, filename: str, content: str, root: Path | None) → None  :97-102
-def delete_prompt(task_id: str, filename: str, root: Path | None) → None  :105-110
-def info_path(task_id: str, root: Path | None) → Path  :113-114
-def read_info(task_id: str, root: Path | None) → dict  :117-124
-def write_info(task_id: str, info: dict, root: Path | None) → None  :127-133
-def title_regen_state(task_id: str, root: Path | None) → JsonState  :136-137
-def explore_state(task_id: str, root: Path | None) → JsonState  :140-141
-def explore_dir(task_id: str, root: Path | None) → Path  :144-146  # Per-task directory for Explore artefacts: …/<task>/explore/
-def explore_sessions_dir(task_id: str, root: Path | None) → Path  :149-151  # Isolated pi session dir used to chain Explore hops: …/<task>
-def write_explore_artefact(task_id: str, name: str, text: str, root: Path | None) → None  :154-159  # Write an Explore artefact as …/<task>/explore/{name}
-def prompts_last_modified(task_id: str, root: Path | None) → float  :162-167  # Newest mtime (epoch seconds) across the task's prompt files;
-def read_all_prompts_joined(task_id: str, root: Path | None) → str  :170-189  # Read all prompt markdown files in a task and join them with 
-def slugify_title(title: str) → str  :192-195  # Replace runs of non-alphanumeric characters with '_', stripp
-def generate_task_id(title: str) → str  :198-200  # Task id format: <ms_epoch_timestamp>_<slugified_title>
-def create_task(task_id: str, title: str | None, root: Path | None) → dict  :203-218  # Create a new task directory with info
-def next_prompt_filename(task_id: str, root: Path | None) → str | None  :221-230  # Return the next available prompt filename (prompt
-def stage_pid_file(task_id: str, slug: str, root: Path | None) → Path  :233-236  # Where a stage's worker publishes the running pi subprocess's
-def hop_manifest_path(pid_file: Path) → Path  :239-242  # The detached-hop manifest (hop
-def hop_output_path(pid_file: Path) → Path  :245-248  # The append-only file (hop
-def templates_dir() → Path  :256-258  # Prompt templates root, inside the server package repo (promp
-def harness_dir(root: Path | None) → Path  :261-263  # Harness-wide state dir:
-def models_cache_state(root: Path | None) → JsonState  :266-270
-def queue_dir(root: Path | None) → Path  :278-280  # Root of the on-disk worker command queue:
+def run_exchange_sync(**kwargs) → None  :47-53  # Sync wrapper over :func:`run_exchange` for thread-based call
+async def run_exchange(*, state: JsonState, ident: str, message_builder: Callable[[str], str], record_template: str, log_prefix: str, model: str, session_id: str, sessions_dir: Path, tools: str | None, timeout_seconds: int, hop_kwargs: dict | None, pre_stop_check: Callable[[], bool] | None, on_first_exchange: "Callable[[str], Awaitable[None]] | None", on_no_exchanges: Callable[[], None] | None, stopped_phase: str, env_extra: dict[str, str] | None, media_dir: Path | None, media_url_prefix: str, plan: bool, planner_model: str, implementer_model: str, max_hops: int, persona_slug: str) → None  :56-80
+```
+
+### src/crack_server/models.py
+```
+def models_for_render(force: bool) → list[str]  :106-121  # Cache-only model list for page renders (B21): never shells o
+def image_models_for_render(force: bool) → list[str]  :124-140  # Cache-only list of models that accept image input (``images:
+def model_info(model: str) → dict | None  :150-154  # Cached pi metadata for one model id (context window etc
+def context_window(model: str) → int | None  :157-162  # Cached context-window token count for a model, or None when 
+def refresh_models() → None  :165-179  # Worker side of a ``MODELS_JOB_SLUG`` job: fetch `pi --list-m
 ```
 
 ### src/crack_server/pi_proc.py
 ```
-class PiError(RuntimeError)  :72-82
+class PiError(RuntimeError)  :78-88
   def __init__(message: str, detail: str, over_budget: bool) → None
-class PiStopped(RuntimeError)  :85-87
-class _TurnAccumulator  :412-455
+class PiStopped(RuntimeError)  :91-93
+class _TurnAccumulator  :505-548
   def __init__() → None
   def apply(event: dict) → None
-class _StreamSink  :458-497
+class _StreamSink  :551-597
   def __init__(p: _HopParams) → None
   def persist(turn: dict) → None
-class _HopParams(NamedTuple)  :667-681
-async def arun_pi_text(prompt: str, log_prefix: str, model: str, max_input_chars: int | None, record_prompt, pid_file: Path | None, stop_check: Callable[[], bool] | None, image_paths: list[Path] | None, record_error) → tuple[str, float]  :200-209
-def run_pi_text(*args, **kwargs) → tuple[str, float]  :323-327  # Sync wrapper over :func:`arun_pi_text` for thread-based call
-def kill_pid_file(pid_file: Path) → bool  :382-409  # Kill the process group named in ``pid_file`` (written by aru
-async def arun_agent_hop(*, log_prefix: str, model: str, session_id: str, sessions_dir: Path, tools: str | None, message: str, start: float, sentinel: str | None, timeout_seconds: int, persist_turn, hop: int, pid_file: Path | None, stop_check, record_prompt, record_error, error_budget: Callable[[], int] | None, env_extra: dict[str, str] | None, waiting_check: Callable[[], bool] | None) → str  :997-1016
-def run_agent_hop(**kwargs) → str  :1085-1089  # Sync wrapper over :func:`arun_agent_hop` for thread-based ca
+class _HopParams(NamedTuple)  :794-816
+async def arun_pi_text(prompt: str, log_prefix: str, model: str, max_input_chars: int | None, record_prompt, pid_file: Path | None, stop_check: Callable[[], bool] | None, image_paths: list[Path] | None, record_error) → tuple[str, float]  :269-278
+def run_pi_text(*args, **kwargs) → tuple[str, float]  :392-396  # Sync wrapper over :func:`arun_pi_text` for thread-based call
+def kill_pid_file(pid_file: Path) → bool  :451-502  # Kill the process group named in ``pid_file`` (written by aru
+async def arun_agent_hop(*, log_prefix: str, model: str, session_id: str, sessions_dir: Path, tools: str | None, message: str, start: float, sentinel: str | None, timeout_seconds: int, persist_turn, hop: int, pid_file: Path | None, stop_check, record_prompt, record_error, error_budget: Callable[[], int] | None, env_extra: dict[str, str] | None, waiting_check: Callable[[], bool] | None, append_system_prompt: str | None, swap_after_edit: bool, todo_already: bool) → str  :1183-1205
+def run_agent_hop(**kwargs) → str  :1280-1284  # Sync wrapper over :func:`arun_agent_hop` for thread-based ca
 ```
 
-### src/crack_server/stages/render.py
+### src/crack_server/render.py
 ```
-def render_user_prompt_msg  :168-207
-def render_actions_table  :210-240
-def render_error_row  :265-286
+def render_user_prompt_msg(entry: dict) → str  :190-229  # Expandable `
+def new_model_state() → dict  :279-282  # Mutable tracker threaded through :func:`render_turn_msgs` ca
+def render_actions_table(turns: list[dict], include_text: bool) → str  :285-315  # Render agent turns as one compact actions table (one row per
+def render_error_row(entry: dict) → str  :340-361  # A durable `
 ```
 
-### src/crack_server/worker.py
+### src/crack_server/routes_settings.py
 ```
-def recover_detached_hops() → None  :148-207
-async def async_loop() → None  :334-374  # Claim and dispatch jobs forever, one asyncio task per job (n
-def start_background() → asyncio.Task  :377-379  # Lifespan hook: start the worker loop as a background task
-async def stop_background(task: asyncio.Task) → None  :382-386  # Lifespan hook: cancel the worker loop and let it reap in-fli
-def main() → None  :389-394  # Deprecated: the worker now runs inside the server process (a
+def settings_page() → HTMLResponse  :65-82
+GET /settings  →  settings_page()  :65-82
+POST /api/settings/vision_model  →  api_set_vision_model()  :86-89
+POST /api/settings/agent_model/{kind}  →  api_set_agent_model()  :93-98
+```
+
+### src/crack_server/static/app.css
+```
+.sidebar-nav
+.sidebar-nav
+.sidebar-nav
+.sidebar-nav
+.inline-form
+.file-row-header
+.file-row-label
+.prompt-row
+```
+
+### src/crack_server/steprun.py
+```
+class TurnPersister  :90-175
+  def append(entry: dict) → None
+  def persist(current_turn: dict, hop: int) → None
+  def stamp_reason(reason: str) → None
+  def text() → str
+def attach_media_to_blocks  :20-21
+def make_turn  :72-87
+def turn_persister  :178-185
+def prompt_recorder  :194-199
+def error_recorder  :221-222
+def grant_error_budget  :251-256
+def record_chat_errors  :261-279
+```
+
+### src/crack_server/sub_agents/base.py
+```
+class SubAgentPersona  :32-489
+  def persona_dir() → Path
+  def config_path() → Path
+  def config_dict() → dict
+  def model_for() → str
+  def load_template(name: str) → str
+  def tool_name() → str
+  def tool_description() → str
+  def tool_label() → str
+```
+
+### src/crack_server/sub_agents/runner.py
+```
+def format_child_result  :19-37
+def build_entry  :62-78
+def spawn  :81-89
+def finish  :184-260
 ```
 
 ## tests
 
-### tests/fake_pi.sh
+### tests/test_ask_user.py
 ```
-# Fake `pi` for tests — copied onto PATH as `pi`, ahead of the real binary.
-function emit_turn()
-```
-
-### tests/test_detached_hops.py
-```
-async def test_cancel_detaches_pi_instead_of_killing(fake_pi, tmp_path)  :48-75
-async def test_reattach_tails_detached_pi_without_respawning(fake_pi, tmp_path)  :79-109
-def test_reattach_drains_backlog_when_pi_finished_during_restart(fake_pi, tmp_path)  :112-149
-def test_recover_detached_hops(tmp_path, monkeypatch)  :166-212
+async def test_ask_user_suspends_run_then_answer_resumes(chat_root, fake_pi)  :22-62
+async def test_ask_user_orphan_sweep_skips_awaiting_user(chat_root, fake_pi)  :66-87
+async def test_ask_user_answer_requires_awaiting_phase(chat_root, fake_pi)  :91-104
+async def test_ask_user_route_and_chat_parent(chat_root, fake_pi)  :108-142
+async def test_user_answer_route(chat_root, fake_pi)  :146-176
 ```
 
-### tests/test_vision_media.py
+### tests/test_model_switch.py
 ```
-def root(tmp_path, monkeypatch)  :41-43
-def test_run_pi_text_image_args(fake_pi)  :75-87
-def test_run_pi_text_no_image_args_unchanged(fake_pi)  :90-94
-async def test_vision_analyze_rejects_missing_and_invalid(root)  :103-123
-async def test_vision_analyze_happy_path(root, monkeypatch)  :127-135
-async def test_vision_analyze_resolves_relative_paths(root, monkeypatch)  :139-147
-def test_task_media_route(root)  :155-169
-def test_chat_media_route(root)  :172-178
-def test_run_media_route(root)  :181-191
-def test_persister_attaches_media_only_for_valid_images(root)  :199-229
-def test_persister_without_media_dir_leaves_blocks_alone(root)  :232-237
-def test_add_attachment_validates_and_describes(root, monkeypatch)  :245-260
-async def test_attachment_upload_route(root, monkeypatch)  :264-293
-def test_format_block_shape()  :296-310
-def test_read_all_prompts_joined_prepends_attachments(root)  :313-321
-def test_chat_post_message_weaves_then_clears(root)  :324-340
-def test_chat_post_message_stashes_media_onto_the_exchange(root)  :348-364
-def test_render_exchanges_shows_prompt_thumbs_from_exchange_media()  :367-374
-def test_render_user_prompt_msg_renders_media_thumbs()  :377-391
-def test_prompt_recorder_attaches_media_list_and_callable(tmp_path)  :394-412
-def test_task_prompt_media_reads_task_manifest(root)  :415-423
+def test_make_turn_records_model_when_set()  :27-29
+def test_make_turn_omits_model_when_empty()  :32-34
+def test_persister_stamps_current_model(tmp_path)  :37-46
+def test_persister_stamp_reason_on_last_turn(tmp_path)  :49-58
+def test_persister_stamp_reason_noop_when_empty(tmp_path)  :61-66
+def test_reason_note_shown_for_notable_reasons()  :69-74
+def test_model_tag_shown_per_turn()  :86-91
+def test_prewalk_swap_divider_after_todo()  :94-102
+def test_user_switch_divider_without_todo()  :105-109
+def test_no_divider_when_model_stable()  :112-115
+def test_model_state_threads_across_calls()  :118-125
+def test_tool_output_short_has_no_expand_toggle()  :133-136
+def test_tool_output_long_has_single_icon_toggle()  :139-144
+def test_plan_chat_form_editor_before_first_message(chat_root)  :156-163
+def test_plan_chat_form_locked_before_graduation(chat_root)  :166-172
+def test_plan_chat_form_dropdown_after_graduation(chat_root)  :175-185
+def test_nonplan_chat_form_has_dropdown(chat_root)  :188-193
+def test_run_display_model_uses_planner_while_planning()  :201-206
+def test_run_display_model_uses_implementer_after_swap()  :209-218
+def test_chat_display_model_planning_then_graduated()  :221-229
+def test_graduation_gate_matches_prewalk_swap()  :232-240
+def test_post_message_locks_config_on_first_message(chat_root)  :243-256
+def test_chat_display_model_prefers_cached(chat_root)  :259-263
+def test_image_models_filters_to_image_capable(chat_root)  :271-279
+def test_image_models_fallback_when_no_info(chat_root)  :282-288
 ```

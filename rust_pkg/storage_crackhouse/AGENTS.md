@@ -27,7 +27,21 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## todos
 ```
-src/models.rs:182  # TODO: ! Get existing model SQLs from the DB and only drop/create if changed
+src/models.rs:202  # TODO: ! Get existing model SQLs from the DB and only drop/create if changed
+```
+
+## .
+
+### README.md
+```
+h1 storage_crackhouse
+h2 Gotchas
+h2 Tests
+```
+
+### test.sh
+```
+# Smoke tests for storage_crackhouse: native (real rusqlite file) + wasm (OPFS, headless browsers).
 ```
 
 ## src

@@ -23,6 +23,23 @@ Run tests with `./test.sh` (native `cargo test` only). See `README.md`.
 
 Always run `sigmap ask` (or `sigmap --query`) before searching for files relevant to a task.
 
+## .
+
+### README.md
+```
+h1 thread_crackworker
+h2 Usage
+h2 Gotchas
+h2 Tests
+code-fence rust
+code-fence plain
+```
+
+### test.sh
+```
+# Smoke tests for thread_crackworker: native only.
+```
+
 ## src
 
 ### src/lib.rs

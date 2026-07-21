@@ -24,6 +24,23 @@ Run tests with `./test.sh` (`cargo test`, `cargo test --features worker`,
 
 Always run `sigmap ask` (or `sigmap --query`) before searching for files relevant to a task.
 
+## .
+
+### README.md
+```
+h1 game_logic
+h2 Usage
+h2 Gotchas
+h2 Tests
+code-fence rust
+code-fence plain
+```
+
+### test.sh
+```
+# Smoke tests for game_logic: native (default + worker feature) + wasm (node).
+```
+
 ## src
 
 ### src/api.rs
@@ -168,6 +185,13 @@ pub async fn fetch_fake_map_tiles(_args: FetchArgs) → anyhow::Result<Vec<FakeM
 
 ### src/worker/models.rs
 ```
+pub struct GameLogicModels
+pub struct GameKvEntry_Entity
+pub struct GameKvEntry
+impl GameLogicModels
+impl GameKvEntry_Entity
+impl GameKvEntry
+impl GameKvEntry
 pub async fn run_game_migrations(_: () → anyhow::Result<()>
 ```
 

@@ -63,138 +63,37 @@ normals, no Transform teleports.
 
 Always run `sigmap ask` (or `sigmap --query`) before searching for files relevant to a task.
 
-## .
-
-### index.clouds.html
-```
-title: Crack! - Clouds
-```
-
 ## src
 
-### src/main_game_plugin.rs
+### src/plugins/traffic/road_graph.rs
 ```
-pub struct MainGamePlugin
-impl MainGamePlugin
-```
-
-### src/plugins/cloud_sky/ground_shadow.wgsl
-```
-fn vertex(@location(0) pos: vec3<f32>,
-let model = get_world_from_local(inst);
-let world_pos = (model * vec4<f32>(pos, 1.0)).xyz;
-fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-let intensity = u.params.x;
-let uv = in.world_pos.xz * u.params.y + u.wind.xy * globals.time;
-let cloud = textureSample(shadow_tex, shadow_smp, uv).r;
-let alpha = cloud * intensity;
+pub struct TrafficRoadGraph
+pub struct RoadSegment
+pub enum RerouteMode
+pub fn quantize(p: Vec3) → IVec2
+pub fn build_road_graph(database: Res<crate::plugins::geojson::GeoJsonDatabase>, mut graph: ResMut<TrafficRoadGraph>,)
+pub fn road_too_steep(points: &[Vec3]) → bool
+pub fn pick_continuation(graph: &TrafficRoadGraph, node: IVec2, from_seg: usize, mode: RerouteMode,) → Option<(usize, Vec<Vec3>)>
 ```
 
-### src/plugins/cloud_sky/materials.rs
+### src/plugins/visual_fx/demo.rs
 ```
-pub struct SkyParamsUniform
-pub struct SkyDomeMaterial
-pub struct PrecipOverlayMaterial
-pub struct GroundShadowUniform
-pub struct CloudGroundShadowMaterial
-impl SkyDomeMaterial
-impl PrecipOverlayMaterial
-impl CloudGroundShadowMaterial
-```
-
-### src/plugins/cloud_sky/mod.rs
-```
-pub struct CloudSkyPlugin
-impl CloudSkyPlugin
+pub struct VfxDemoState
+pub struct VfxDemoPlugin
+pub enum DemoEffect
+impl DemoEffect
+  pub fn label(self) → &'static str
+impl VfxDemoState
+impl VfxDemoPlugin
 ```
 
-### src/plugins/cloud_sky/precip_overlay.wgsl
+### src/plugins/visual_fx/gun_fx.rs
 ```
-fn vertex(@location(0) pos: vec3<f32>,
-let model = get_world_from_local(inst);
-let world_pos = (model * vec4<f32>(pos, 1.0)).xyz;
-fn hash2(p: vec2<f32>) -> f32 {
-fn rain(rd: vec3<f32>, intensity: f32, day: f32) -> f32 {
-let yaw = atan2(rd.x, rd.z);
-let slant = (u.wind.x + u.wind.y) * 6.0 + 0.15;
-let p_yaw = yaw + rd.y * slant;
-let cols = 70.0;
-let col_id = floor(p_yaw * cols);
-let rnd = hash2(vec2<f32>(col_id, 3.7));
-let cx = abs(fract(p_yaw * cols) - 0.5);
-let thin = smoothstep(0.10, 0.03, cx);
-let speed = 2.5 + rnd * 2.0;
-let span = 4.0 + rnd * 3.0;
-```
-
-### src/plugins/cloud_sky/settings.rs
-```
-pub struct CloudSkySettings
-impl CloudSkySettings
-impl CloudSkySettings
-  pub fn sun_dir_and_day_factor(&self) → (Vec3, f32)
-  pub fn wind_vec(&self) → Vec2
-```
-
-### src/plugins/cloud_sky/skybox_clouds.wgsl
-```
-fn vertex(@location(0) pos: vec3<f32>,
-let model = get_world_from_local(inst);
-let world_pos = (model * vec4<f32>(pos, 1.0)).xyz;
-fn hash2(p: vec2<f32>) -> f32 {
-fn vnoise(p: vec2<f32>) -> f32 {
-let i = floor(p);
-let f = fract(p);
-let a = hash2(i);
-let b = hash2(i + vec2<f32>(1.0, 0.0));
-let c = hash2(i + vec2<f32>(0.0, 1.0));
-let d = hash2(i + vec2<f32>(1.0, 1.0));
-let w = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-fn fbm(p_in: vec2<f32>, octaves: f32) -> f32 {
-let rot = mat2x2<f32>(vec2<f32>(0.8, -0.6), vec2<f32>(0.6, 0.8));
-fn kelvin_to_rgb(kelvin: f32) -> vec3<f32> {
-```
-
-### src/plugins/cloud_sky/systems.rs
-```
-pub struct CloudSkyDome
-pub struct PrecipOverlayQuad
-pub struct CloudGroundShadowQuad
-pub fn make_sky_params(s: &CloudSkySettings) → SkyParamsUniform
-pub fn setup_cloud_sky(mut commands: Commands, settings: Res<CloudSkySettings>, mut meshes: ResMut<Assets<Mesh>>, mut images: ResMut<Assets<Image>>, mut sky_mats: ResMut<Assets<SkyDomeMaterial>>, mut precip_mats: ResMut<Assets<PrecipOverlayMaterial>>, mut shadow_mats: ResMut<Assets<CloudGroundShadowMaterial>>,)
-pub fn follow_camera(camera_q: Query<&GlobalTransform, With<MainCamera>>, mut dome_q: Query<&mut Transform, (With<CloudSkyDome>, Without<PrecipOverlayQuad>)
-pub fn auto_sun_temperature(mut settings: ResMut<CloudSkySettings>)
-pub fn sync_sky_uniforms(settings: Res<CloudSkySettings>, mut sky_mats: ResMut<Assets<SkyDomeMaterial>>, mut precip_mats: ResMut<Assets<PrecipOverlayMaterial>>, mut shadow_mats: ResMut<Assets<CloudGroundShadowMaterial>>,)
-pub fn sync_sun_light(settings: Res<CloudSkySettings>, mut light_q: Query<(&mut Transform, &mut DirectionalLight)
-pub fn generate_cloud_shadow_image() → Image
-```
-
-### src/plugins/cloud_sky/ui.rs
-```
-pub fn cloud_sky_window(mut contexts: EguiContexts, mut ui_state: ResMut<UiState>, mut settings: ResMut<CloudSkySettings>,)
-```
-
-### src/plugins/main_scene_plugin.rs
-```
-pub struct MainScenePlugin
-impl MainScenePlugin
-```
-
-### src/plugins/map_plugin/map_material_edit.rs
-```
-pub struct MapMaterialEditPlugin
-pub struct MapMaterialEditState
-impl MapMaterialEditPlugin
-impl MapMaterialEditState
-```
-
-### src/plugins/map_plugin/map_plugin_ui.rs
-```
-pub fn configure_map_extent_gizmo(mut store: ResMut<GizmoConfigStore>)
-pub fn draw_tree_bboxes(_gizmos: Gizmos, _data_res: Res<MapTree>, _lod_state: Res<MapLODState>, _tiles_query: Query<&TreeMapTile>, _ui_state: Option<Res<crate::ui_egui::UiState>>,)
-pub fn draw_map_extent_gizmo(mut gizmos: Gizmos<MapExtentGizmoGroup>, data_res: Res<MapTree>, ui_state: Option<Res<crate::ui_egui::UiState>>,)
-pub fn tree_navigator_ui(mut contexts: EguiContexts, data_res: Res<MapTree>, mut lod_state: ResMut<MapLODState>, tiles_query: Query<&TreeMapTile>, ui_state: Option<ResMut<crate::ui_egui::UiState>>,)
-pub fn draw_reference_points_gizmos(mut gizmos: Gizmos, data_res: Res<MapTree>, lod_state: Res<MapLODState>, camera_query: Query<&Transform, With<Camera>>,)
+pub struct GunFxEvent
+pub struct GunFxCounter
+pub struct GunSmokeEmitter
+pub fn gun_fx_observer(trigger: On<GunFxEvent>, mut commands: Commands, time: Res<Time>, settings: Res<VfxSettings>, meshes: Option<Res<VfxMeshes>>, mut additive_mats: ResMut<Assets<AdditiveFxMaterial>>, mut blend_mats: ResMut<Assets<BlendFxMaterial>>, q_model_state: Query<&WeaponModelState>, mut q_smoke_emitter: Query<&mut GunSmokeEmitter>, counter: Option<ResMut<GunFxCounter>>,)
+pub fn tick_gun_smoke_emitters(mut commands: Commands, time: Res<Time>, settings: Res<VfxSettings>, meshes: Option<Res<VfxMeshes>>, mut blend_mats: ResMut<Assets<BlendFxMaterial>>, mut q_emitters: Query<( Entity, &GlobalTransform, Option<&WeaponExtents>, &mut GunSmokeEmitter,)
 ```
 
 ### src/plugins/visual_fx/materials.rs
@@ -207,21 +106,91 @@ impl AdditiveFxMaterial
 impl BlendFxMaterial
 ```
 
-### src/plugins/visual_fx/mod.rs
-```
-pub struct VisualFXPlugin
-impl VisualFXPlugin
-```
-
 ### src/plugins/visual_fx/settings.rs
 ```
 pub struct VfxSettings
 impl VfxSettings
 ```
 
-### src/plugins/visual_fx/ui.rs
+### src/plugins/visual_fx/smoke_emitter.rs
 ```
-pub fn vfx_controls_window(mut contexts: EguiContexts, mut ui_state: ResMut<UiState>, mut s: ResMut<VfxSettings>,)
+pub struct SmokeEmitter
+pub fn tick_smoke_emitters(mut commands: Commands, time: Res<Time>, settings: Res<VfxSettings>, meshes: Option<Res<VfxMeshes>>, mut blend_mats: ResMut<Assets<BlendFxMaterial>>, mut q_emitters: Query<(Entity, &GlobalTransform, &mut SmokeEmitter)
+```
+
+### src/plugins/visual_fx/spawn.rs
+```
+pub struct VfxLifetime
+pub struct VfxDrift
+pub struct VfxMeshes
+pub fn spawn_additive_billboard_fx(commands: &mut Commands, mats: &mut Assets<AdditiveFxMaterial>, meshes: &VfxMeshes, time: &Time, pos: Vec3, params: BillboardParams,) → Entity
+pub fn spawn_blend_billboard_fx(commands: &mut Commands, mats: &mut Assets<BlendFxMaterial>, meshes: &VfxMeshes, time: &Time, pos: Vec3, params: BillboardParams,) → Entity
+pub fn despawn_expired_fx(mut commands: Commands, time: Res<Time>, q: Query<(Entity, &VfxLifetime)
+pub fn tick_vfx_drift(time: Res<Time>, mut q: Query<(&mut Transform, &VfxDrift)
+pub fn setup_vfx_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>)
+```
+
+### src/plugins/weapons/weapon_attach.rs
+```
+pub struct EquippedWeapon
+pub struct EquipWeaponEvent
+pub struct WeaponGripOffset
+pub struct WeaponModelState
+pub struct WeaponModel
+pub struct PendingWeaponExtents
+pub struct WeaponExtents
+pub struct PendingWeaponModelFetch
+pub enum WeaponKind
+impl WeaponGripOffset
+pub fn equip_weapon_observer(trigger: On<EquipWeaponEvent>, mut commands: Commands, transforms: Query<&GlobalTransform>,)
+pub fn reconcile_weapon_model(mut commands: Commands, client: Option<Res<crate::plugins::crack_plugin::CrackClient>>, mut characters: Query<(Entity, &EquippedWeapon, Option<&mut WeaponModelState>)
+pub fn poll_weapon_model_fetches(mut commands: Commands, mut q_fetches: Query<(Entity, &mut PendingWeaponModelFetch)
+pub fn finalize_weapon_extents(mut commands: Commands, pending: Query<(Entity, &Children)
+pub fn update_weapon_transforms(grip: Res<WeaponGripOffset>, rig: Res<CameraRig>, controlled: Res<ControlledCharacter>, camera: Query<&GlobalTransform, With<MainCamera>>, spatial: SpatialQuery, parents: Query<&ChildOf>, global_transforms: Query<&GlobalTransform>, combat_states: Query<&CombatState>, mut weapons: Query<(Entity, &mut Transform, &WeaponKind)
+```
+
+### src/plugins/weapons/weapon_manifest.rs
+```
+pub struct GunInfo
+pub struct MeleeInfo
+pub struct WeaponManifest
+pub struct WeaponManifestTasks
+pub enum WeaponId
+impl WeaponId
+  pub fn is_unarmed(&self) → bool
+  pub fn is_gun(&self) → bool
+  pub fn is_melee(&self) → bool
+  pub fn path(&self) → Option<&str>
+  pub fn rpm(&self) → f32
+  pub fn automatic(&self) → bool
+  pub fn gun_info(&self) → Option<&GunInfo>
+  pub fn label(&self) → String
+pub fn start_weapon_manifest_load(mut commands: Commands)
+pub fn spawn_weapon_manifest_task(mut tasks: ResMut<WeaponManifestTasks>, manifest: Res<WeaponManifest>, client: Option<Res<crate::plugins::crack_plugin::CrackClient>>,)
+pub fn poll_weapon_manifest_task(mut tasks: ResMut<WeaponManifestTasks>, mut manifest: ResMut<WeaponManifest>,)
+```
+
+### src/plugins/weapons/weapon_shooting.rs
+```
+pub struct GunState
+pub struct WeaponCooldown
+pub struct FireGunEvent
+pub struct ReloadGunEvent
+pub struct ShotTracer
+pub struct ShotTracers
+pub struct BulletSpark
+pub struct BulletSparks
+pub struct MeleeDebugBox
+pub struct MeleeDebugBoxes
+pub struct PendingMeleeHit
+pub fn tick_weapon_cooldown(time: Res<Time>, mut q: Query<&mut WeaponCooldown>)
+pub fn tick_reload(time: Res<Time>, mut q: Query<&mut GunState>)
+pub fn draw_melee_debug_boxes(time: Res<Time>, mut gizmos: Gizmos, mut boxes: ResMut<MeleeDebugBoxes>,)
+pub fn fire_gun_observer(trigger: On<FireGunEvent>, mut shooters: Query<(&mut GunState, &EquippedWeapon, Option<&WeaponModelState>)
+pub fn reload_gun_observer(trigger: On<ReloadGunEvent>, mut shooters: Query<(&mut GunState, &EquippedWeapon, &GlobalTransform)
+pub fn draw_shot_tracers(time: Res<Time>, mut gizmos: Gizmos, mut tracers: ResMut<ShotTracers>, settings: Res<crate::plugins::visual_fx::settings::VfxSettings>,)
+pub fn draw_bullet_sparks(time: Res<Time>, mut gizmos: Gizmos, mut sparks: ResMut<BulletSparks>, settings: Res<crate::plugins::visual_fx::settings::VfxSettings>,)
+pub fn tick_pending_melee_hits(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &GlobalTransform, &mut PendingMeleeHit)
 ```
 
 ### src/ui_egui.rs
@@ -234,11 +203,4 @@ impl UiState
   pub fn with_physics_debug() → Self
 impl UiState
 pub fn web_set_loading_status(_show: bool, _message: &str)
-```
-
-### src/utils/setup_debug_scene.rs
-```
-pub struct SetupDebugScenePlugin
-pub struct DebugSceneGroundComponent
-impl SetupDebugScenePlugin
 ```

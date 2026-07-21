@@ -21,167 +21,227 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
-.pi/crack/server/src/crack_server/sub_agents/wait.py ← __future__, crack_server
-.pi/crack/server/src/crack_server/titles.py ← __future__, crack_server
-.pi/crack/server/src/crack_server/worker.py ← __future__
-.pi/crack/server/tests/test_ask_user.py ← __future__, crack_server, tests, pytest
-.pi/crack/server/tests/test_async_worker.py ← __future__, crack_server, tests, pytest
-.pi/crack/server/tests/test_plan_revamp.py ← __future__, crack_server, tests, pytest
-.pi/crack/server/tests/test_plan41.py ← __future__, crack_server, pytest
-.pi/crack/server/tests/test_sub_agents.py ← __future__, crack_server, tests, pytest
-.pi/crack/server/tests/test_wait_join.py ← __future__, crack_server, tests, pytest
+.pi/crack/server/src/crack_server/pi_proc.py ← __future__, crack_server, shlex
 ```
 
 ## todos
 ```
-.pi/crack/server/tests/test_plan_revamp.py:144  # TODO: was regenerated (single-shot) and Plan Review auto-started.
+rust_pkg/storage_crackhouse/src/models.rs:202  # TODO: ! Get existing model SQLs from the DB and only drop/create if changed
+rust_pkg/api_asscrack/src/crack_worker/api_worker.rs:50  # TODO: get which is missing...
 ```
 
 ## .pi
 
-### .pi/crack/server/src/crack_server/sub_agents/wait.py
+### .pi/crack/server/src/crack_server/pi_proc.py
 ```
-def drain_matching  :82-86
-def poll  :135-142
-def stamp_waiting  :220-221
-def clear_waiting  :235-241
-```
-
-### .pi/crack/server/src/crack_server/titles.py
-```
-def generate_title(content: str, *, log_prefix: str) → str  :21-35  # Summarize ``content`` into a short title via the nano title 
-async def agenerate_title(content: str, *, log_prefix: str) → str  :38-47  # Async twin of :func:`generate_title` (chat titles, in the ev
-```
-
-### .pi/crack/server/src/crack_server/worker.py
-```
-def recover_detached_hops() → None  :148-207
-async def async_loop() → None  :334-374  # Claim and dispatch jobs forever, one asyncio task per job (n
-def start_background() → asyncio.Task  :377-379  # Lifespan hook: start the worker loop as a background task
-async def stop_background(task: asyncio.Task) → None  :382-386  # Lifespan hook: cancel the worker loop and let it reap in-fli
-def main() → None  :389-394  # Deprecated: the worker now runs inside the server process (a
+class PiError(RuntimeError)  :78-88
+  def __init__(message: str, detail: str, over_budget: bool) → None
+class PiStopped(RuntimeError)  :91-93
+class _TurnAccumulator  :505-548
+  def __init__() → None
+  def apply(event: dict) → None
+class _StreamSink  :551-597
+  def __init__(p: _HopParams) → None
+  def persist(turn: dict) → None
+class _HopParams(NamedTuple)  :794-816
+async def arun_pi_text(prompt: str, log_prefix: str, model: str, max_input_chars: int | None, record_prompt, pid_file: Path | None, stop_check: Callable[[], bool] | None, image_paths: list[Path] | None, record_error) → tuple[str, float]  :269-278
+def run_pi_text(*args, **kwargs) → tuple[str, float]  :392-396  # Sync wrapper over :func:`arun_pi_text` for thread-based call
+def kill_pid_file(pid_file: Path) → bool  :451-502  # Kill the process group named in ``pid_file`` (written by aru
+async def arun_agent_hop(*, log_prefix: str, model: str, session_id: str, sessions_dir: Path, tools: str | None, message: str, start: float, sentinel: str | None, timeout_seconds: int, persist_turn, hop: int, pid_file: Path | None, stop_check, record_prompt, record_error, error_budget: Callable[[], int] | None, env_extra: dict[str, str] | None, waiting_check: Callable[[], bool] | None, append_system_prompt: str | None, swap_after_edit: bool, todo_already: bool) → str  :1183-1205
+def run_agent_hop(**kwargs) → str  :1280-1284  # Sync wrapper over :func:`arun_agent_hop` for thread-based ca
 ```
 
-### .pi/crack/server/tests/fake_pi.sh
+## rust_pkg
+
+### rust_pkg/net_crackpipe/src/chat/chat_ticket.rs
 ```
-# Fake `pi` for tests — copied onto PATH as `pi`, ahead of the real binary.
-function emit_turn()
+pub struct ChatTicket
+impl ChatTicket
+  pub fn new_str_bs(topic_id: &str, bs: BTreeSet<NodeId>) → Self
 ```
 
-### .pi/crack/server/tests/test_ask_user.py
+### rust_pkg/net_crackpipe/src/echo.rs
 ```
-async def test_ask_user_suspends_run_then_answer_resumes(chat_root, fake_pi)  :22-62
-async def test_ask_user_orphan_sweep_skips_awaiting_user(chat_root, fake_pi)  :66-87
-async def test_ask_user_answer_requires_awaiting_phase(chat_root, fake_pi)  :91-104
-async def test_ask_user_route_and_chat_parent(chat_root, fake_pi)  :108-142
-async def test_user_answer_route(chat_root, fake_pi)  :146-176
-```
-
-### .pi/crack/server/tests/test_async_worker.py
-```
-def fake_pi(tmp_path, monkeypatch) → FakePi  :19-37
-async def test_two_chat_hops_interleave(tmp_path, monkeypatch, fake_pi)  :62-87  # Two 2s-sleeping chat hops dispatched concurrently finish in 
-async def test_enqueue_fires_wakeup_callback(tmp_path, monkeypatch, fake_pi)  :91-99
+pub struct Echo
+impl Echo
+  pub fn new(own_endpoint_node_id: NodeId, sleep_manager: SleepManager) → Self
+impl Echo
+impl Echo
 ```
 
-### .pi/crack/server/tests/test_plan_revamp.py
+### rust_pkg/net_crackpipe/src/lib.rs
 ```
-def fake_pi(tmp_path, monkeypatch) → FakePi  :62-80
-def task(tmp_path, monkeypatch, fake_pi) → str  :84-89
-def plan_stage()  :92-97
-def review_stage()  :100-105
-async def test_draft_chains_to_write_through_worker_cycle(task, fake_pi, tmp_path)  :115-148
-async def test_write_step_corrective_retry_names_deficiency(task, fake_pi, tmp_path)  :152-172
-async def test_critique_no_questions_chains_to_verified_revise(task, fake_pi)  :176-197
-def test_run_until_verified_passes_first_try()  :218-226
-def test_run_until_verified_corrective_then_pass()  :229-238
-def test_run_until_verified_exhausts_correctives()  :241-250
-def test_run_until_verified_time_cap_still_verifies()  :253-256
-def test_run_until_verified_stopped_runs_callback()  :259-264
-def test_verify_artifact_file_checks(tmp_path)  :272-288
-def test_verify_artifact_file_heading_prefix_match(tmp_path)  :291-297
-def test_check_orphaned_flags_running_phase_without_job(task, fake_pi)  :310-323
-def test_check_orphaned_leaves_backed_and_settled_phases_alone(task, fake_pi)  :326-343
+pub fn timestamp_micros() → u128
+pub fn datetime_now() → DateTime<Utc>
 ```
 
-### .pi/crack/server/tests/test_plan41.py
+### rust_pkg/net_crackpipe/src/signed_message.rs
 ```
-class FakePi  :31-47
-  def __init__(ctrl: Path, script: Path)
-  def set_script(lines: list[str]) → None
-  def argv(n: int) → list[str]
-  def prompt(n: int) → str
-  def invocations() → int
-def fake_pi(tmp_path, monkeypatch) → FakePi  :51-69
-def run_hop(tmp_path, message, sentinel, model, **kw)  :72-87
-def test_limiter_keyed_by_provider()  :95-100
-def test_rate_limiter_reserves_slots_without_serializing()  :103-123
-def test_non_nvidia_hops_run_back_to_back(fake_pi, tmp_path)  :126-132
-def test_is_transient_classification()  :140-148
-def test_transient_then_success_completes_one_trajectory(fake_pi, tmp_path)  :151-158
-def test_midstream_kill_resumes_session_with_continuation(fake_pi, tmp_path)  :161-177
-def test_transient_failures_raise_at_streak_cap(fake_pi, tmp_path)  :180-189
-def test_hard_failure_after_persisted_turns_resumes_and_retries(fake_pi, tmp_path)  :192-222
-def test_error_budget_cap_raises_over_budget(fake_pi, tmp_path)  :225-236
-def test_broken_error_recorder_never_wedges_retries(fake_pi, tmp_path)  :239-248
-def test_hard_backoff_schedule_is_1_3_9_27(monkeypatch)  :251-262
-def test_no_progress_streak_resets_on_progress(fake_pi, tmp_path, monkeypatch)  :265-297
-def test_run_pi_text_transient_then_ok(fake_pi)  :300-304
-def test_run_pi_text_hard_failures_exhaust_schedule(fake_pi)  :307-311
-def test_run_pi_text_records_each_failed_attempt(fake_pi)  :314-328
-def test_forty_turns_stream_uncut(fake_pi, tmp_path)  :336-340
-def test_sentinel_own_line_only(fake_pi, tmp_path)  :348-353
-def test_stop_kills_process_group_and_returns_stopped(fake_pi, tmp_path)  :361-392
-def test_enqueue_exclusive_drops_duplicates(tmp_path, monkeypatch)  :400-429
-def test_prompt_entries_skipped_by_turn_helpers()  :437-447
+pub struct SignedMessage
+pub struct MessageSigner
+pub struct WireMessage
+pub struct ReceivedMessage
+pub enum ChatMessage
+pub trait AcceptableType
+pub trait IChatRoomType
+impl SignedMessage
+  pub fn verify_and_decode(bytes: &[u8]) → Result<WireMessage<T>>
+impl MessageSigner
+  pub fn sign_and_encode(&self, message: T,) → Result<(Vec<u8>, WireMessag...
 ```
 
-### .pi/crack/server/tests/test_sub_agents.py
+### rust_pkg/net_crackpipe/src/sleep.rs
 ```
-def fake_pi(tmp_path, monkeypatch) → FakePi  :41-59
-def chat_root(tmp_path, monkeypatch, fake_pi) → str  :63-69
-def test_personas_discovered(chat_root)  :72-74
-async def test_spawn_run_report_parent_resume(chat_root, fake_pi)  :79-104
-async def test_nudge_then_report(chat_root, fake_pi)  :109-125
-async def test_nudge_exhaustion_errors_and_resumes_parent(chat_root, fake_pi)  :130-146
-async def test_depth_limit_rejects_spawn_beyond_max(chat_root, fake_pi)  :151-180
-async def test_parallel_children_both_delivered(chat_root, fake_pi)  :185-211
-async def test_reclaim_orphans_requeues(chat_root, fake_pi)  :216-236
-async def test_planner_qa_round_then_write(chat_root, fake_pi)  :241-295
-def test_api_list_personas(chat_root)  :298-303
-async def test_api_spawn(chat_root, fake_pi)  :308-339
+pub struct SleepManager
+impl SleepManager
+  pub fn new() → Self
+  pub async fn sleep(&self, duration: Duration)
+  pub fn wake_up(&self)
+impl SleepManagerInner
 ```
 
-### .pi/crack/server/tests/test_wait_join.py
+### rust_pkg/net_crackpipe/src/user_identity.rs
 ```
-async def test_wait_drains_chat_inbox_then_drain_job_noops(chat_root, fake_pi)  :60-88
-async def test_wait_run_parent_drain_no_duplicate_child_results(chat_root, fake_pi)  :92-129
-async def test_wait_target_resolution(chat_root, fake_pi)  :133-189
-async def test_notified_gap_not_misread_as_delivered(chat_root, fake_pi)  :193-213  # notified=true with no inbox entry (the finish() two-write ga
-async def test_wait_route_long_poll_wakes_on_notify(chat_root, fake_pi)  :217-245
-async def test_wait_route_validation(chat_root, fake_pi)  :249-267
-async def test_orphan_check_skips_waiting_parent(chat_root, fake_pi)  :271-291
+pub struct UserIdentity
+pub struct UserIdentitySecrets
+pub struct NodeIdentity
+impl UserIdentity
+  pub fn nickname(&self) → String
+  pub fn user_id(&self) → &PublicKey
+  pub fn html_color(&self) → String
+  pub fn rgb_color(&self) → (u8, u8, u8)
+impl UserIdentitySecrets
+impl UserIdentitySecrets
+  pub fn user_identity(&self) → &UserIdentity
+  pub fn secret_key(&self) → &SecretKey
+  pub fn generate() → Self
+impl NodeIdentity
+  pub fn nickname(&self) → String
+  pub fn html_color(&self) → String
+  pub fn rgb_color(&self) → (u8, u8, u8)
+  pub fn user_id(&self) → &PublicKey
+  pub fn node_id(&self) → &PublicKey
+  pub fn user_identity(&self) → &UserIdentity
+  pub fn bootstrap_idx(&self) → Option<u32>
+  pub fn new(user_identity: UserIdentity, node_id: PublicKey, bootstrap_idx: Option<u32>,) → Self
 ```
 
-## _docker
-
-### _docker/_cont_start.sh
+### rust_pkg/storage_crackhouse/src/api.rs
 ```
-function respawn()
-export CRACK_PI_PROJECT_ROOT
-export HOME
-export CRACK_PI_HOST
-export PATH
-export CHROME_BIN
-export CHROME_PATH
-export CHROMIUM_PATH
-export FIREFOX_BIN
-export CHROMEDRIVER_BIN
-export GECKODRIVER_BIN
-export PLAYWRIGHT_BROWSERS_PATH
-export CHROMIUM_FLAGS
-export MCP_FIREFOX_PORT
-export MCP_CHROMIUM_PORT
-export MCP_WEBSEARCH_PORT
-export BROWSER_HEADLESS
+pub async fn execute_sql2(sql: String) → anyhow::Result<SqlResultSet>
+pub async fn execute_sql_params(req: SQLAndParams) → anyhow::Result<SqlResultSet>
+```
+
+### rust_pkg/storage_crackhouse/src/impl_rusqulite.rs
+```
+pub async fn sql_query(sql: SQLAndParams) → anyhow::Result<SqlResultSet>
+```
+
+### rust_pkg/storage_crackhouse/src/lib.rs
+```
+pub async fn install_opfs_sahpool() → anyhow::Result<()>
+pub async fn install_relaxed_idb() → anyhow::Result<()>
+```
+
+### rust_pkg/storage_crackhouse/src/models.rs
+```
+pub struct ModelColumnImpl
+pub trait ModelGroup
+pub trait ModelDef
+pub trait ModelSerial
+pub trait DbTypeMapping
+impl i64
+impl String
+impl f64
+impl Vec
+impl Option
+pub async fn run_migrate_tables(groups: impl Iterator<Item = Arc<dyn ModelGroup>>,) → anyhow::Result<()>
+```
+
+### rust_pkg/storage_crackhouse/src/types.rs
+```
+pub struct SQLAndParams
+pub struct SqlResultSet
+pub struct SqlResultRow
+pub enum DbValueType
+pub enum DbValue
+impl DbValueType
+  pub fn to_sql_str(&self) → &'static str
+impl DbValue
+  pub fn fold_option(value: Option<DbValue>) → DbValue
+impl TryFrom
+impl String
+impl i64
+impl f64
+impl Vec
+```
+
+### rust_pkg/web_serviceworker_crackslave/src/lib.rs
+```
+pub async fn _js_init_dedicated_worker() → Result<(), JsValue>
+pub async fn _js_compute_payload_reply(msg: JsValue) → Result<JsValue, JsValue>
+pub async fn web_worker_registration(mapping: Arc<ApiImplMapping>,) → std::result::Result<(), JsV...
+```
+
+### rust_pkg/web_serviceworker_crackloader/src/lib.rs
+```
+pub struct WebWorkerFactory
+impl WebWorkerFactory
+```
+
+### rust_pkg/api_asscrack/src/api/api_client.rs
+```
+pub struct ApiClient
+pub struct MessageLater
+impl ApiClient
+  pub fn new(pipe: WorkerPipe) → Self
+  pub async fn call(&self, arg: T::Arg) → anyhow::Result<T::Ret>
+```
+
+### rust_pkg/api_asscrack/src/api/api_method_macros.rs
+```
+pub struct ApiGroupDeclStatic
+pub struct ApiMethodInfo
+pub struct ApiMethodImpl
+pub trait ApiGroupDecl
+pub trait ApiGroupMethods
+pub trait ApiGroupImpls
+pub trait ApiMethodDecl
+impl ApiMethodImpl
+  pub fn fullname(&self) → String
+impl ApiMethodInfo
+  pub fn fullname(&self) → String
+```
+
+### rust_pkg/api_asscrack/src/api/api_worker_declarations.rs
+```
+pub async fn worker_ping(_x: () → anyhow::Result<()>
+```
+
+### rust_pkg/api_asscrack/src/crack_worker/api_worker.rs
+```
+pub struct ApiImplMapping
+pub fn make_api_mapping(groups: Vec<Arc<dyn ApiGroupImpls>>) → Arc<ApiImplMapping>
+pub async fn compute_response_message(_request: WorkerMessage, mapping: Arc<ApiImplMapping>,) → WorkerMessage
+```
+
+### rust_pkg/api_asscrack/src/crack_worker/mod.rs
+```
+pub struct WorkerPipe
+pub struct WorkerMessage
+pub trait WorkerLoaderFactory
+```
+
+### rust_pkg/thread_crackworker/src/lib.rs
+```
+pub struct ThreadWorkerFactory
+impl ThreadWorkerFactory
+```
+
+### rust_pkg/_crack_utils/src/lib.rs
+```
+pub fn get_timestamp_now_ms() → i64
+pub fn spawn(f: F) → n0_future::task::JoinHandle...
+pub fn random_u32() → u32
+pub async fn sleep_ms(dt_ms: u32)
 ```

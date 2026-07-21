@@ -19,3 +19,18 @@ link smoke test). See `README.md` for details.
 | To verify an AI answer is grounded | `sigmap judge --response <file>` |
 
 Always run `sigmap ask` (or `sigmap --query`) before searching for files relevant to a task.
+
+## .
+
+### README.md
+```
+h1 consensus_crackhead
+h2 Usage
+h2 Gotchas
+h2 Tests
+```
+
+### test.sh
+```
+# Smoke tests for consensus_crackhead: native + wasm (node).
+```

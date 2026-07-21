@@ -19,17 +19,7 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ### main.py
 ```
-class HeadingExtractor(HTMLParser)  :16-70
-  def __init__()
-  def handle_starttag(tag, attrs)
-  def handle_endtag(tag)
-  def handle_data(data)
-def get_url_hash(url: str) → str  :73-76  # Generate a hash for the URL to use as cache filename
-def download_page(url: str, cache_dir: Path) → tuple[bool, str]  :79-129  # Download a page using wget
-def extract_headings_and_subtitle(html: str, url: str) → dict  :132-175  # Extract headings and subtitle/description from HTML
-def read_urls(input_file: Path) → list[str]  :178-191  # Read URLs from file, strip whitespace, skip empty lines and 
-def generate_report(results: list[dict], output_file: Path)  :194-221  # Generate markdown report from extraction results
-def main()  :224-270
+def main()  :9-26
 ```
 
 ### news_reports.md

@@ -32,6 +32,23 @@ with `./test.sh` (native `cargo test` + `wasm-pack test --headless --firefox
 
 Always run `sigmap ask` (or `sigmap --query`) before searching for files relevant to a task.
 
+## .
+
+### README.md
+```
+h1 net_crackpipe
+h2 Usage
+h2 Gotchas
+h2 Tests
+code-fence rust
+code-fence plain
+```
+
+### test.sh
+```
+# Smoke tests for net_crackpipe: native + wasm (headless browsers).
+```
+
 ## src
 
 ### src/_random_word.rs

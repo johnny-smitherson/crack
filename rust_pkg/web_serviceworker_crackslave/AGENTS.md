@@ -23,6 +23,23 @@ deliberately left as-is. Never set `RUSTFLAGS`. See `README.md` for details.
 
 Always run `sigmap ask` (or `sigmap --query`) before searching for files relevant to a task.
 
+## .
+
+### README.md
+```
+h1 web_serviceworker_crackslave
+h2 Usage
+h2 Gotchas
+h2 Tests
+code-fence rust
+code-fence plain
+```
+
+### test.sh
+```
+# Browser-wasm link smoke test for web_serviceworker_crackslave.
+```
+
 ## src
 
 ### src/lib.rs

@@ -29,7 +29,24 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## todos
 ```
-src/crack_worker/api_worker.rs:43  # TODO: get which is missing...
+src/crack_worker/api_worker.rs:50  # TODO: get which is missing...
+```
+
+## .
+
+### README.md
+```
+h1 api_asscrack
+h2 Usage
+h2 Gotchas
+h2 Tests
+code-fence rust
+code-fence plain
+```
+
+### test.sh
+```
+# Smoke tests for api_asscrack: native + wasm (node).
 ```
 
 ## src
