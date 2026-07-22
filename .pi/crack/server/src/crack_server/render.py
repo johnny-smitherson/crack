@@ -337,7 +337,9 @@ def render_actions_table(turns: list[dict], include_text: bool = True) -> str:
     :func:`render_turn_msgs` for per-turn / prompt rows."""
     rows: list[str] = []
     for turn in turns:
-        if turn.get("kind"):
+        # Projected trajectory rows carry kind="turn"; only genuinely non-turn
+        # entries (user_prompt, error, annotation, …) are skipped here.
+        if turn.get("kind") not in (None, "", "turn"):
             continue
         if not (
             turn.get("text", "").strip()

@@ -1054,7 +1054,7 @@ def answer_chat_question(chat_id: str, answer: str) -> HTMLResponse:
         raise HTTPException(status_code=409, detail="no pending question")
     question = str(pending_q.get("question", ""))
     choices = list(pending_q.get("choices") or [])
-    qa = {"question": question, "choices": choices, "answer": answer}
+    qa = {"question": question, "choices": choices, "answer": answer, "at": time.time()}
     message = f"You asked: {question}\n\nThe user answered: {answer}"
 
     def _record(state: dict) -> dict:

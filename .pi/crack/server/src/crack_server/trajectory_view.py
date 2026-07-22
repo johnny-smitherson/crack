@@ -276,15 +276,22 @@ def merge_exchange_sidecars(
     error_rows: list[dict] = []
     qa_rows: list[dict] = []
     for i, exchange in enumerate(exchanges):
-        qa = exchange.get("qa")
-        if qa:
-            qa_rows.append({"kind": "ask_user_qa", "id": f"qa-{i}", "qa": qa})
-        user_text = str(exchange.get("user") or "").strip()
-        media = exchange.get("media") or []
         prompt_entry = next(
             (t for t in (exchange.get("turns") or []) if t.get("kind") == "user_prompt"),
             None,
         )
+        qa = exchange.get("qa")
+        if qa:
+            # Time the Q&A card so it sorts into the stream by timestamp rather
+            # than being dumped at the top. Prefer a recorded qa["at"] (the answer
+            # moment); fall back to the exchange's user_prompt time, which is when
+            # the answered prompt was compiled — the same instant, near enough.
+            at = qa.get("at")
+            if at is None and prompt_entry is not None:
+                at = prompt_entry.get("at")
+            qa_rows.append({"kind": "ask_user_qa", "id": f"qa-{i}", "qa": qa, "at": at})
+        user_text = str(exchange.get("user") or "").strip()
+        media = exchange.get("media") or []
         if user_text:
             meta: dict[str, Any] = {
                 "original": user_text,
@@ -303,9 +310,6 @@ def merge_exchange_sidecars(
             error_rows.append(e)
 
     out: list[dict] = []
-    # ask_user Q&A cards first (they stand in for the exchange that answered).
-    out.extend(qa_rows)
-
     # The session ndjson is the sole source of user-prompt rows: a prompt shows
     # up only once pi records it (as a `session_user` message), enriched with the
     # exchange sidecar's compiled-prompt / media metadata. We deliberately do NOT
@@ -329,9 +333,10 @@ def merge_exchange_sidecars(
             continue
         out.append(row)
 
-    # Merge error rows into the projected stream by time instead of dumping them
-    # at the end. `out` rows carry a monotonic (carry-forward) epoch; errors sort
-    # by their own `at`, and on ties land after the row they follow.
+    # Merge sidecar rows (errors, ask_user Q&A) into the projected stream by time
+    # instead of dumping them at the top/end. `out` rows carry a monotonic
+    # (carry-forward) epoch; sidecars sort by their own `at`, and on ties land
+    # after the spine row they follow.
     keyed: list[tuple[float, int, int, dict]] = []
     last = 0.0
     for idx, row in enumerate(out):
@@ -341,9 +346,9 @@ def merge_exchange_sidecars(
         else:
             last = ep
         keyed.append((ep, 0, idx, row))
-    for idx, err in enumerate(error_rows):
-        ep = _row_epoch(err)
-        keyed.append((ep if ep is not None else last, 1, idx, err))
+    for idx, side in enumerate(error_rows + qa_rows):
+        ep = _row_epoch(side)
+        keyed.append((ep if ep is not None else last, 1, idx, side))
     keyed.sort(key=lambda item: (item[0], item[1], item[2]))
     return [payload for _, _, _, payload in keyed]
 
