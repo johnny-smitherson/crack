@@ -2,11 +2,17 @@
 
 Serves a small HTML editor for markdown prompts under `.pi/crack/tasks/<task_id>/`.
 
+This package is managed with **Poetry** (not uv): uv cannot relocate its
+per-project `.venv` out of the source tree, and the sandbox's frozen git-tree
+base must exclude the venv. `POETRY_VIRTUALENVS_PATH` points the venv at the
+gitignored `target/` volume (`/workspace/target/python-venvs` in the container).
+
 ```bash
 # from repository root
 cd .pi/crack/server
-uv sync
-uv run crack-server
+poetry install
+poetry run crack-server
+# tests: poetry run pytest -q
 ```
 
 Environment:

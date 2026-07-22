@@ -562,12 +562,14 @@ def enqueue_chat_test_failure(chat_id: str, output: str, patch_path: Path) -> No
 async def run_sandbox_tests(sandbox_name: str) -> tuple[bool, str]:
     """Run the crack-server test suite inside the sandbox overlay (Plan 7B step 1).
 
-    The sandbox inherits the host's synced ``.venv`` through the `:O` overlay, so
-    ``uv run --no-sync`` skips the network. Returns ``(passed, combined_output)``.
+    The sandbox inherits crack-dev's Poetry venv through the `:O` overlay on the
+    target volume (``POETRY_VIRTUALENVS_PATH=/workspace/target/python-venvs``), so
+    ``poetry run`` executes in it without installing. Returns
+    ``(passed, combined_output)``.
     """
     script = (
         "cd /workspace/.pi/crack/server && "
-        "PYTHONPATH=tests:. uv run --no-sync pytest -q "
+        "PYTHONPATH=tests:. poetry run pytest -q "
         "--ignore=tests/test_vision_media.py"
     )
     rc, out, err = await sandbox._podman(

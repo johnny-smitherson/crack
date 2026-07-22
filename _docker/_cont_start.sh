@@ -3,7 +3,7 @@
 set -ex
 
 cd /workspace/.pi/crack/server
-uv sync
+poetry install
 
 source /workspace/_docker/_sandbox_common.sh
 
@@ -80,4 +80,4 @@ respawn blender-mcp \
 
 # Single process: the queue worker runs inside the server (uvicorn app lifespan,
 # in-process asyncio tasks — see crack_server/worker.py).
-uv run crack-server
+poetry run crack-server

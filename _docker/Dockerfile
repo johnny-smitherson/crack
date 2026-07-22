@@ -46,6 +46,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends podman \
 
 ENV CRACK_HARNESS_DATA_DIR=/crack-harness-data
 
+# The crack-pi-server package is managed with Poetry (uv can't relocate its
+# per-project .venv out of the source tree, which the frozen git-tree sandbox
+# base must exclude). Point ALL Poetry virtualenvs at the existing target volume
+# (crack-dev-target-dir, mounted at /workspace/target, gitignored) so the venv
+# lives in the one build/cache volume and never becomes a sandbox overlay lower.
+# No extra volume is created. The venv is built at boot by `poetry install`
+# (see _cont_start.sh) against the bind-mounted source.
+RUN pip install --no-cache-dir --break-system-packages poetry
+ENV POETRY_VIRTUALENVS_PATH=/workspace/target/python-venvs/
+
 VOLUME /root
 WORKDIR /workspace
 

@@ -292,18 +292,26 @@ git round-trip, and it's guaranteed to match the lower).
 
 ### The one real risk to resolve during implementation
 
-A tracked-only lower **drops gitignored dirs the sandbox needs at runtime** —
-notably `.pi/crack/server/.venv/` (ignored, but required by the self-mod
-`run_sandbox_tests` gate) and possibly `.pi/crack/harness/mcp-http/`, caches, and
-`_data` assets. Today they come "for free" from the live-tree lower.
+A tracked-only lower **drops gitignored dirs the sandbox needs at runtime**.
+Today they come "for free" from the live-tree lower.
 
-Resolution (recommended default): enumerate the *small, fixed* set of
-ignored-but-required dirs and mount each as its own `:O` volume (per-conv upper),
-mirroring `crack-dev-target-dir:/workspace/target:O`. Concretely at minimum
-`.pi/crack/server/.venv`. Do **not** try to carry `_data` bulk caches into the
-fork. This keeps forks small and isolated while runtime deps stay present.
-`_sandbox_common.sh` / `_sandbox_start.sh` should be checked for other implicit
-host-path assumptions.
+- **The Python venv (the acute one) is now solved without any new mount.** The
+  crack-pi-server package was switched **from uv to Poetry** with
+  `POETRY_VIRTUALENVS_PATH=/workspace/target/python-venvs/` (set in
+  `_docker/Dockerfile`), so its virtualenv lives *inside the existing
+  `crack-dev-target-dir` volume* (mounted `/workspace/target`, already a `:O`
+  overlay in every sandbox and already gitignored). uv was abandoned here
+  because it cannot relocate its per-project `.venv` out of the source tree
+  (symlinks get clobbered/recreated), which is exactly what the frozen-tree base
+  must exclude. `poetry install` runs at crack-dev boot (`_cont_start.sh`),
+  `poetry run pytest` powers the self-mod gate, and the sandbox inherits the venv
+  read-through the target overlay. **No additional volume is created.**
+- **Other ignored dirs**: audit `_sandbox_common.sh` / `_sandbox_start.sh` for
+  any remaining implicit host-path assumptions (e.g. `.pi/crack/harness/
+  mcp-http/` runtime logs, caches). Anything genuinely needed at runtime should
+  live under the existing `target` volume too — **do not add new volumes** and do
+  **not** carry `_data` bulk caches into the fork. `target` (build/cache) and
+  `/root` remain their own `:O` volumes as today.
 
 ### Rejected alternatives (recorded)
 
@@ -348,6 +356,17 @@ host-path assumptions.
 - Clean up all test chats/overlays/sandboxes afterwards; leave the working tree
   with only intended changes (nothing committed — per convention).
 
+## Prerequisite already landed — uv → Poetry for crack-pi-server
+
+Done ahead of the frozen-base work (unblocks Issue 5's venv risk):
+`pyproject.toml` converted to Poetry (PEP 621 + `poetry-core`), `poetry.lock`
+generated, `uv.lock` removed; `_docker/Dockerfile` installs Poetry and sets
+`POETRY_VIRTUALENVS_PATH=/workspace/target/python-venvs/`; `_cont_start.sh` uses
+`poetry install` / `poetry run crack-server`; the self-mod gate uses `poetry run
+pytest`. Full suite (143) green under Poetry. **Requires a `crack-dev` image
+rebuild + restart** for the new ENV/Poetry to take effect (`_docker/build.sh` +
+`_docker/run.sh`); commit `poetry.lock`.
+
 ## Files touched (anticipated)
 
 - `pi_proc.py` — crash return flag + reason, unique hop output paths, NUL
@@ -357,8 +376,9 @@ host-path assumptions.
   frozen-base baseline wiring.
 - `routes_chats.py` — `config=1` explicit lock.
 - `git_utils.py` — `host_worktree_dirty` + colourised status.
-- `sandbox.py` — frozen-tree snapshot/materialise; lower = frozen base; extra
-  ignored-dir `:O` mounts.
+- `sandbox.py` — frozen-tree snapshot/materialise; lower = frozen base. **No new
+  volumes** — the venv already rides the existing `target` `:O` volume via
+  Poetry (`POETRY_VIRTUALENVS_PATH`), so no extra ignored-dir mounts are needed.
 - `patch.py` — baseline keyed off frozen tree.
 - `trajectory_view.py` (new) + `render.py`, `chats.py` render path — pi-ndjson
   projection with faithful unknown-event rendering.
@@ -366,3 +386,6 @@ host-path assumptions.
   message styling.
 - `_docker/_sandbox_start.sh` / `_sandbox_common.sh` — audit host-path
   assumptions under the frozen lower.
+- **(landed)** `pyproject.toml`, `poetry.lock` (new), `uv.lock` (removed),
+  `_docker/Dockerfile`, `_docker/_cont_start.sh`, `patch.py:run_sandbox_tests`,
+  `.pi/crack/server/README.md` — uv → Poetry migration.
