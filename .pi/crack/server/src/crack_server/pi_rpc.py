@@ -101,6 +101,7 @@ async def _launch_rpc_proc(
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            limit=STREAM_LINE_LIMIT,
         )
     return await asyncio.create_subprocess_exec(
         *argv,

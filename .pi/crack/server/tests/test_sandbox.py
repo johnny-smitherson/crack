@@ -148,6 +148,33 @@ async def test_exec_in_interactive_adds_i_flag(host_env):
 
 
 @pytest.mark.anyio
+async def test_exec_in_passes_stream_limit(host_env):
+    # RPC stdout can carry a single huge JSONL line (e.g. a base64 browser
+    # screenshot); the StreamReader limit must be raised past asyncio's 64 KiB
+    # default or readline() trips LimitOverrunError.
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        mock_exec.return_value = object()
+        await s.exec_in(
+            "crack-sbx-x",
+            ["pi", "--mode", "rpc"],
+            interactive=True,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            limit=16 * 1024 * 1024,
+        )
+        kwargs = mock_exec.call_args[1]
+        assert kwargs["limit"] == 16 * 1024 * 1024
+
+
+@pytest.mark.anyio
+async def test_exec_in_omits_limit_when_unset(host_env):
+    with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+        mock_exec.return_value = object()
+        await s.exec_in("crack-sbx-x", ["pi", "--version"])
+        assert "limit" not in mock_exec.call_args[1]
+
+
+@pytest.mark.anyio
 async def test_exec_in_builds_command(host_env):
     with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
         mock_exec.return_value = object()

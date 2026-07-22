@@ -281,6 +281,7 @@ async def exec_in(
     stderr: int | None = None,
     interactive: bool = False,
     stdin: int | None = None,
+    limit: int | None = None,
 ) -> asyncio.subprocess.Process:
     """Build and launch ``podman exec``; return the asyncio subprocess.
 
@@ -307,6 +308,12 @@ async def exec_in(
         kwargs["stdout"] = stdout
     if stderr is not None:
         kwargs["stderr"] = stderr
+    if limit is not None:
+        # StreamReader buffer cap for stdout/stderr readline(). Without this the
+        # asyncio default (64 KiB) trips "Separator is not found, and chunk
+        # exceed the limit" on a single large JSONL line (e.g. an RPC event
+        # carrying a base64 browser screenshot).
+        kwargs["limit"] = limit
 
     logger.debug("exec_in %s: %s", name, " ".join(argv))
     return await asyncio.create_subprocess_exec(*cmd, **kwargs)
