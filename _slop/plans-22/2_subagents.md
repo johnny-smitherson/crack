@@ -262,3 +262,6 @@ grep -q "MAX_DEPTH = 1" ../../extensions/crack/index.ts
 Then manual: spawn a task that fans out >3 sub-agents; confirm (a) the right tree numbers them #1..#N
 oldest-first with live "running for N min" + turn counts and real titles, (b) the 4th spawn shows the
 "waited for a free slot" note, (c) leaf (depth-1) agents no longer attempt `spawn_coder`.
+
+
+Use all uv, python, bash, etc. commands only under the following way: docker exec crack-dev bash -exc 'command .... ' . Do not run any code outside the container, you will not have the tools available at all. You can use rg, fzf, grep, inside the container only. You can use edit and read commands as normal. The container mounts the workspace dir at /workspace where your shells will spawn. 

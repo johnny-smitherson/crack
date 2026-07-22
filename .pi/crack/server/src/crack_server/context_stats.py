@@ -23,12 +23,40 @@ logger = logging.getLogger("uvicorn.error")
 # is always near the end, and session files can grow large.
 _TAIL_BYTES = 512 * 1024
 
+# Process-local memo keyed by session path → (mtime, session_usage result).
+_USAGE_CACHE: dict[str, tuple[float, dict | None]] = {}
+_MAX_USAGE_CACHE = 256
+
 
 def _newest_session(sessions_dir: Path) -> Path | None:
     if not sessions_dir.is_dir():
         return None
     files = sorted(sessions_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
     return files[-1] if files else None
+
+
+def _estimate_context_tokens(sessions_dir: Path) -> int | None:
+    """Rough gauge of current context size from session transcript chars (~4 chars/tok)."""
+    session = _newest_session(sessions_dir)
+    if session is None:
+        return None
+    total_chars = 0
+    for line in _read_tail_lines(session):
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        msg = obj.get("message") if isinstance(obj, dict) else None
+        if not isinstance(msg, dict):
+            continue
+        c = msg.get("content")
+        if isinstance(c, str):
+            total_chars += len(c)
+        elif isinstance(c, list):
+            for part in c:
+                if isinstance(part, dict):
+                    total_chars += len(str(part.get("text", "")))
+    return (total_chars // 4) if total_chars else None
 
 
 def _read_tail_lines(path: Path) -> list[str]:
@@ -44,6 +72,32 @@ def _read_tail_lines(path: Path) -> list[str]:
     return data.decode("utf-8", "replace").splitlines()
 
 
+def _usage_cache_get(session: Path) -> dict | None | object:
+    key = str(session)
+    try:
+        mtime = session.stat().st_mtime
+    except OSError:
+        return None
+    cached = _USAGE_CACHE.get(key)
+    if cached is not None and cached[0] == mtime:
+        return cached[1]
+    return _CACHE_MISS
+
+
+_CACHE_MISS = object()
+
+
+def _usage_cache_put(session: Path, result: dict | None) -> None:
+    key = str(session)
+    try:
+        mtime = session.stat().st_mtime
+    except OSError:
+        return
+    if len(_USAGE_CACHE) >= _MAX_USAGE_CACHE:
+        _USAGE_CACHE.pop(next(iter(_USAGE_CACHE)))
+    _USAGE_CACHE[key] = (mtime, result)
+
+
 def session_usage(sessions_dir: Path) -> dict | None:
     """Latest context usage for a chat/run's pi session, or None.
 
@@ -53,6 +107,9 @@ def session_usage(sessions_dir: Path) -> dict | None:
     session = _newest_session(sessions_dir)
     if session is None:
         return None
+    cached = _usage_cache_get(session)
+    if cached is not _CACHE_MISS:
+        return cached
     for line in reversed(_read_tail_lines(session)):
         line = line.strip()
         if not line or '"usage"' not in line:
@@ -68,16 +125,35 @@ def session_usage(sessions_dir: Path) -> dict | None:
         if not isinstance(usage, dict):
             continue
         tokens = int(usage.get("input", 0) or 0) + int(usage.get("cacheRead", 0) or 0)
-        if tokens <= 0:
-            continue
+        output = int(usage.get("output", 0) or 0)
         cost = usage.get("cost") or {}
-        return {
+        cost_val = float(cost.get("total", 0) or 0) if isinstance(cost, dict) else 0.0
+        model = str(message.get("model") or "")
+        if tokens <= 0:
+            if output <= 0:
+                continue
+            # Driver reports output but not input (e.g. cursor-agent subscription).
+            estimated = _estimate_context_tokens(sessions_dir) or 0
+            result = {
+                "tokens": estimated,
+                "output": output,
+                "total": int(usage.get("totalTokens", 0) or 0),
+                "cost": cost_val,
+                "model": model,
+                "estimated": True,
+            }
+            _usage_cache_put(session, result)
+            return result
+        result = {
             "tokens": tokens,
-            "output": int(usage.get("output", 0) or 0),
+            "output": output,
             "total": int(usage.get("totalTokens", 0) or 0),
-            "cost": float(cost.get("total", 0) or 0) if isinstance(cost, dict) else 0.0,
-            "model": str(message.get("model") or ""),
+            "cost": cost_val,
+            "model": model,
         }
+        _usage_cache_put(session, result)
+        return result
+    _usage_cache_put(session, None)
     return None
 
 
@@ -100,17 +176,21 @@ def render_context_line(sessions_dir: Path, fallback_model: str = "") -> str:
     model = usage["model"] or fallback_model
     window = models_mod.context_window(model) if model else None
     tokens = usage["tokens"]
+    estimated = bool(usage.get("estimated"))
     meter = ""
-    label = f"{_fmt_tokens(tokens)} tok"
+    prefix = "~" if estimated else ""
+    label = f"{prefix}{_fmt_tokens(tokens)} tok"
     if window and window > 0:
         pct = min(100.0, tokens * 100.0 / window)
-        label = f"{_fmt_tokens(tokens)} / {_fmt_tokens(window)} tok · {pct:.0f}%"
+        label = f"{prefix}{_fmt_tokens(tokens)} / {_fmt_tokens(window)} tok · {pct:.0f}%"
         meter = (
-            f'<span class="ctx-meter"><span class="ctx-meter-fill" '
+            f'<span class="ctx-meter" title="'
+            f'{"estimated (driver reports no input tokens)" if estimated else ""}'
+            f'"><span class="ctx-meter-fill" '
             f'style="width:{pct:.1f}%"></span></span>'
         )
     cost = usage["cost"]
-    cost_str = f" · ${cost:.4f}" if cost else ""
+    cost_str = f" · ${cost:.4f}" if cost > 0 else ""
     model_str = f'<code>{esc(model)}</code> ' if model else ""
     return (
         f'<div class="ctx-line">{model_str}{meter}'

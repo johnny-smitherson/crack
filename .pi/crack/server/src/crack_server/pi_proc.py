@@ -476,6 +476,8 @@ def kill_pid_file(pid_file: Path) -> bool:
                     delivered = True
                     break
                 # Give SIGTERM a brief moment before escalating to SIGKILL.
+                # Sync sleep is intentional: kill_pid_file is only called from
+                # sync routes, stop handlers, and startup recovery (to_thread).
                 if sig == signal.SIGTERM:
                     for _ in range(20):
                         try:

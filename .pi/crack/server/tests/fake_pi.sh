@@ -14,6 +14,7 @@
 #   sentinel:STR   emit one turn ending with STR on its own line, then agent_end
 #   inline:STR     emit one turn with STR embedded mid-line, then agent_end
 #   sleepy:N       emit one turn, sleep N seconds, then agent_end
+#   concurrent:N   track peak concurrency while sleeping N seconds, then agent_end
 #   linger:N       emit one turn + agent_end, then sleep N seconds before exit
 #                  (MCP-teardown linger: harness must not SIGKILL after terminal)
 #   detach:N       emit agent_end with no turns, then sleep N seconds before exit
@@ -77,6 +78,28 @@ $arg"
   sleepy)
     emit_turn "about to nap (invocation $n)"
     sleep "$arg"
+    printf '{"type":"agent_end"}\n'
+    ;;
+  concurrent)
+    # Track peak in-flight invocations while sleeping (worker cap tests).
+    active_file="$FAKE_PI_DIR/active"
+    peak_file="$FAKE_PI_DIR/peak"
+    (
+      flock -x 200
+      active=$(cat "$active_file" 2>/dev/null || echo 0)
+      active=$((active + 1))
+      echo "$active" > "$active_file"
+      peak=$(cat "$peak_file" 2>/dev/null || echo 0)
+      if [ "$active" -gt "$peak" ]; then echo "$active" > "$peak_file"; fi
+    ) 200>"$FAKE_PI_DIR/active.lock"
+    emit_turn "concurrent hold (invocation $n)"
+    sleep "$arg"
+    (
+      flock -x 200
+      active=$(cat "$active_file" 2>/dev/null || echo 1)
+      active=$((active - 1))
+      echo "$active" > "$active_file"
+    ) 200>"$FAKE_PI_DIR/active.lock"
     printf '{"type":"agent_end"}\n'
     ;;
   linger)

@@ -1,5 +1,7 @@
 /* Layout + page-wide customizations only — Pico CSS v2 covers the rest. */
 
+:root { font-size: 85%; }   /* shrink all rem-based sizing; was pico default 100% */
+
 .layout {
   display: flex;
   align-items: flex-start;
@@ -264,7 +266,12 @@ main.container-fluid {
   border-collapse: collapse;
   font-size: 0.85rem;
   margin: 0.75rem 0;
+  table-layout: fixed;
 }
+
+.explore-actions .col-type { width: 12%; }
+.explore-actions .col-path { width: 76%; }
+.explore-actions .col-size { width: 12%; }
 
 .explore-actions th,
 .explore-actions td {
@@ -281,12 +288,16 @@ main.container-fluid {
 
 .explore-actions td:first-child {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: ui-monospace, monospace;
   color: var(--pico-muted-color);
 }
 
 .explore-actions td:last-child {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: right;
   color: var(--pico-muted-color);
   font-size: 0.78rem;
@@ -301,6 +312,41 @@ main.container-fluid {
 
 .explore-actions code {
   word-break: break-all;
+}
+
+.spawn-plan {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 0 0.35em;
+  border-radius: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.spawn-plan--on {
+  background: var(--pico-ins-color, #1a7f37);
+  color: #fff;
+}
+
+.spawn-plan--off {
+  background: var(--pico-muted-border-color);
+  color: var(--pico-muted-color);
+}
+
+.md-clamp {
+  font-size: 0.85rem;
+}
+
+.md-clamp-head p:first-child,
+.md-clamp-full p:first-child {
+  margin-top: 0;
+}
+
+.md-clamp-head {
+  overflow: hidden;
+}
+
+.todo-render {
+  font-size: 0.8rem;
 }
 
 .trunc-marker {

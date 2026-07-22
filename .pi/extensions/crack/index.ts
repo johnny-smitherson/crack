@@ -4,10 +4,11 @@
  *
  * Tools-only (no slash commands). Personas are read synchronously from
  * .pi/crack/sub_agents/<slug>/config.json at factory time — no HTTP on the
- * registration path. Chat context (CRACK_CHAT_ID / CRACK_PARENT_* /
- * CRACK_SUBAGENT_DEPTH) is checked in execute(), so the tools are visible in
- * every pi session but throw a clear error outside a crack chat/sub-agent run.
- * Rigid pipeline stages stay isolated via their explicit --tools allowlists.
+ * registration path. Spawn/wait_join are registered only when
+ * CRACK_SUBAGENT_DEPTH < MAX_DEPTH (see sub_agents/constants.py on the server).
+ * Chat context (CRACK_CHAT_ID / CRACK_PARENT_* / CRACK_SUBAGENT_DEPTH) is set by
+ * the server for sub-agent runs. Rigid pipeline stages stay isolated via their
+ * explicit --tools allowlists.
  *
  * Server: http://127.0.0.1:9847 (override with CRACK_PI_PORT)
  */
@@ -20,7 +21,9 @@ import { truncateTail } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 const BASE = `http://127.0.0.1:${process.env.CRACK_PI_PORT ?? "9847"}`;
-const MAX_DEPTH = 3;
+// Must match crack_server.sub_agents.constants.MAX_DEPTH
+const MAX_DEPTH = 1;
+const MAX_PARALLEL_SUBAGENTS = 3;
 const TODO_MAX = 12;
 
 const PARAMS = Type.Object({
@@ -103,6 +106,8 @@ const ANALYZE_IMAGE_PARAMS = Type.Object({
 interface SpawnResult {
 	run_id: string;
 	report_path: string;
+	status?: string;
+	waited?: boolean;
 }
 
 interface WaitPending {
@@ -266,6 +271,8 @@ function findSubAgentsDir(): string | null {
 
 export default function crack(pi: ExtensionAPI) {
 	try {
+		const depth = Number.parseInt(process.env.CRACK_SUBAGENT_DEPTH ?? "0", 10) || 0;
+		const canSpawn = depth < MAX_DEPTH;
 		// Todo list — the plan the prewalk swap and nudges key off. State is
 		// reconstructed from the session tree (branch-safe) and always echoed as
 		// plain text so crack-server can read it out of the persisted tool_block.
@@ -326,19 +333,21 @@ export default function crack(pi: ExtensionAPI) {
 				};
 			},
 		});
-		pi.registerTool({
-			name: "wait_join",
-			label: "Wait for sub-agents",
-			description:
-				"Block until spawned sub-agents finish and return their reports as the tool result. " +
-				"Waiting is free (no tokens burned, no polling). Always prefer this over checking " +
-				"report files — never poll report.md with bash sleep loops.",
-			parameters: WAIT_PARAMS,
-			executionMode: "parallel",
-			async execute(_id, params, signal) {
-				return executeWaitJoin(params, signal);
-			},
-		});
+		if (canSpawn) {
+			pi.registerTool({
+				name: "wait_join",
+				label: "Wait for sub-agents",
+				description:
+					"Block until spawned sub-agents finish and return their reports as the tool result. " +
+					"Waiting is free (no tokens burned, no polling). Always prefer this over checking " +
+					"report files — never poll report.md with bash sleep loops.",
+				parameters: WAIT_PARAMS,
+				executionMode: "parallel",
+				async execute(_id, params, signal) {
+					return executeWaitJoin(params, signal);
+				},
+			});
+		}
 		pi.registerTool({
 			name: "ask_user",
 			label: "Ask the human",
@@ -426,6 +435,7 @@ export default function crack(pi: ExtensionAPI) {
 		});
 		const dir = findSubAgentsDir();
 		if (!dir) return;
+		if (!canSpawn) return;
 		for (const ent of readdirSync(dir, { withFileTypes: true })) {
 			if (!ent.isDirectory()) continue;
 			const slug = ent.name;
@@ -446,44 +456,59 @@ export default function crack(pi: ExtensionAPI) {
 				executionMode: "parallel",
 				async execute(_id, params, signal) {
 					const { chatId, parentKind, parentId } = crackContext();
-					const depth = Number.parseInt(process.env.CRACK_SUBAGENT_DEPTH ?? "0", 10) || 0;
-					if (depth >= MAX_DEPTH) {
-						throw new Error(`max sub-agent depth (${MAX_DEPTH}) reached`);
+					let sawSlotPending = false;
+					let waited = false;
+					while (true) {
+						const to = signal
+							? AbortSignal.any([signal, AbortSignal.timeout(12_000)])
+							: AbortSignal.timeout(12_000);
+						let res: Response;
+						try {
+							res = await fetch(
+								`${BASE}/api/chats/${encodeURIComponent(chatId)}/sub_agents/spawn`,
+								{
+									method: "POST",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({
+										persona: slug,
+										instructions: params.instructions,
+										parent_kind: parentKind,
+										parent_id: parentId,
+										depth,
+										plan: params.plan,
+									}),
+									signal: to,
+								},
+							);
+						} catch (e) {
+							throw new Error(
+								`crack-server unreachable at ${BASE}: ${e instanceof Error ? (e.cause ?? e.message) : e}`,
+							);
+						}
+						if (!res.ok) {
+							throw new Error(truncateTail(await res.text()).content);
+						}
+						const d = (await res.json()) as SpawnResult;
+						if (d.status === "slot_pending") {
+							sawSlotPending = true;
+							if (signal?.aborted) {
+								throw new Error("spawn cancelled while waiting for a free slot");
+							}
+							await sleep(1000);
+							continue;
+						}
+						if (d.waited) {
+							waited = true;
+						}
+						let prefix = "";
+						if (sawSlotPending || waited) {
+							prefix = `⏳ waited for a free slot (max ${MAX_PARALLEL_SUBAGENTS} parallel).\n`;
+						}
+						const text = truncateTail(
+							`${prefix}Spawned ${slug} run ${d.run_id}. It runs in the background: call wait_join (target "${d.run_id}", or omit for all) to block until it finishes and receive its report, or end your turn and it will report back automatically. Do NOT poll ${d.report_path} with bash sleeps.`,
+						).content;
+						return { content: [{ type: "text", text }] };
 					}
-					const to = signal
-						? AbortSignal.any([signal, AbortSignal.timeout(15000)])
-						: AbortSignal.timeout(15000);
-					let res: Response;
-					try {
-						res = await fetch(
-							`${BASE}/api/chats/${encodeURIComponent(chatId)}/sub_agents/spawn`,
-							{
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({
-									persona: slug,
-									instructions: params.instructions,
-									parent_kind: parentKind,
-									parent_id: parentId,
-									depth,
-									plan: params.plan,
-								}),
-								signal: to,
-							},
-						);
-					} catch (e) {
-						throw new Error(
-							`crack-server unreachable at ${BASE}: ${e instanceof Error ? (e.cause ?? e.message) : e}`,
-						);
-					}
-					if (!res.ok) {
-						throw new Error(truncateTail(await res.text()).content);
-					}
-					const d = (await res.json()) as SpawnResult;
-					const text = truncateTail(
-						`Spawned ${slug} run ${d.run_id}. It runs in the background: call wait_join (target "${d.run_id}", or omit for all) to block until it finishes and receive its report, or end your turn and it will report back automatically. Do NOT poll ${d.report_path} with bash sleeps.`,
-					).content;
-					return { content: [{ type: "text", text }] };
 				},
 			});
 		}

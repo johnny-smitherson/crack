@@ -75,6 +75,16 @@ class JsonState:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
         return data
 
+    async def aread(self) -> dict:
+        import asyncio
+
+        return await asyncio.to_thread(self.read)
+
+    async def aupdate(self, fn: Callable[[dict], dict]) -> dict:
+        import asyncio
+
+        return await asyncio.to_thread(self.update, fn)
+
 
 def chat_state_mtime(chat_id: str, root: Path | None = None) -> float:
     """Max mtime of the chat state file and any sub-agent run.json files."""

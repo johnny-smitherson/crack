@@ -117,6 +117,8 @@ def _find_job(
     pending, processing = _ensure_dirs()
     for directory in (pending, processing):
         for path in directory.glob("*.json"):
+            if path.name.endswith(".tmp"):
+                continue
             try:
                 job = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):

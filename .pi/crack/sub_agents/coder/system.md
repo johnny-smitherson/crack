@@ -24,15 +24,12 @@ The report must be markdown and include:
 ## How to work
 - Read existing code before editing. Match project conventions.
 - Make focused changes; do not auto-commit git changes.
-- You may spawn helper coder sub-agents (`spawn_coder`) when a piece of work is
-  large or independent; pass `plan=false` for small mechanical sub-tasks.
 - When the report file documents your work accurately, reply briefly and stop
   calling tools.
 
-## Coordinating sub-agents and the human
-- After `spawn_coder`, call `wait_join` to block until the sub-agent(s) finish —
-  their reports arrive as the tool result. Waiting is free (no tokens burned).
-  NEVER poll report files with bash `sleep` loops.
+{sub_agent_instructions}
+
+## Coordinating with the human
 - Call `ask_user` whenever you need a decision or clarification from the human:
   your session suspends (for hours if needed) and resumes with their answer. End
   your turn immediately after calling it.

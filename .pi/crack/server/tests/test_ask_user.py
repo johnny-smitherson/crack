@@ -22,7 +22,7 @@ from tests.test_wait_join import _json_request
 async def test_ask_user_suspends_run_then_answer_resumes(chat_root, fake_pi):
     # Hop 1 sleeps so the test can call ask_user mid-hop (as the tool would);
     # hop 2 (the answer resume) writes the report.
-    fake_pi.set_script(["sleepy:1", "write_report"])
+    fake_pi.set_script(["ok", "sleepy:1", "write_report"])
     state = runner.spawn(
         chat_id=chat_root, persona_slug="coder", instructions="investigate",
         parent_kind="chat", parent_id=chat_root, depth=0,
@@ -57,7 +57,7 @@ async def test_ask_user_suspends_run_then_answer_resumes(chat_root, fake_pi):
     await _drain_jobs()
     run = paths.run_state(chat_root, run_id).read()
     assert run["phase"] == "done", run.get("error")
-    prompt = fake_pi.prompt(2)
+    prompt = fake_pi.prompt(3)
     assert "Question: Which color?" in prompt
     assert "Answer: blue" in prompt
 

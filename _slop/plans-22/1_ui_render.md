@@ -217,3 +217,6 @@ grep -q "spawn_" src/crack_server/render.py && grep -q "todo-render" src/crack_s
 grep -q "estimated" src/crack_server/context_stats.py
 ```
 All must pass. Then a manual page load of a chat with sub-agents to eyeball the four visual changes.
+
+
+Use all uv, python, bash, etc. commands only under the following way: docker exec crack-dev bash -exc 'command .... ' . Do not run any code outside the container, you will not have the tools available at all. You can use rg, fzf, grep, inside the container only. You can use edit and read commands as normal. The container mounts the workspace dir at /workspace where your shells will spawn. 

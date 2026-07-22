@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import time
 
 from fastapi import HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -452,6 +453,44 @@ def _run_phase_class(phase: str) -> str:
 _RUN_TERMINAL = ("done", "error", "stopped")
 
 
+def _run_label(state: dict) -> str:
+    return str(state.get("title") or state.get("persona") or "?")
+
+
+def _run_turns(state: dict) -> int:
+    return int(state.get("hops_completed", 0) or 0)
+
+
+def _run_alive_str(state: dict) -> str:
+    start = state.get("created_at")
+    if not start:
+        return ""
+    end = state.get("finished_at") if state.get("phase") in _RUN_TERMINAL else time.time()
+    mins = max(0, int((float(end) - float(start)) // 60))
+    running = state.get("phase") not in _RUN_TERMINAL
+    verb = "running for" if running else "ran for"
+    return f"{verb} {mins} min"
+
+
+def _sidebar_run_order(
+    roots: list[str], cmap: dict[str, list[str]]
+) -> dict[str, int]:
+    """``run_id ->`` 1-based spawn-order index (oldest first, DFS)."""
+    order: dict[str, int] = {}
+    idx = 0
+
+    def dfs(run_id: str) -> None:
+        nonlocal idx
+        idx += 1
+        order[run_id] = idx
+        for child in cmap.get(run_id, []):
+            dfs(child)
+
+    for root in roots:
+        dfs(root)
+    return order
+
+
 def _persona_model(persona_slug: str) -> str:
     """The model a persona currently runs on (for card/sidebar display)."""
     from crack_server.sub_agents import registry
@@ -501,7 +540,7 @@ def _chat_display_model(info: dict, state: dict) -> str:
 
 
 def _children_map(chat_id: str) -> dict[str, list[str]]:
-    """``parent_run_id -> [child_run_id...]`` for run-parented runs (newest first)."""
+    """``parent_run_id -> [child_run_id...]`` for run-parented runs (oldest first)."""
     run_ids = paths.list_run_ids(chat_id)
     cmap: dict[str, list[str]] = {}
     for run_id in run_ids:
@@ -509,19 +548,19 @@ def _children_map(chat_id: str) -> dict[str, list[str]]:
         if state.get("parent_kind") == "run" and state.get("parent_id") in run_ids:
             cmap.setdefault(str(state["parent_id"]), []).append(run_id)
     for kids in cmap.values():
-        kids.sort(reverse=True)
+        kids.sort()
     return cmap
 
 
 def _root_run_ids(chat_id: str) -> list[str]:
-    """Runs parented directly by the chat (newest first)."""
+    """Runs parented directly by the chat (oldest first)."""
     run_ids = set(paths.list_run_ids(chat_id))
     roots: list[str] = []
     for run_id in run_ids:
         state = paths.run_state(chat_id, run_id).read()
         if not (state.get("parent_kind") == "run" and state.get("parent_id") in run_ids):
             roots.append(run_id)
-    roots.sort(reverse=True)
+    roots.sort()
     return roots
 
 
@@ -557,6 +596,9 @@ def _render_run_card(chat_id: str, run_id: str, children_by_parent: dict[str, li
     state = paths.run_state(chat_id, run_id).read()
     phase = state.get("phase") or "?"
     persona = state.get("persona", "?")
+    label = _run_label(state)
+    hop_count = _run_turns(state)
+    alive = _run_alive_str(state)
     depth = state.get("depth", "?")
     safe_run = esc(run_id)
     phase_cls = _run_phase_class(str(phase))
@@ -602,11 +644,15 @@ def _render_run_card(chat_id: str, run_id: str, children_by_parent: dict[str, li
     status_dot = f'<span class="run-status-dot phase-{esc(phase_cls)}" aria-hidden="true"></span>'
     model_badge = f'<code class="run-model">{esc(model)}</code>' if model else ""
     open_attr = " open" if phase not in _RUN_TERMINAL else ""
+    metrics = f" · {hop_count} turns"
+    if alive:
+        metrics += f" · {esc(alive)}"
     header = (
         f'<summary class="subagent-card-header">'
         f"{status_dot}"
-        f"<strong>{esc(persona)}</strong> "
-        f'<small class="muted">depth {esc(str(depth))} · <code>{esc(phase)}</code></small> '
+        f'<strong title="{esc(str(persona))}">{esc(label)}</strong> '
+        f'<small class="muted">depth {esc(str(depth))} · <code>{esc(phase)}</code>'
+        f"{metrics}</small> "
         f"{model_badge}"
         f'<a class="run-link" href="/sub_agents/runs/{safe_run}">{safe_run}</a>'
         f"</summary>"
@@ -644,12 +690,18 @@ def render_inline_run_region(chat_id: str, run_id: str) -> str:
     )
 
 
-def _render_sidebar_node(chat_id: str, run_id: str, cmap: dict[str, list[str]]) -> str:
+def _render_sidebar_node(
+    chat_id: str, run_id: str, cmap: dict[str, list[str]], order: dict[str, int]
+) -> str:
     """Compact control-tree node for one run (right sidebar)."""
     esc = _ui._esc
     state = paths.run_state(chat_id, run_id).read()
     phase = str(state.get("phase") or "?")
     persona = str(state.get("persona") or "?")
+    label = _run_label(state)
+    hop_count = _run_turns(state)
+    alive = _run_alive_str(state)
+    run_idx = order.get(run_id, 0)
     phase_cls = _run_phase_class(phase)
     model = _run_display_model(state)
     dot = f'<span class="run-status-dot phase-{esc(phase_cls)}" aria-hidden="true"></span>'
@@ -663,15 +715,22 @@ def _render_sidebar_node(chat_id: str, run_id: str, cmap: dict[str, list[str]]) 
             f'hx-swap="none">Stop</button>'
         )
     model_badge = f'<small class="muted">{esc(model)}</small>' if model else ""
+    meta_bits = [f"#{run_idx}", f"{hop_count} turns"]
+    if alive:
+        meta_bits.append(alive)
+    meta_line = " · ".join(meta_bits)
     kids = "".join(
-        _render_sidebar_node(chat_id, child, cmap) for child in cmap.get(run_id, [])
+        _render_sidebar_node(chat_id, child, cmap, order)
+        for child in cmap.get(run_id, [])
     )
     return (
         f'<li class="tree-node phase-{esc(phase_cls)}">'
         f'<div class="tree-row">{dot}'
-        f'<a href="#subagent-run-{esc(run_id)}" class="tree-label">{esc(persona)}</a>'
+        f'<a href="#subagent-run-{esc(run_id)}" class="tree-label" '
+        f'title="{esc(persona)}">{esc(label)}</a>'
         f'<small class="muted tree-phase">{esc(phase)}</small>{stop}</div>'
-        f'<div class="tree-meta">{model_badge}</div>'
+        f'<div class="tree-meta"><small class="muted">{esc(meta_line)}</small> '
+        f"{model_badge}</div>"
         f'{f"<ul>{kids}</ul>" if kids else ""}'
         f"</li>"
     )
@@ -690,23 +749,29 @@ def render_sidebar_tree(chat_id: str) -> str:
 
     chat_running = chat_phase == "chatting"
     any_run_active = any(_subtree_active(chat_id, rid, cmap) for rid in roots)
-    active = chat_running or any_run_active
+    chat_pending = bool(state.get("pending") or state.get("child_inbox"))
+    active = chat_running or any_run_active or chat_pending
 
-    root_dot_cls = "running" if chat_running else ("error" if chat_phase == "error" else "done")
+    root_dot_cls = (
+        "running" if active and chat_phase != "error"
+        else ("error" if chat_phase == "error" else "done")
+    )
     chat_stop = (
         f'<button class="contrast compact-btn tree-stop" '
         f'hx-post="/api/chats/{esc(chat_id)}/stop" '
         f'hx-swap="none">Stop all</button>'
     )
     chat_model = _chat_display_model(info, state)
-    nodes = "".join(_render_sidebar_node(chat_id, rid, cmap) for rid in roots)
+    run_order = _sidebar_run_order(roots, cmap)
+    nodes = "".join(
+        _render_sidebar_node(chat_id, rid, cmap, run_order) for rid in roots
+    )
     tree = f"<ul>{nodes}</ul>" if nodes else '<p class="muted"><small>No sub-agents yet.</small></p>'
-    poll_attrs = ""
-    if active:
-        poll_attrs = (
-            f' hx-get="/chats/{esc(chat_id)}/sidebar-tree" hx-trigger="every 2s" '
-            f'hx-swap="outerHTML"'
-        )
+    # Always poll — perf budget in Plan 3 (threadpool routes; cheap run.json reads).
+    poll_attrs = (
+        f' hx-get="/chats/{esc(chat_id)}/sidebar-tree" hx-trigger="every 2s" '
+        f'hx-swap="outerHTML"'
+    )
     return (
         f'<div id="subagent-sidebar-tree" class="subagent-sidebar-tree"{poll_attrs}>'
         f"<h6>Agent tree</h6>"

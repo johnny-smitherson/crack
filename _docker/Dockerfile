@@ -35,7 +35,14 @@ RUN pi install npm:pi-antigravity
 RUN pi install npm:pi-cursor-agent && pi uninstall npm:pi-cursor-sdk  
 RUN pi install npm:pi-readseek 
 RUN   git config --global user.email "127537716+johnny-smitherson@users.noreply.github.com"
-RUN  git config --global user.name "johnny-smitherson"
+RUN  git config --global user.name "johnny clankerson"
+
+# Docker-out-of-docker: podman remote client. crack-dev drives the HOST podman
+# (rootless) over a mounted socket (see run.sh: CONTAINER_HOST) to create the
+# per-conversation sandbox containers as host-level SIBLINGS. Only the remote
+# client is used here — no local storage/daemon runs inside crack-dev.
+RUN apt-get update && apt-get install -y --no-install-recommends podman \
+    && rm -rf /var/lib/apt/lists/*
 
 VOLUME /root
 WORKDIR /workspace

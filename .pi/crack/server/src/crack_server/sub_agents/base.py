@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
 from pathlib import Path
 
-from crack_server import paths, pi_runner, prewalk, queue
+from crack_server import paths, pi_runner, prewalk, queue, titles
 from crack_server.ratelimit import MAX_TOTAL_ERRORS, RESUME_MESSAGE
 from crack_server.state import JsonState
-from crack_server.sub_agents.constants import ORPHAN_PHASE_GRACE_SECONDS, SUBAGENT_JOB_SLUG, SUBAGENT_TIMEOUT_SECONDS
+from crack_server.sub_agents.constants import (
+    MAX_DEPTH,
+    ORPHAN_PHASE_GRACE_SECONDS,
+    SUBAGENT_JOB_SLUG,
+    SUBAGENT_TIMEOUT_SECONDS,
+)
 from crack_server.steprun import (
     TurnPersister,
     error_recorder,
@@ -87,6 +93,12 @@ class SubAgentPersona:
     def state_update(self, run_id: str, fn) -> dict:
         return self.state(run_id).update(fn)
 
+    async def astate_read(self, run_id: str) -> dict:
+        return await self.state(run_id).aread()
+
+    async def astate_update(self, run_id: str, fn) -> dict:
+        return await self.state(run_id).aupdate(fn)
+
     def _run_paths(self, run_id: str) -> tuple[str, str]:
         state = self.state_read(run_id)
         return state["chat_id"], run_id
@@ -125,7 +137,7 @@ class SubAgentPersona:
     ) -> tuple[str, dict | None] | None:
         token = (form or {}).get("started_token")
         if token is not None:
-            current = self.state_read(run_id).get("started_token")
+            current = (await self.astate_read(run_id)).get("started_token")
             if current != token:
                 logger.info(
                     "sub_agent %s: dropping stale job for %s (token mismatch)",
@@ -133,7 +145,7 @@ class SubAgentPersona:
                 )
                 return None
         successor = await self.run_step(run_id, step, form)
-        state = self.state_read(run_id)
+        state = await self.astate_read(run_id)
         phase = state.get("phase", "")
         inbox = state.get("child_inbox") or []
         if phase in ACTIVE_PHASES and inbox:
@@ -154,17 +166,40 @@ class SubAgentPersona:
         raise NotImplementedError(f"{self.slug}: no run_step handler for {step!r}")
 
     async def _begin_run(self, run_id: str) -> tuple[str, dict | None] | None:
+        state = await self.astate_read(run_id)
+        if not state.get("title"):
+            try:
+                title = await asyncio.to_thread(
+                    titles.generate_title,
+                    state["instructions"],
+                    log_prefix=f"subagent-title/{run_id}",
+                )
+            except Exception:
+                logger.exception("sub_agent %s: title generation failed for %s", self.slug, run_id)
+                title = ""
+            if title:
+
+                def _title(s: dict) -> dict:
+                    if not s.get("title"):
+                        s["title"] = title
+                    return s
+
+                await self.astate_update(run_id, _title)
+
         def _start(state: dict) -> dict:
             state["phase"] = "running"
             state["hops_completed"] = 0
             state["nudge_count"] = 0
             return state
 
-        self.state_update(run_id, _start)
+        await self.astate_update(run_id, _start)
         return await self._run_hop(run_id, None)
 
-    def _compile_message(self, run_id: str, form: dict | None) -> tuple[str, str]:
-        state = self.state_read(run_id)
+    def _compile_message(
+        self, run_id: str, form: dict | None, state: dict | None = None
+    ) -> tuple[str, str]:
+        if state is None:
+            state = self.state_read(run_id)
         if form and form.get("user_answer"):
             return str(form["user_answer"]), "user_answer"
         if form and form.get("child_results"):
@@ -188,11 +223,21 @@ class SubAgentPersona:
 
     def _fill_template(self, template: str, state: dict) -> str:
         text = self.load_template(template)
-        return (
+        sub_instr = ""
+        if int(state.get("depth", 0)) < MAX_DEPTH:
+            try:
+                sub_instr = self.load_template("sub_agent_instructions.md")
+            except RuntimeError:
+                sub_instr = ""
+        text = (
             text.replace("{instructions}", state.get("instructions", ""))
             .replace("{report_path}", state.get("report_path", ""))
             .replace("{report_instructions}", self.report_instructions)
+            .replace("{sub_agent_instructions}", sub_instr)
         )
+        if not sub_instr:
+            text = text.replace("\n\n\n", "\n\n")
+        return text
 
     def _subagent_env(self, state: dict) -> dict[str, str]:
         return {
@@ -206,18 +251,18 @@ class SubAgentPersona:
     async def _run_hop(
         self, run_id: str, form: dict | None
     ) -> tuple[str, dict | None] | None:
-        state = self.state_read(run_id)
+        state = await self.astate_read(run_id)
         if state.get("phase") in TERMINAL_PHASES:
             return None
         if state.get("stop_requested"):
-            self._mark_stopped(run_id)
+            await self._amark_stopped(run_id)
             from crack_server.sub_agents import runner
 
-            runner.finish(run_id, "stopped")
+            await asyncio.to_thread(runner.finish, run_id, "stopped")
             return None
 
         chat_id = state["chat_id"]
-        message, template = self._compile_message(run_id, form)
+        message, template = self._compile_message(run_id, form, state)
         hop_n = int(state.get("hops_completed", 0)) + 1
         state_obj = self.state(run_id)
         persister = TurnPersister(
@@ -262,10 +307,10 @@ class SubAgentPersona:
                 **pw_kwargs,
             )
         except pi_runner.PiStopped:
-            self._mark_stopped(run_id)
+            await self._amark_stopped(run_id)
             from crack_server.sub_agents import runner
 
-            runner.finish(run_id, "stopped")
+            await asyncio.to_thread(runner.finish, run_id, "stopped")
             return None
         except Exception as exc:
             def _fail(s: dict) -> dict:
@@ -277,32 +322,32 @@ class SubAgentPersona:
                 s["finished_at"] = time.time()
                 return s
 
-            self.state_update(run_id, _fail)
+            await self.astate_update(run_id, _fail)
             from crack_server.sub_agents import runner
 
-            runner.finish(run_id, "error")
+            await asyncio.to_thread(runner.finish, run_id, "error")
             return None
 
         def _bump(state: dict) -> dict:
             state["hops_completed"] = int(state.get("hops_completed", 0)) + 1
             return state
 
-        self.state_update(run_id, _bump)
+        await self.astate_update(run_id, _bump)
         # Record why this hop ended on its last persisted turn (trajectory note).
         persister.stamp_reason(reason)
 
         if reason == "stopped":
-            self._mark_stopped(run_id)
+            await self._amark_stopped(run_id)
             from crack_server.sub_agents import runner
 
-            runner.finish(run_id, "stopped")
+            await asyncio.to_thread(runner.finish, run_id, "stopped")
             return None
 
         if reason == "swap":
             # First edit landed under the planner: resume the same session on
             # the implementer model. The phase now derives to "implementing"
             # from the persisted edit turn, pruning the planning instruction.
-            started_token = self.state_read(run_id).get("started_token")
+            started_token = (await self.astate_read(run_id)).get("started_token")
             return ("run", {"run_id": run_id, "started_token": started_token, "resume": True})
 
         return await self._after_hop(run_id, reason, persister)
@@ -310,7 +355,7 @@ class SubAgentPersona:
     async def _after_hop(
         self, run_id: str, reason: str, persister: TurnPersister
     ) -> tuple[str, dict | None] | None:
-        state = self.state_read(run_id)
+        state = await self.astate_read(run_id)
         report = Path(state.get("report_path", ""))
         if report.is_file():
             def _done(s: dict) -> dict:
@@ -318,10 +363,10 @@ class SubAgentPersona:
                 s["finished_at"] = time.time()
                 return s
 
-            self.state_update(run_id, _done)
+            await self.astate_update(run_id, _done)
             from crack_server.sub_agents import runner
 
-            runner.finish(run_id, "done")
+            await asyncio.to_thread(runner.finish, run_id, "done")
             return None
 
         if state.get("phase") == "awaiting_user":
@@ -343,7 +388,7 @@ class SubAgentPersona:
                 s["nudge_count"] = int(s.get("nudge_count", 0)) + 1
                 return s
 
-            self.state_update(run_id, _nudge)
+            await self.astate_update(run_id, _nudge)
             return ("run", {"nudge": True, "run_id": run_id, "started_token": state.get("started_token")})
 
         if tool_calls and hops < MAX_HOPS:
@@ -357,10 +402,10 @@ class SubAgentPersona:
             s["finished_at"] = time.time()
             return s
 
-        self.state_update(run_id, _fail)
+        await self.astate_update(run_id, _fail)
         from crack_server.sub_agents import runner
 
-        runner.finish(run_id, "error")
+        await asyncio.to_thread(runner.finish, run_id, "error")
         return None
 
     def _mark_stopped(self, run_id: str) -> None:
@@ -370,6 +415,14 @@ class SubAgentPersona:
             return state
 
         self.state_update(run_id, _stop)
+
+    async def _amark_stopped(self, run_id: str) -> None:
+        def _stop(state: dict) -> dict:
+            state["phase"] = "stopped"
+            state["finished_at"] = time.time()
+            return state
+
+        await self.astate_update(run_id, _stop)
 
     def check_orphaned(self, run_id: str) -> bool:
         current = self.state_read(run_id)

@@ -111,6 +111,27 @@ def _tool_dot_class(block: dict) -> str:
 _OUTPUT_PREVIEW_LINES = 8
 
 
+def _render_clamped_markdown(
+    md_text: str,
+    max_lines: int,
+    header: str = "",
+    full_label: str = "full output",
+) -> str:
+    """First ``max_lines`` lines rendered as markdown, with a ``<details>`` holding
+    the full markdown render. ``header`` is emitted above (e.g. the plan badge)."""
+    lines = md_text.splitlines()
+    head = "\n".join(lines[:max_lines])
+    head_html = _ui._render_markdown(head)
+    body = f'{header}<div class="md-clamp-head">{head_html}</div>'
+    if len(lines) > max_lines:
+        full_html = _ui._render_markdown(md_text)
+        body += (
+            f'<details class="md-clamp-more"><summary>{_ui._esc(full_label)}</summary>'
+            f'<div class="md-clamp-full">{full_html}</div></details>'
+        )
+    return f'<div class="md-clamp">{body}</div>'
+
+
 def _render_tool_output(output: str) -> str:
     """Inline output preview (first few lines) with a single expand icon for
     the full result — replaces the old text ``output`` details/summary."""
@@ -169,6 +190,33 @@ def _render_tool_action_row(block: dict) -> str:
         path = str(args.get("path") or args.get("filePath") or "")
         middle = f'<code title="{esc(path)}">{esc(_truncate_middle(path))}</code>' if path \
             else f'<pre class="cmd">{esc(str(input_raw))[:400]}</pre>'
+    elif name.startswith("spawn_"):
+        action_type = esc(name)
+        plan_on = bool(args.get("plan"))
+        plan_badge = (
+            f'<span class="spawn-plan spawn-plan--{"on" if plan_on else "off"}">'
+            f'plan {"on" if plan_on else "off"}</span>'
+        )
+        instructions = str(args.get("instructions") or "")
+        middle = _render_clamped_markdown(
+            instructions,
+            max_lines=7,
+            header=plan_badge,
+            full_label="full prompt",
+        )
+    elif name == "todo":
+        action_type = "todo"
+        out_text = str(block.get("output") or "")
+        middle = f'<div class="todo-render">{_ui._render_markdown(out_text)}</div>'
+        size = f"in {_fmt_chars(len(str(input_raw)))} / out {_fmt_chars(len(output))}"
+        elapsed = block.get("elapsed")
+        if elapsed is not None:
+            size += f" · {elapsed:.1f}s"
+        type_cell = (
+            f'<span class="tool-dot tool-dot--{dot}" aria-hidden="true"></span>'
+            f"{action_type}"
+        )
+        return f"<tr><td>{type_cell}</td><td>{middle}</td><td>{size}</td></tr>"
     else:
         action_type = esc(name)
         middle = f'<pre class="cmd">{esc(str(input_raw))}</pre>'
@@ -309,7 +357,9 @@ def render_actions_table(turns: list[dict], include_text: bool = True) -> str:
     if not rows:
         return ""
     return (
-        '<table class="explore-actions"><thead><tr>'
+        '<table class="explore-actions">'
+        '<colgroup><col class="col-type"><col class="col-path"><col class="col-size"></colgroup>'
+        "<thead><tr>"
         "<th>Type</th><th>Path / command</th><th>Size</th>"
         f"</tr></thead><tbody>{''.join(rows)}</tbody></table>"
     )

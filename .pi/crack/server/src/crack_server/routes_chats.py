@@ -35,6 +35,7 @@ async def api_chat_dots_wait(since: float = Query(default=0.0)) -> JSONResponse:
     ids = paths.list_chat_ids()[: chats.RECENT_CHATS]
     deadline = time.monotonic() + 25.0
     while True:
+        # Cheap stat reads only; loop yields between checks (reviewed Plan 3.5).
         mtimes = [chat_state_mtime(cid) for cid in ids]
         latest = max(mtimes) if mtimes else 0.0
         if latest > since:
@@ -99,6 +100,7 @@ async def chat_wait(
     chats.check_chat_id(chat_id)
     deadline = time.monotonic() + 25.0
     while True:
+        # Cheap stat read only; loop yields between checks (reviewed Plan 3.5).
         mtime = chat_state_mtime(chat_id)
         if mtime > since:
             return JSONResponse({"since": mtime, "changed": True})

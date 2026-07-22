@@ -9,10 +9,13 @@ writer's increments/appends survive.
 
 from __future__ import annotations
 
+import asyncio
 import multiprocessing as mp
 import shutil
 import threading
 from pathlib import Path
+
+import pytest
 
 from crack_server.state import JsonState
 
@@ -134,3 +137,32 @@ def test_update_loses_no_fields_threads_and_processes_mixed(tmp_path):
     for prefix in ("proc_0", "proc_1", "thread_0", "thread_1"):
         assert final[prefix] == INCREMENTS
         assert final[f"{prefix}_log"] == list(range(1, INCREMENTS + 1))
+
+
+@pytest.mark.anyio
+async def test_aupdate_matches_update(tmp_path):
+    state = JsonState(tmp_path / "state.json")
+    state.write({"n": 0})
+
+    def add_one(data: dict) -> dict:
+        data["n"] = data.get("n", 0) + 1
+        return data
+
+    assert await state.aupdate(add_one) == {"n": 1}
+    assert state.read() == {"n": 1}
+
+
+@pytest.mark.anyio
+async def test_concurrent_aupdates_serialize(tmp_path):
+    state = JsonState(tmp_path / "state.json")
+    state.write({"n": 0})
+
+    async def bump() -> None:
+        def add_one(data: dict) -> dict:
+            data["n"] = data.get("n", 0) + 1
+            return data
+
+        await state.aupdate(add_one)
+
+    await asyncio.gather(*(bump() for _ in range(20)))
+    assert state.read()["n"] == 20

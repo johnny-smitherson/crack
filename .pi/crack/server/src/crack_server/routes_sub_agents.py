@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from crack_server import attachments, chats, paths, ui as _ui
 from crack_server.render import new_model_state, render_turn_msgs
-from crack_server.sub_agents import MAX_DEPTH, ask_user, registry, signals, wait
+from crack_server.sub_agents import MAX_DEPTH, MAX_PARALLEL_SUBAGENTS, ask_user, registry, signals, wait
 from crack_server.sub_agents import runner
 
 router = APIRouter()
@@ -18,6 +18,8 @@ router = APIRouter()
 # Server-side cap for a single long-poll block: the extension re-issues polls
 # in a loop, so this only bounds how long one HTTP request hangs.
 MAX_BLOCK_SECONDS = 25.0
+# Spawn-slot wait per request (extension retries on slot_pending; must stay < its timeout).
+SPAWN_BLOCK_SECONDS = 10.0
 
 
 def _persona_or_404(slug: str):
@@ -41,6 +43,7 @@ def _run_public(state: dict) -> dict:
     return {
         "run_id": state.get("run_id"),
         "persona": state.get("persona"),
+        "title": state.get("title") or "",
         "chat_id": state.get("chat_id"),
         "parent_kind": state.get("parent_kind"),
         "parent_id": state.get("parent_id"),
@@ -75,6 +78,30 @@ def api_list_sub_agents() -> list[dict]:
     return out
 
 
+async def _acquire_spawn_slot(
+    chat_id: str, parent_kind: str, parent_id: str
+) -> tuple[bool, bool]:
+    """Wait for a parallel slot. Returns ``(acquired, waited)``."""
+    if runner.active_child_count(chat_id, parent_kind, parent_id) < MAX_PARALLEL_SUBAGENTS:
+        return True, False
+
+    waited = True
+    deadline = time.monotonic() + SPAWN_BLOCK_SECONDS
+    event = signals.event_for(parent_kind, parent_id)
+    while runner.active_child_count(chat_id, parent_kind, parent_id) >= MAX_PARALLEL_SUBAGENTS:
+        event.clear()
+        if runner.active_child_count(chat_id, parent_kind, parent_id) < MAX_PARALLEL_SUBAGENTS:
+            return True, waited
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False, waited
+        try:
+            await asyncio.wait_for(event.wait(), timeout=remaining)
+        except asyncio.TimeoutError:
+            pass
+    return True, waited
+
+
 @router.post("/api/chats/{chat_id}/sub_agents/spawn")
 async def api_spawn_sub_agent(chat_id: str, request: Request) -> JSONResponse:
     """Mint a run and enqueue it; returns immediately."""
@@ -101,6 +128,10 @@ async def api_spawn_sub_agent(chat_id: str, request: Request) -> JSONResponse:
         raise HTTPException(status_code=400, detail="parent_kind and parent_id are required")
     plan = bool(body.get("plan", True))
 
+    acquired, waited = await _acquire_spawn_slot(chat_id, parent_kind, parent_id)
+    if not acquired:
+        return JSONResponse({"status": "slot_pending"})
+
     try:
         state = runner.spawn(
             chat_id=chat_id,
@@ -120,6 +151,7 @@ async def api_spawn_sub_agent(chat_id: str, request: Request) -> JSONResponse:
         "run_id": state["run_id"],
         "report_path": state["report_path"],
         "status": state.get("phase", "running"),
+        "waited": waited,
     })
 
 
@@ -444,8 +476,9 @@ def run_page(run_id: str) -> HTMLResponse:
     <header>
       <p><a href="/chats/{esc(state.get('chat_id', ''))}">← Chat</a>
          · <a href="/sub_agents">Sub-agents</a></p>
-      <h1>Run {esc(run_id)}</h1>
+      <h1>{esc(chats._run_label(state))}</h1>
       <p><small class="muted">
+        run <code>{esc(run_id)}</code> ·
         persona <code>{esc(state.get('persona', ''))}</code> ·
         phase <code>{esc(state.get('phase', ''))}</code> ·
         depth {esc(str(state.get('depth', '')))}

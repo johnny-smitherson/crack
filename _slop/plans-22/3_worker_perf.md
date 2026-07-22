@@ -169,3 +169,6 @@ cap (3 sub-agents) plus queued extras; keep the chat page open. Confirm: page/tr
 (no multi-second stalls), the worker log shows in-flight bounded by `WORKER_MAX_INFLIGHT`, and completing
 one sub-agent promptly starts the next. Compare against the pre-change behavior (15 concurrent procs) to
 confirm the stall is gone.
+
+
+Use all uv, python, bash, etc. commands only under the following way: docker exec crack-dev bash -exc 'command .... ' . Do not run any code outside the container, you will not have the tools available at all. You can use rg, fzf, grep, inside the container only. You can use edit and read commands as normal. The container mounts the workspace dir at /workspace where your shells will spawn. 

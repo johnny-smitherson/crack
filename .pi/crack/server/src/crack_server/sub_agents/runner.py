@@ -14,6 +14,30 @@ from crack_server.sub_agents import registry, signals
 logger = logging.getLogger("uvicorn.error")
 
 _REPORT_EXCERPT_CHARS = 4000
+_TERMINAL = frozenset({"done", "error", "stopped"})
+
+
+def active_child_count(chat_id: str, parent_kind: str, parent_id: str) -> int:
+    """Children of ``parent`` whose run phase is not terminal."""
+    if parent_kind == "chat":
+        n = 0
+        for run_id in paths.list_run_ids(chat_id):
+            state = paths.run_state(chat_id, run_id).read()
+            if state.get("parent_kind") != "chat" or state.get("parent_id") != chat_id:
+                continue
+            if state.get("phase") not in _TERMINAL:
+                n += 1
+        return n
+    parent_state = paths.run_state_by_id(parent_id).read()
+    n = 0
+    for child_id in parent_state.get("children") or []:
+        try:
+            state = paths.run_state_by_id(child_id).read()
+        except (ValueError, FileNotFoundError):
+            continue
+        if state.get("phase") not in _TERMINAL:
+            n += 1
+    return n
 
 
 def format_child_result(entry: dict) -> str:

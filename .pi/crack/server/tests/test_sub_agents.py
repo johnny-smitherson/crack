@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import time
 from pathlib import Path
 
 import pytest
 
-from crack_server import paths, queue, ratelimit, worker
-from crack_server.sub_agents import MAX_DEPTH, runner
+from crack_server import chats, paths, queue, ratelimit, worker
+from crack_server.sub_agents import MAX_DEPTH, MAX_PARALLEL_SUBAGENTS, runner
 from crack_server.sub_agents import registry as sub_registry
 from tests.test_plan41 import FakePi, SHIM
 
@@ -77,7 +78,7 @@ def test_personas_discovered(chat_root):
 
 @pytest.mark.anyio
 async def test_spawn_run_report_parent_resume(chat_root, fake_pi):
-    fake_pi.set_script(["write_report", "turns:1"])
+    fake_pi.set_script(["ok", "write_report", "turns:1"])
     state = runner.spawn(
         chat_id=chat_root,
         persona_slug="coder",
@@ -108,7 +109,7 @@ async def test_spawn_run_report_parent_resume(chat_root, fake_pi):
 @pytest.mark.anyio
 async def test_nudge_then_report(chat_root, fake_pi):
     # First hop: settle with no tools and no report → nudge; second: write report.
-    fake_pi.set_script(["turns:1", "write_report"])
+    fake_pi.set_script(["ok", "turns:1", "write_report"])
     state = runner.spawn(
         chat_id=chat_root,
         persona_slug="coder",
@@ -128,7 +129,7 @@ async def test_nudge_then_report(chat_root, fake_pi):
 
 @pytest.mark.anyio
 async def test_nudge_exhaustion_errors_and_resumes_parent(chat_root, fake_pi):
-    fake_pi.set_script(["turns:1"])
+    fake_pi.set_script(["ok", "turns:1"])
     state = runner.spawn(
         chat_id=chat_root,
         persona_slug="coder",
@@ -149,7 +150,7 @@ async def test_nudge_exhaustion_errors_and_resumes_parent(chat_root, fake_pi):
 
 @pytest.mark.anyio
 async def test_depth_limit_rejects_spawn_beyond_max(chat_root, fake_pi):
-    fake_pi.set_script(["write_report"])
+    fake_pi.set_script(["ok", "write_report"])
     parent = runner.spawn(
         chat_id=chat_root,
         persona_slug="coder",
@@ -183,7 +184,7 @@ async def test_depth_limit_rejects_spawn_beyond_max(chat_root, fake_pi):
 
 @pytest.mark.anyio
 async def test_parallel_children_both_delivered(chat_root, fake_pi):
-    fake_pi.set_script(["write_report"])
+    fake_pi.set_script(["ok", "write_report"])
     a = runner.spawn(
         chat_id=chat_root,
         persona_slug="coder",
@@ -214,7 +215,7 @@ async def test_parallel_children_both_delivered(chat_root, fake_pi):
 
 @pytest.mark.anyio
 async def test_reclaim_orphans_requeues(chat_root, fake_pi):
-    fake_pi.set_script(["write_report"])
+    fake_pi.set_script(["ok", "write_report"])
     state = runner.spawn(
         chat_id=chat_root,
         persona_slug="coder",
@@ -251,7 +252,7 @@ async def test_api_spawn(chat_root, fake_pi):
     from starlette.requests import Request
     from crack_server.routes_sub_agents import api_spawn_sub_agent
 
-    fake_pi.set_script(["write_report", "turns:1"])
+    fake_pi.set_script(["ok", "write_report", "turns:1"])
 
     body = json.dumps({
         "persona": "coder",
@@ -279,3 +280,192 @@ async def test_api_spawn(chat_root, fake_pi):
     await _drain_jobs()
     run = paths.run_state(chat_root, payload["run_id"]).read()
     assert run["phase"] == "done"
+
+
+def test_sidebar_tree_always_polls(chat_root):
+    html = chats.render_sidebar_tree(chat_root)
+    assert 'hx-trigger="every 2s"' in html
+
+
+def test_sidebar_tree_shows_spawned_run(chat_root):
+    runner.spawn(
+        chat_id=chat_root,
+        persona_slug="coder",
+        instructions="Sidebar test",
+        parent_kind="chat",
+        parent_id=chat_root,
+        depth=0,
+    )
+    run_id = paths.list_run_ids(chat_root)[0]
+    html = chats.render_sidebar_tree(chat_root)
+    assert run_id in html
+
+
+@pytest.mark.anyio
+async def test_run_gets_title_on_begin(chat_root, fake_pi):
+    fake_pi.set_script(["ok", "write_report"])
+    state = runner.spawn(
+        chat_id=chat_root,
+        persona_slug="coder",
+        instructions="Title me",
+        parent_kind="chat",
+        parent_id=chat_root,
+        depth=0,
+    )
+    await _drain_jobs()
+    run = paths.run_state(chat_root, state["run_id"]).read()
+    assert run.get("title") == "text-response"
+
+
+def test_sidebar_node_shows_title_not_persona(chat_root):
+    run_id = paths.generate_run_id()
+    paths.run_dir(chat_root, run_id).mkdir(parents=True)
+    paths.run_state(chat_root, run_id).write({
+        "run_id": run_id,
+        "persona": "coder",
+        "title": "Fix the widget",
+        "chat_id": chat_root,
+        "parent_kind": "chat",
+        "parent_id": chat_root,
+        "depth": 1,
+        "phase": "running",
+        "hops_completed": 2,
+        "created_at": time.time() - 360,
+    })
+    html = chats.render_sidebar_tree(chat_root)
+    assert "Fix the widget" in html
+    assert 'title="coder"' in html
+
+
+def test_sidebar_order_and_metrics(chat_root, monkeypatch):
+    now = time.time()
+    older = paths.generate_run_id()
+    newer = paths.generate_run_id()
+    while newer <= older:
+        newer = paths.generate_run_id()
+    for run_id, created, finished, hops, phase in (
+        (older, now - 600, now - 60, 3, "done"),
+        (newer, now - 120, None, 1, "running"),
+    ):
+        paths.run_dir(chat_root, run_id).mkdir(parents=True)
+        state = {
+            "run_id": run_id,
+            "persona": "coder",
+            "chat_id": chat_root,
+            "parent_kind": "chat",
+            "parent_id": chat_root,
+            "depth": 1,
+            "phase": phase,
+            "hops_completed": hops,
+            "created_at": created,
+        }
+        if finished is not None:
+            state["finished_at"] = finished
+        paths.run_state(chat_root, run_id).write(state)
+
+    html = chats.render_sidebar_tree(chat_root)
+    assert html.index("#1") < html.index("#2")
+    assert "3 turns" in html
+    assert "ran for" in html
+    assert "running for" in html
+
+
+def test_fill_template_depth_gating(chat_root):
+    persona = sub_registry.get("coder")
+    assert persona is not None
+    shallow = {"instructions": "x", "report_path": "/p", "depth": 0}
+    deep = {"instructions": "x", "report_path": "/p", "depth": MAX_DEPTH}
+    text0 = persona._fill_template("system.md", shallow)
+    text1 = persona._fill_template("system.md", deep)
+    assert "spawn_coder" in text0
+    assert "wait_join" in text0
+    assert "spawn_coder" not in text1
+    assert "wait_join" not in text1
+    assert "{sub_agent_instructions}" not in text1
+
+
+@pytest.mark.anyio
+async def test_spawn_parallel_cap_slot_pending(chat_root, monkeypatch):
+    from crack_server.routes_sub_agents import api_spawn_sub_agent
+    from starlette.requests import Request
+
+    monkeypatch.setattr(
+        "crack_server.routes_sub_agents.SPAWN_BLOCK_SECONDS", 0.0, raising=False
+    )
+
+    for i in range(MAX_PARALLEL_SUBAGENTS):
+        runner.spawn(
+            chat_id=chat_root,
+            persona_slug="coder",
+            instructions=f"blocker {i}",
+            parent_kind="chat",
+            parent_id=chat_root,
+            depth=0,
+        )
+
+    body = json.dumps({
+        "persona": "coder",
+        "instructions": "fourth",
+        "parent_kind": "chat",
+        "parent_id": chat_root,
+        "depth": 0,
+    }).encode()
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": f"/api/chats/{chat_root}/sub_agents/spawn",
+        "headers": [(b"content-type", b"application/json")],
+    }
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request = Request(scope, receive)
+    blocked = await api_spawn_sub_agent(chat_root, request)
+    assert json.loads(blocked.body) == {"status": "slot_pending"}
+
+
+@pytest.mark.anyio
+async def test_spawn_waits_for_free_slot(chat_root, fake_pi):
+    import asyncio
+
+    from crack_server.routes_sub_agents import api_spawn_sub_agent
+    from starlette.requests import Request
+
+    for i in range(MAX_PARALLEL_SUBAGENTS):
+        runner.spawn(
+            chat_id=chat_root,
+            persona_slug="coder",
+            instructions=f"blocker {i}",
+            parent_kind="chat",
+            parent_id=chat_root,
+            depth=0,
+        )
+
+    body = json.dumps({
+        "persona": "coder",
+        "instructions": "fourth",
+        "parent_kind": "chat",
+        "parent_id": chat_root,
+        "depth": 0,
+    }).encode()
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": f"/api/chats/{chat_root}/sub_agents/spawn",
+        "headers": [(b"content-type", b"application/json")],
+    }
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request = Request(scope, receive)
+    task = asyncio.create_task(api_spawn_sub_agent(chat_root, request))
+    await asyncio.sleep(0.1)
+    runner.finish(paths.list_run_ids(chat_root)[0], "done")
+    response = await asyncio.wait_for(task, timeout=5)
+    payload = json.loads(response.body)
+    assert "run_id" in payload
+    assert payload.get("waited") is True

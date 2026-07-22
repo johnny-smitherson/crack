@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import shutil
 import time
@@ -97,3 +98,44 @@ async def test_enqueue_fires_wakeup_callback(tmp_path, monkeypatch, fake_pi):
     finally:
         queue._WAKEUP_CALLBACKS.clear()
     assert fired == ["wake"]
+
+
+@pytest.mark.anyio
+async def test_worker_caps_concurrent_inflight(tmp_path, monkeypatch, fake_pi):
+    """Many slow chat hops: peak concurrent pi invocations stays within WORKER_MAX_INFLIGHT."""
+    import crack_server.app  # noqa: F401
+    from crack_server import chats
+
+    fake_pi.set_script(["concurrent:2"])
+    n_jobs = worker.WORKER_MAX_INFLIGHT + 4
+    chat_ids = []
+    for i in range(n_jobs):
+        chat_ids.append(_make_chat(tmp_path, monkeypatch, fake_pi, str(i)))
+        queue.enqueue(chat_ids[-1], chats.CHAT_JOB_SLUG, "chat")
+
+    loop_task = asyncio.create_task(worker.async_loop())
+    try:
+        deadline = time.monotonic() + 30.0
+        while time.monotonic() < deadline:
+            peak_path = fake_pi.ctrl / "peak"
+            if peak_path.is_file():
+                peak = int(peak_path.read_text())
+                assert peak <= worker.WORKER_MAX_INFLIGHT, (
+                    f"peak concurrent hops {peak} exceeded cap {worker.WORKER_MAX_INFLIGHT}"
+                )
+            done = all(
+                paths.chat_state(cid).read().get("phase") == "idle"
+                for cid in chat_ids
+            )
+            if done:
+                break
+            await asyncio.sleep(0.1)
+        else:
+            pytest.fail("timed out waiting for chat jobs to finish")
+        peak = int((fake_pi.ctrl / "peak").read_text())
+        assert peak <= worker.WORKER_MAX_INFLIGHT
+        assert peak >= 2, "expected some overlap among slow hops"
+    finally:
+        loop_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await loop_task

@@ -58,7 +58,7 @@ def _json_request(body: dict, path: str):
 
 @pytest.mark.anyio
 async def test_wait_drains_chat_inbox_then_drain_job_noops(chat_root, fake_pi):
-    fake_pi.set_script(["write_report"])
+    fake_pi.set_script(["ok", "write_report"])
     a = runner.spawn(
         chat_id=chat_root, persona_slug="coder", instructions="A",
         parent_kind="chat", parent_id=chat_root, depth=0,
@@ -88,17 +88,71 @@ async def test_wait_drains_chat_inbox_then_drain_job_noops(chat_root, fake_pi):
     assert not [e for e in chat.get("exchanges", []) if e.get("source") == "child_report"]
 
 
+async def _manual_run_child(
+    chat_id: str, parent_run_id: str, *, instructions: str = "C"
+) -> dict:
+    """Create a child run under a run parent (runner.spawn rejects depth > MAX_DEPTH)."""
+    import uuid
+
+    from crack_server.sub_agents.constants import SUBAGENT_JOB_SLUG
+
+    run_id = paths.generate_run_id()
+    report_path = paths.run_report_path(chat_id, run_id).resolve()
+    run_directory = paths.run_dir(chat_id, run_id)
+    run_directory.mkdir(parents=True, exist_ok=True)
+    (run_directory / "sessions").mkdir(parents=True, exist_ok=True)
+    token = uuid.uuid4().hex
+    now = time.time()
+    state = {
+        "run_id": run_id,
+        "persona": "coder",
+        "chat_id": chat_id,
+        "parent_kind": "run",
+        "parent_id": parent_run_id,
+        "depth": 2,
+        "instructions": instructions,
+        "report_path": str(report_path),
+        "plan": True,
+        "phase": "running",
+        "started_token": token,
+        "stop_requested": False,
+        "nudge_count": 0,
+        "hops_completed": 0,
+        "children": [],
+        "turns": [],
+        "child_inbox": [],
+        "error": "",
+        "finished_at": None,
+        "created_at": now,
+    }
+    paths.run_state(chat_id, run_id).write(state)
+
+    def _link_parent(s: dict) -> dict:
+        children = list(s.get("children") or [])
+        if run_id not in children:
+            children.append(run_id)
+        s["children"] = children
+        return s
+
+    paths.run_state_by_id(parent_run_id).update(_link_parent)
+    queue.enqueue_exclusive(
+        chat_id,
+        SUBAGENT_JOB_SLUG,
+        "run_start",
+        {"run_id": run_id, "started_token": token},
+        run_id=run_id,
+    )
+    return dict(state)
+
+
 @pytest.mark.anyio
 async def test_wait_run_parent_drain_no_duplicate_child_results(chat_root, fake_pi):
-    fake_pi.set_script(["write_report"])
+    fake_pi.set_script(["ok", "write_report"])
     parent = runner.spawn(
         chat_id=chat_root, persona_slug="coder", instructions="P",
         parent_kind="chat", parent_id=chat_root, depth=0,
     )
-    child = runner.spawn(
-        chat_id=chat_root, persona_slug="coder", instructions="C",
-        parent_kind="run", parent_id=parent["run_id"], depth=1,
-    )
+    child = await _manual_run_child(chat_root, parent["run_id"])
     # Run only the child's job; hold the parent's run_start and drain jobs.
     held: list[dict] = []
     for _ in range(10):
@@ -109,7 +163,7 @@ async def test_wait_run_parent_drain_no_duplicate_child_results(chat_root, fake_
             await worker._dispatch(job)
         else:
             held.append(job)
-    assert fake_pi.invocations() == 1
+    assert fake_pi.invocations() == 2
 
     parent_state = paths.run_state_by_id(parent["run_id"]).read()
     assert len(parent_state.get("child_inbox") or []) == 1
@@ -126,12 +180,12 @@ async def test_wait_run_parent_drain_no_duplicate_child_results(chat_root, fake_
     for job in held:
         if job.get("step") == "drain_children":
             await worker._dispatch(job)
-    assert fake_pi.invocations() == 1, "drain job must not run a duplicate hop"
+    assert fake_pi.invocations() == 2, "drain job must not run a duplicate hop"
 
 
 @pytest.mark.anyio
 async def test_wait_target_resolution(chat_root, fake_pi):
-    fake_pi.set_script(["write_report"])
+    fake_pi.set_script(["ok", "write_report"])
     a = runner.spawn(
         chat_id=chat_root, persona_slug="coder", instructions="A",
         parent_kind="chat", parent_id=chat_root, depth=0,
