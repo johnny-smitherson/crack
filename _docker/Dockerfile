@@ -32,8 +32,23 @@ RUN pip install --no-cache-dir --break-system-packages blender-mcp==1.6.4
 COPY blender_mcp_addon.py /opt/blender_mcp_addon.py
 
 RUN pi install npm:pi-antigravity
-RUN pi install npm:pi-cursor-agent && pi uninstall npm:pi-cursor-sdk  
-RUN pi install npm:pi-readseek 
+RUN pi install npm:pi-cursor-agent && pi uninstall npm:pi-cursor-sdk
+RUN pi install npm:pi-readseek
+
+# Patch pi-mcp-adapter (installed in the base image) so the `mcp` gateway tool
+# accepts `args` as a native object, not only a double-encoded JSON string. pi
+# validates tool args against the schema BEFORE the handler runs, so models that
+# pass `args:{...}` directly were rejected with `args: must be string` even though
+# the arguments were valid. Upstream v2.11.0 == commit
+# 82724dccc13a49310530898f922bafff12b7f3fe; see the patch file for full rationale.
+# NOTE: /root is a runtime volume (see VOLUME below); this bakes the fix into the
+# image so freshly-created volumes inherit it. An existing crack-dev-root-dir
+# volume shadows /root and must be patched out-of-band.
+COPY patches/pi-mcp-adapter-args-object.patch /tmp/pi-mcp-adapter-args-object.patch
+RUN patch -p1 -d /root/.pi/agent/npm/node_modules/pi-mcp-adapter \
+        < /tmp/pi-mcp-adapter-args-object.patch \
+    && grep -q 'Type.Union' /root/.pi/agent/npm/node_modules/pi-mcp-adapter/index.ts \
+    && rm -f /tmp/pi-mcp-adapter-args-object.patch
 RUN   git config --global user.email "127537716+johnny-smitherson@users.noreply.github.com"
 RUN  git config --global user.name "johnny clankerson"
 

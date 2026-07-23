@@ -1,0 +1,86 @@
+# pi-mcp-adapter: accept `mcp` tool `args` as an object, not only a JSON string
+#
+# Package     : pi-mcp-adapter@2.11.0  (npm; installed via `pi install npm:pi-mcp-adapter`)
+# Upstream    : https://github.com/nicobailon/pi-mcp-adapter
+# Reference   : tag v2.11.0 == commit 82724dccc13a49310530898f922bafff12b7f3fe
+# File        : index.ts  (the single "mcp" gateway tool registration)
+#
+# Problem
+# -------
+# The `mcp` gateway tool declares its `args` parameter as `Type.String` ("Arguments
+# as JSON string") and the handler does `JSON.parse(params.args)`. pi validates
+# tool-call arguments against this schema BEFORE the handler runs, so any model that
+# passes `args` as a native JSON object -- e.g. mcp({tool:"...", args:{query:"x"}}) --
+# is rejected up front with `args: must be string`, even though the arguments are
+# semantically valid. Only the double-encoded string form succeeds. Weaker models
+# (nvidia/z-ai/glm-5.2, nemotron, ...) waste many turns flip-flopping before landing
+# on the stringified form.
+#
+# Fix
+# ---
+# Widen the schema to `string | object` (anyOf) and coerce in the handler: if `args`
+# arrives as an object, use it directly; if it is a string, JSON.parse it as before.
+# The empty-args and "not a JSON object" error paths are preserved.
+#
+# Apply: patch -p1 -d <pi-mcp-adapter dir> < this-file
+--- a/index.ts
++++ b/index.ts
+@@ -260,7 +260,10 @@
+       renderCall: renderMcpProxyToolCall,
+       parameters: Type.Object({
+         tool: Type.Optional(Type.String({ description: "Tool name to call (e.g., 'xcodebuild_list_sims')" })),
+-        args: Type.Optional(Type.String({ description: "Arguments as JSON string (e.g., '{\"key\": \"value\"}')" })),
++        args: Type.Optional(Type.Union([
++          Type.String({ description: "Arguments as a JSON string (e.g., '{\"key\": \"value\"}')" }),
++          Type.Record(Type.String(), Type.Unknown(), { description: "Arguments as an object (e.g., { key: \"value\" })" }),
++        ], { description: "Tool arguments: pass a JSON object directly, or a JSON string encoding one" })),
+         connect: Type.Optional(Type.String({ description: "Server name to connect (lazy connect + metadata refresh)" })),
+         describe: Type.Optional(Type.String({ description: "Tool name to describe (shows parameters)" })),
+         search: Type.Optional(Type.String({ description: "Search tools by name/description" })),
+@@ -272,7 +275,7 @@
+       renderResult: renderMcpToolResult,
+       async execute(_toolCallId, params: {
+         tool?: string;
+-        args?: string;
++        args?: string | Record<string, unknown>;
+         connect?: string;
+         describe?: string;
+         search?: string;
+@@ -282,19 +285,26 @@
+         action?: string;
+       }, signal, _onUpdate, _ctx) {
+         let parsedArgs: Record<string, unknown> | undefined;
+-        if (params.args) {
+-          try {
+-            parsedArgs = JSON.parse(params.args);
+-            if (typeof parsedArgs !== "object" || parsedArgs === null || Array.isArray(parsedArgs)) {
+-              const gotType = Array.isArray(parsedArgs) ? "array" : parsedArgs === null ? "null" : typeof parsedArgs;
+-              throw new Error(`Invalid args: expected a JSON object, got ${gotType}`);
++        // Accept `args` either as an object (many models pass tool args directly)
++        // or as a JSON-encoded string (the original double-encoded contract).
++        const rawArgs: unknown = params.args;
++        if (rawArgs !== undefined && rawArgs !== null && !(typeof rawArgs === "string" && rawArgs.trim() === "")) {
++          let candidate: unknown = rawArgs;
++          if (typeof candidate === "string") {
++            try {
++              candidate = JSON.parse(candidate);
++            } catch (error) {
++              if (error instanceof SyntaxError) {
++                throw new Error(`Invalid args JSON: ${error.message}`, { cause: error });
++              }
++              throw error;
+             }
+-          } catch (error) {
+-            if (error instanceof SyntaxError) {
+-              throw new Error(`Invalid args JSON: ${error.message}`, { cause: error });
+-            }
+-            throw error;
+           }
++          if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
++            const gotType = Array.isArray(candidate) ? "array" : candidate === null ? "null" : typeof candidate;
++            throw new Error(`Invalid args: expected a JSON object, got ${gotType}`);
++          }
++          parsedArgs = candidate as Record<string, unknown>;
+         }
+ 
+         if (!state && initPromise) {
