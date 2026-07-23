@@ -21,97 +21,100 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
+.pi/crack/server/tests/test_error_rows.py ← __future__, crack_server
+.pi/crack/server/tests/test_model_latency.py ← __future__, crack_server, pytest
 .pi/crack/server/tests/test_model_switch.py ← __future__, crack_server, tests
-.pi/crack/server/tests/test_patch.py ← __future__, unittest, crack_server, pytest
-.pi/crack/server/tests/test_sandbox.py ← __future__, unittest, crack_server, pytest
+.pi/crack/server/tests/test_render_ui.py ← __future__, crack_server
 .pi/crack/server/tests/test_stop_durable.py ← __future__, crack_server, tests, pytest
 .pi/crack/server/tests/test_trajectory_view.py ← __future__, crack_server, pytest
 .pi/crack/server/tests/test_vision_media.py ← __future__, fastapi, starlette, crack_server, tests
 ```
 
-## changes (last 5 commits — 2 hours ago)
+## changes (last 5 commits — 21 minutes ago)
 ```
-.pi/crack/server/tests/test_model_switch.py   +test_terminal_reason_row_labels  +test_prep_timing_row_shows_elapsed  ~test_reason_note_shown_for_notable_reasons
-.pi/crack/server/tests/test_stop_durable.py   +test_stop_chat_stamps_terminal_reason_and_clears_phase  +_seed  ~test_stop_chat_sets_stop_requested
-.pi/crack/server/tests/test_trajectory_view.py +test_merge_exchange_sidecars_appends_terminal_reason  ~test_merge_exchange_sidecars_interleaves_errors_by_time
-.pi/crack/server/tests/test_vision_media.py   +fake_analyze  ~fake_analyze  ~_write_png
+.pi/crack/server/tests/test_error_rows.py     +test_render_error_stop_row_includes_duration  +test_errored_chat_emits_stopped_error_line  ~test_render_fatal_error_banner
+.pi/crack/server/tests/test_model_latency.py  +latency_root  +test_record_latency_first_value_is_clamped  +test_record_latency_ema_and_clamp  +test_latencies_tolerates_missing_and_corrupt
+.pi/crack/server/tests/test_model_switch.py   ~test_reason_note_shown_for_notable_reasons
+.pi/crack/server/tests/test_render_ui.py      +test_text_row_renders_markdown_clamp_and_collapse  +test_think_row_uses_same_clamped_markdown  +test_time_column_on_first_row_only  ~test_render_actions_table_has_colgroup
+.pi/crack/server/tests/test_trajectory_view.py +test_merge_exchange_sidecars_duration_falls_back_to_turn_span  ~test_merge_exchange_sidecars_appends_terminal_reason
+.pi/crack/server/tests/test_vision_media.py   ~test_render_exchanges_shows_prompt_thumbs_from_exchange_media  ~test_chat_post_message_stashes_media_onto_the_exchange
 ```
 
 ## .pi
 
+### .pi/crack/server/tests/test_error_rows.py
+```
+def test_error_recorder_appends_timestamped_rows_and_counts(tmp_path)  :27-39
+def test_error_recorder_subpath_targets_nested_exchange(tmp_path)  :42-47
+def test_grant_error_budget_extends_by_max_and_keeps_rows()  :50-59
+def test_make_turn_stamps_at()  :62-64
+def test_render_turn_msgs_interleaves_errors_by_timestamp()  :72-86
+def test_render_turn_msgs_legacy_turns_keep_list_order()  :89-101
+def test_render_turn_msgs_without_errors_is_unchanged()  :104-106
+def test_render_error_row_shows_attempt_detail_and_time()  :109-118
+def test_render_fatal_error_banner()  :121-133
+def test_render_error_stop_row_includes_duration()  :136-139
+def test_errored_chat_emits_stopped_error_line(tmp_path, monkeypatch)  :142-168  # Errored chats (phase idle + error set) show the red runtime 
+```
+
+### .pi/crack/server/tests/test_model_latency.py
+```
+def latency_root(tmp_path, monkeypatch)  :14-16
+async def test_record_latency_first_value_is_clamped(latency_root)  :20-22
+async def test_record_latency_ema_and_clamp(latency_root)  :26-36
+def test_latencies_tolerates_missing_and_corrupt(latency_root)  :39-44
+async def test_concurrent_record_latency_does_not_corrupt(latency_root)  :48-59
+async def test_flush_latencies_no_double_count_across_per_hop_persisters(latency_root, tmp_path)  :63-64  # The sub-agent path builds a fresh TurnPersister each hop (ex
+async def test_flush_latencies_ignores_compiled_prompt_entries(latency_root, tmp_path)  :87-103  # Compiled-prompt entries (carry ``template``) sit in the turn
+```
+
 ### .pi/crack/server/tests/test_model_switch.py
 ```
-def test_make_turn_records_model_when_set  :27-29
-def test_make_turn_omits_model_when_empty  :32-34
-def test_persister_stamps_current_model  :37-46
-def test_persister_stamp_reason_on_last_turn  :49-58
-def test_persister_stamp_reason_noop_when_empty  :61-66
-def test_reason_note_shown_for_notable_reasons  :69-74
-def test_terminal_reason_row_labels  :77-84
-def test_prep_timing_row_shows_elapsed  :87-93
-def test_model_tag_shown_per_turn  :105-110
-def test_prewalk_swap_divider_after_todo  :113-121
-def test_user_switch_divider_without_todo  :124-128
-def test_no_divider_when_model_stable  :131-134
-def test_model_state_threads_across_calls  :137-144
-def test_tool_output_short_has_no_expand_toggle  :152-155
-def test_tool_output_long_has_single_icon_toggle  :158-163
-def test_plan_chat_form_editor_before_first_message  :175-182
-def test_plan_chat_form_locked_before_graduation  :185-191
-def test_plan_chat_form_dropdown_after_graduation  :194-204
-def test_nonplan_chat_form_has_dropdown  :207-212
-def test_run_display_model_uses_planner_while_planning  :220-225
-def test_run_display_model_uses_implementer_after_swap  :228-237
-def test_chat_display_model_planning_then_graduated  :240-248
-def test_graduation_gate_matches_prewalk_swap  :251-259
-def test_post_message_locks_config_on_first_message  :262-275
-def test_dirty_git_gate_preserves_plan_config  :278-294
-def test_config_editor_emits_config_hidden_field  :297-304
-def test_nonplan_model_resolution_ignores_implementer_until_graduated  :307-324
-def test_chat_display_model_prefers_cached  :327-331
-def test_image_models_filters_to_image_capable  :339-347
-def test_image_models_fallback_when_no_info  :350-356
+def test_make_turn_records_model_when_set()  :27-29
+def test_make_turn_omits_model_when_empty()  :32-34
+def test_persister_stamps_current_model(tmp_path)  :37-46
+def test_persister_stamp_reason_on_last_turn(tmp_path)  :49-58
+def test_persister_stamp_reason_noop_when_empty(tmp_path)  :61-66
+def test_reason_note_shown_for_notable_reasons()  :69-74
+def test_terminal_reason_row_labels()  :77-84
+def test_prep_timing_row_shows_elapsed()  :87-93
+def test_model_tag_shown_per_turn()  :105-110
+def test_prewalk_swap_divider_after_todo()  :113-121
+def test_user_switch_divider_without_todo()  :124-128
+def test_no_divider_when_model_stable()  :131-134
+def test_model_state_threads_across_calls()  :137-144
+def test_tool_output_short_has_no_expand_toggle()  :152-155
+def test_tool_output_long_has_single_icon_toggle()  :158-163
+def test_plan_chat_form_editor_before_first_message(chat_root)  :175-182
+def test_plan_chat_form_locked_before_graduation(chat_root)  :185-191
+def test_plan_chat_form_dropdown_after_graduation(chat_root)  :194-204
+def test_nonplan_chat_form_has_dropdown(chat_root)  :207-212
+def test_run_display_model_uses_planner_while_planning()  :220-225
+def test_run_display_model_uses_implementer_after_swap()  :228-237
+def test_chat_display_model_planning_then_graduated()  :240-248
+def test_graduation_gate_matches_prewalk_swap()  :251-259
+def test_post_message_locks_config_on_first_message(chat_root)  :262-275
+def test_dirty_git_gate_preserves_plan_config(chat_root, monkeypatch)  :278-294
+def test_config_editor_emits_config_hidden_field()  :297-304
+def test_nonplan_model_resolution_ignores_implementer_until_graduated()  :307-324  # Plan 24 Issue 4: implementer_model must not shadow the locke
+def test_chat_display_model_prefers_cached(chat_root)  :327-331
+def test_image_models_filters_to_image_capable(chat_root)  :339-347
+def test_image_models_fallback_when_no_info(chat_root)  :350-356
 ```
 
-### .pi/crack/server/tests/test_patch.py
+### .pi/crack/server/tests/test_render_ui.py
 ```
-def artifact_dir(tmp_path)  :14-17
-async def test_capture_baseline_writes_tree(artifact_dir)  :21-36
-async def test_extract_patch_empty_diff(artifact_dir)  :40-61
-async def test_produce_diff_seeds_index_from_base_tree(artifact_dir)  :65-96  # Tracked-but-gitignored files must not spuriously appear as d
-async def test_extract_patch_nag_on_big_file(artifact_dir)  :100-115
-def test_format_big_file_nag_lists_paths()  :118-121
-def test_format_apply_failure_includes_patch_path(tmp_path)  :124-129
-def test_record_chat_apply_failure_sets_error_without_enqueue(tmp_path, monkeypatch)  :132-157
-async def test_finalize_chat_sandbox_apply_failure_does_not_enqueue(tmp_path, monkeypatch)  :161-193
-def test_notify_parent_apply_failure_chat_records_error_not_enqueues(tmp_path, monkeypatch)  :196-217
-def test_patch_touches_self_mod_server(tmp_path)  :223-229
-def test_patch_touches_self_mod_extension(tmp_path)  :232-235
-def test_patch_touches_self_mod_ignores_other_paths(tmp_path)  :238-241
-def test_format_test_failure_mentions_untouched_host(tmp_path)  :244-249
-def drain_chat(tmp_path, monkeypatch)  :271-277
-def test_drain_applies_in_dispatch_order(drain_chat, monkeypatch)  :280-307
-def test_drain_defers_while_siblings_running(drain_chat, monkeypatch)  :310-328
-def test_drain_conflict_notifies_and_clears(drain_chat, monkeypatch)  :331-351
-def test_drain_apply_exception_leaves_pending(drain_chat, monkeypatch)  :354-374
-```
-
-### .pi/crack/server/tests/test_sandbox.py
-```
-def host_env(monkeypatch, tmp_path)  :14-16
-async def test_sandbox_enabled_off_in_tests(host_env, monkeypatch, tmp_path)  :20-23
-async def test_sandbox_enabled_forced(monkeypatch, host_env)  :27-30
-async def test_ensure_network_creates_when_missing(host_env)  :34-47
-async def test_ensure_network_skips_create_when_present(host_env)  :51-61
-async def test_ensure_sandbox_starts_existing(host_env)  :65-79
-async def test_ensure_sandbox_creates_with_overlay_dirs(monkeypatch, tmp_path)  :83-129
-async def test_exec_in_interactive_adds_i_flag(host_env)  :133-147
-async def test_exec_in_passes_stream_limit(host_env)  :151-166
-async def test_exec_in_omits_limit_when_unset(host_env)  :170-174
-async def test_exec_in_builds_command(host_env)  :178-195
-async def test_kill_session_escalates_to_kill(host_env)  :199-219
-async def test_destroy_sandbox_kill_and_rm(host_env)  :223-235
-async def test_destroy_sandbox_noop_when_missing(host_env)  :239-251
+def test_render_actions_table_has_colgroup()  :11-18
+def test_text_row_renders_markdown_clamp_and_collapse()  :21-32
+def test_think_row_uses_same_clamped_markdown()  :35-40
+def test_time_column_on_first_row_only()  :43-55
+def test_spawn_coder_row_pretty_renders()  :58-68
+def test_todo_row_renders_markdown()  :71-78
+def test_session_usage_estimates_for_cursor_driver(tmp_path, monkeypatch)  :109-118
+def test_session_usage_exact_when_input_reported(tmp_path)  :121-147
+def test_session_usage_caches_unchanged_session(tmp_path, monkeypatch)  :150-188
+def test_render_context_line_cursor_estimated_no_dollar(tmp_path, monkeypatch)  :191-209
+def test_render_context_line_shows_cost_when_nonzero(tmp_path, monkeypatch)  :212-243
 ```
 
 ### .pi/crack/server/tests/test_stop_durable.py
@@ -157,14 +160,6 @@ async def test_attachment_upload_route(root, monkeypatch)  :244-273
 def test_format_block_shape()  :276-290
 def test_chat_post_message_weaves_then_clears(root)  :294-310
 def test_chat_post_message_stashes_media_onto_the_exchange(root)  :318-334
-def test_render_exchanges_shows_prompt_thumbs_from_exchange_media()  :337-344
-def test_render_user_prompt_msg_renders_media_thumbs()  :347-361
-def test_prompt_recorder_attaches_media_list_and_callable(tmp_path)  :364-382
-```
-
-## _docker
-
-### _docker/run.sh
-```
-export IMG_NAME
+def test_render_user_prompt_msg_renders_media_thumbs()  :337-351
+def test_prompt_recorder_attaches_media_list_and_callable(tmp_path)  :354-372
 ```

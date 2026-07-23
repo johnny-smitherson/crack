@@ -441,45 +441,103 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
+src/crack_server/chat_engine.py ← __future__, crack_server
+src/crack_server/chats.py ← __future__, fastapi, crack_server
 src/crack_server/render.py ← __future__, crack_server
-src/crack_server/steprun.py ← __future__, crack_server
+src/crack_server/sub_agents/base.py ← __future__, crack_server
 src/crack_server/ui.py ← __future__, markdown_it, crack_server
-tests/test_error_rows.py ← __future__, crack_server
-tests/test_model_latency.py ← __future__, crack_server, pytest
-tests/test_model_switch.py ← __future__, crack_server, tests
-tests/test_trajectory_view.py ← __future__, crack_server, pytest
+src/crack_server/worker.py ← __future__, crack_server
+tests/test_vision_media.py ← __future__, fastapi, starlette, crack_server, tests
+```
+
+## versions (installed direct deps)
+```
+fastapi@0.139.2
+python-multipart@0.0.32
+uvicorn@0.51.0
+```
+
+## todos
+```
+src/crack_server/sub_agents/base.py:215  # TODO: -aware nudge: names the still-open items when a todo list
 ```
 
 ## src
 
-### src/crack_server/render.py
+### src/crack_server/chat_engine.py
 ```
-def render_user_prompt_msg(entry: dict) → str  :262-301  # Expandable `
-def render_terminal_reason_row(reason: str, duration: float | None) → str  :355-356  # A trajectory row explaining why the exchange's agent stopped
-def render_error_stop_row(duration: float | None) → str  :387-397  # Red terminal line for an exchange that ended in error (no te
-def render_prep_timing_row(entry: dict) → str  :399-411  # UI-only debug line for a preparatory stage (sandbox / first 
-def new_model_state() → dict  :414-417  # Mutable tracker threaded through :func:`render_turn_msgs` ca
-def render_actions_table(turns: list[dict], include_text: bool, time_delta: float | None) → str  :420-423  # Render agent turns as one compact actions table (one row per
-def render_annotation_row(row: dict) → str  :499-506  # Thin badge row for session / model_change / thinking_level_c
-def render_unknown_event_row(row: dict) → str  :509-524  # Faithful unknown-event row: type label + Expand revealing ra
-def render_error_row(entry: dict) → str  :527-548  # A durable `
+async def run_exchange  :48-72
 ```
 
-### src/crack_server/steprun.py
+### src/crack_server/chats.py
 ```
-class TurnPersister  :90-175
-  def append(entry: dict) → None
-  def persist(current_turn: dict, hop: int) → None
-  def stamp_reason(reason: str) → None
-  def text() → str
-def attach_media_to_blocks(tool_blocks: list[dict], media_dir: Path, url_prefix: str) → list[dict]  :20-21  # Copy images referenced by read/analyze_image tool calls into
-def make_turn(current_turn: dict, hop: int, model: str) → dict  :72-87  # The one persisted-turn dict every stage records per complete
-async def flush_latencies(persister: TurnPersister) → None  :178-210  # Record EMA latency for newly persisted agent turns since the
-def turn_persister(state: JsonState, key: str, subpath: list | None, existing: list[dict] | None, post: Callable[[dict], None] | None, media_dir: Path | None, media_url_prefix: str) → TurnPersister  :213-220  # A TurnPersister bound to ``state`` (see the class docstring)
-def prompt_recorder(persister: TurnPersister, label: str, template: str, original: str | None, media: "list[dict] | Callable[[], list[dict]] | None") → Callable[[dict], None]  :229-234  # ``record_prompt`` callback: tag the compiled-prompt entry an
-def error_recorder(state: JsonState, key: str, subpath: list | None) → Callable[[dict], int]  :256-257  # ``record_error`` callback for the pi runners: append a durab
-def grant_error_budget(state: dict) → None  :286-291  # Manual-continue budget reset (retry_from_error): another
-def record_chat_errors(state: JsonState, *, log_message: str) → Iterator[None]  :296-313  # Canonical worker-step error write (chat variant): phase back
+def check_chat_id(chat_id: str) → None  :48-55  # 404 on malformed or unknown chat ids (mirrors app
+def list_chat_links() → list[tuple[str, str]]  :67-74  # ``(chat_id, title)`` pairs for the persistent sidebar nav
+def chat_status_dot(chat_id: str) → dict  :85-123  # ``{"phase": chatting|awaiting|idle|error, "tool": ok|err|pen
+def render_chat_dot(chat_id: str, status: dict | None) → str  :126-136  # Outer phase symbol + inner tool-colored dot for sidebar/home
+def render_new_chat_form() → str  :184-192  # New-chat button
+def render_chat_config_editor(info: dict) → str  :195-225  # Editable plan/model controls shown at the top of a brand-new
+def render_home_section() → str  :228-250  # Chats-only home body: New Chat + recent chats + links
+def render_home_page() → str  :253-255  # Full HTML for ``GET /``
+def render_chat_form(chat_id: str, info: dict, state: dict | None) → str  :300-348
+def render_user_question_form(chat_id: str, run_id: str, question: dict) → str  :351-370  # The ask_user Q&A form for a suspended run (run tree + run pa
+def render_chat_question_form(chat_id: str, question: dict) → str  :373-393  # Interactive ask_user form for a chat parent: radios for choi
+def render_answered_question(qa: dict) → str  :396-416  # Read-only mirror of an answered ask_user form (shown in the 
+def root_run_id(chat_id: str, run_id: str) → str  :547-560  # Walk parent links up to the root run parented by the chat (t
+def render_inline_run_region(chat_id: str, run_id: str) → str  :712-727  # A root sub-agent card as a self-polling region (embedded inl
+def render_sidebar_tree(chat_id: str) → str  :776-823  # Right-rail control tree: root = the chat (Stop = kill everyt
+def render_chat_msgs(chat_id: str) → list[str]  :867-915
+def render_chat_running(chat_id: str, state: dict) → str  :918-928  # The Clanking spinner + Stop button, shown while the chat age
+def render_chat_tail(chat_id: str, *, gate_error_html: str | None) → str  :931-932
+def wrap_chat_content(chat_id: str, msgs: list[str], tail: str, after: int | None) → str  :968-1029
+def render_chat_content(chat_id: str, after: int | None, *, gate_error_html: str | None) → str  :1032-1033  # Chat exchanges + status + form (msgs/tail; supports ``
+def render_chat_page_body(chat_id: str) → str  :1044-1054
+def create_chat(plan: bool, planner_model: str, implementer_model: str, model: str) → RedirectResponse  :1060-1064  # POST /api/chats: create a prewalk-coder chat with its locked
+def post_message(chat_id: str, msg: str, model: str | None, *, plan: bool | None, planner_model: str, implementer_model: str) → HTMLResponse  :1080-1087
+def answer_chat_question(chat_id: str, answer: str) → HTMLResponse  :1184-1216  # POST /api/chats/{id}/ask_answer: the human's answer to a cha
+def stop_chat(chat_id: str) → HTMLResponse  :1232-1259  # POST /api/chats/{id}/stop: halt the chat agent and all sub-a
+def delete_chat(chat_id: str) → HTMLResponse  :1262-1274  # DELETE /api/chats/{id}: kill agents (incl
+async def run_chat(chat_id: str) → None  :1397-1560  # Worker side of a CHAT_JOB_SLUG job: drain child reports, the
+```
+
+### src/crack_server/render.py
+```
+def render_user_prompt_msg(entry: dict) → str  :296-335  # Expandable `
+def render_terminal_reason_row(reason: str, duration: float | None) → str  :389-390  # A trajectory row explaining why the exchange's agent stopped
+def render_error_stop_row(duration: float | None) → str  :421-431  # Red terminal line for an exchange that ended in error (no te
+def render_prep_timing_row(entry: dict) → str  :433-445  # UI-only debug line for a preparatory stage (sandbox / first 
+def new_model_state() → dict  :448-451  # Mutable tracker threaded through :func:`render_turn_msgs` ca
+def render_actions_table(turns: list[dict], include_text: bool, time_delta: float | None) → str  :454-457  # Render agent turns as one compact actions table (one row per
+def render_annotation_row(row: dict) → str  :533-540  # Thin badge row for session / model_change / thinking_level_c
+def render_unknown_event_row(row: dict) → str  :543-558  # Faithful unknown-event row: type label + Expand revealing ra
+def render_error_row(entry: dict) → str  :561-582  # A durable `
+def render_terminal_reason_for_phase(phase: str, duration: float | None) → str  :748-749  # Map a sub-agent run's terminal *phase* onto the same termina
+def model_select(name: str, current: str, post_url: str, *, swap: str, target: str | None, indent: str, models: list[str] | None) → str  :768-776  # The one model <select> markup: options from the render-safe 
+```
+
+### src/crack_server/static/app.css
+```
+.sidebar-nav
+.sidebar-nav
+.sidebar-nav
+.sidebar-nav
+.inline-form
+.file-row-header
+.file-row-label
+.prompt-row
+```
+
+### src/crack_server/sub_agents/base.py
+```
+class SubAgentPersona  :39-608
+  def persona_dir() → Path
+  def config_path() → Path
+  def config_dict() → dict
+  def model_for() → str
+  def load_template(name: str) → str
+  def tool_name() → str
+  def tool_description() → str
+  def tool_label() → str
 ```
 
 ### src/crack_server/ui.py
@@ -487,75 +545,33 @@ def record_chat_errors(state: JsonState, *, log_message: str) → Iterator[None]
 def render_file_row  :91-100
 ```
 
+### src/crack_server/worker.py
+```
+def recover_detached_hops() → None  :140-152  # Reload survival: reap orphaned agent pid files left from a p
+async def async_loop() → None  :247-286  # Claim and dispatch jobs forever; in-flight hops capped by ``
+def start_background() → asyncio.Task  :289-291  # Lifespan hook: start the worker loop as a background task
+async def stop_background(task: asyncio.Task) → None  :294-298  # Lifespan hook: cancel the worker loop and let it reap in-fli
+```
+
 ## tests
 
-### tests/test_error_rows.py
+### tests/test_vision_media.py
 ```
-def test_error_recorder_appends_timestamped_rows_and_counts(tmp_path)  :27-39
-def test_error_recorder_subpath_targets_nested_exchange(tmp_path)  :42-47
-def test_grant_error_budget_extends_by_max_and_keeps_rows()  :50-59
-def test_make_turn_stamps_at()  :62-64
-def test_render_turn_msgs_interleaves_errors_by_timestamp()  :72-86
-def test_render_turn_msgs_legacy_turns_keep_list_order()  :89-101
-def test_render_turn_msgs_without_errors_is_unchanged()  :104-106
-def test_render_error_row_shows_attempt_detail_and_time()  :109-118
-def test_render_fatal_error_banner()  :121-133
-def test_render_error_stop_row_includes_duration()  :136-139
-def test_errored_chat_emits_stopped_error_line(tmp_path, monkeypatch)  :142-168  # Errored chats (phase idle + error set) show the red runtime 
-```
-
-### tests/test_model_latency.py
-```
-def latency_root(tmp_path, monkeypatch)  :14-16
-async def test_record_latency_first_value_is_clamped(latency_root)  :20-22
-async def test_record_latency_ema_and_clamp(latency_root)  :26-36
-def test_latencies_tolerates_missing_and_corrupt(latency_root)  :39-44
-async def test_concurrent_record_latency_does_not_corrupt(latency_root)  :48-59
-async def test_flush_latencies_no_double_count_across_per_hop_persisters(latency_root, tmp_path)  :63-64  # The sub-agent path builds a fresh TurnPersister each hop (ex
-async def test_flush_latencies_ignores_compiled_prompt_entries(latency_root, tmp_path)  :87-103  # Compiled-prompt entries (carry ``template``) sit in the turn
-```
-
-### tests/test_model_switch.py
-```
-def test_make_turn_records_model_when_set()  :27-29
-def test_make_turn_omits_model_when_empty()  :32-34
-def test_persister_stamps_current_model(tmp_path)  :37-46
-def test_persister_stamp_reason_on_last_turn(tmp_path)  :49-58
-def test_persister_stamp_reason_noop_when_empty(tmp_path)  :61-66
-def test_reason_note_shown_for_notable_reasons()  :69-74
-def test_terminal_reason_row_labels()  :77-84
-def test_prep_timing_row_shows_elapsed()  :87-93
-def test_model_tag_shown_per_turn()  :105-110
-def test_prewalk_swap_divider_after_todo()  :113-121
-def test_user_switch_divider_without_todo()  :124-128
-def test_no_divider_when_model_stable()  :131-134
-def test_model_state_threads_across_calls()  :137-144
-def test_tool_output_short_has_no_expand_toggle()  :152-155
-def test_tool_output_long_has_single_icon_toggle()  :158-163
-def test_plan_chat_form_editor_before_first_message(chat_root)  :175-182
-def test_plan_chat_form_locked_before_graduation(chat_root)  :185-191
-def test_plan_chat_form_dropdown_after_graduation(chat_root)  :194-204
-def test_nonplan_chat_form_has_dropdown(chat_root)  :207-212
-def test_run_display_model_uses_planner_while_planning()  :220-225
-def test_run_display_model_uses_implementer_after_swap()  :228-237
-def test_chat_display_model_planning_then_graduated()  :240-248
-def test_graduation_gate_matches_prewalk_swap()  :251-259
-def test_post_message_locks_config_on_first_message(chat_root)  :262-275
-def test_dirty_git_gate_preserves_plan_config(chat_root, monkeypatch)  :278-294
-def test_config_editor_emits_config_hidden_field()  :297-304
-def test_nonplan_model_resolution_ignores_implementer_until_graduated()  :307-324  # Plan 24 Issue 4: implementer_model must not shadow the locke
-def test_chat_display_model_prefers_cached(chat_root)  :327-331
-def test_image_models_filters_to_image_capable(chat_root)  :339-347
-def test_image_models_fallback_when_no_info(chat_root)  :350-356
-```
-
-### tests/test_trajectory_view.py
-```
-def test_project_unknown_event_has_expand_row(tmp_path: Path)  :13-45
-def test_project_merges_tool_results(tmp_path: Path)  :48-80
-def test_ansi_to_html_preserves_colour()  :83-88
-def test_merge_exchange_sidecars_interleaves_errors_by_time()  :91-139  # Errors with ``at`` between turn timestamps appear in order, 
-def test_merge_exchange_sidecars_appends_terminal_reason()  :142-168
-def test_merge_exchange_sidecars_duration_falls_back_to_turn_span()  :171-183
-def test_host_worktree_dirty_detects_untracked(tmp_path: Path)  :186-196
+def root(tmp_path, monkeypatch)  :36-38
+def test_run_pi_text_image_args(fake_pi)  :70-82
+def test_run_pi_text_no_image_args_unchanged(fake_pi)  :85-89
+async def test_vision_analyze_rejects_missing_and_invalid(root)  :98-118
+async def test_vision_analyze_happy_path(root, monkeypatch)  :122-130
+async def test_vision_analyze_resolves_relative_paths(root, monkeypatch)  :134-142
+def test_chat_media_route(root)  :151-157
+def test_run_media_route(root)  :160-170
+def test_persister_attaches_media_only_for_valid_images(root)  :178-208
+def test_persister_without_media_dir_leaves_blocks_alone(root)  :211-216
+def test_add_attachment_validates_and_describes(root, monkeypatch)  :224-240
+async def test_attachment_upload_route(root, monkeypatch)  :244-273
+def test_format_block_shape()  :276-290
+def test_chat_post_message_weaves_then_clears(root)  :294-310
+def test_chat_post_message_stashes_media_onto_the_exchange(root)  :318-334
+def test_render_user_prompt_msg_renders_media_thumbs()  :337-351
+def test_prompt_recorder_attaches_media_list_and_callable(tmp_path)  :354-372
 ```
