@@ -139,16 +139,6 @@ async def _write_tree(sandbox_name: str) -> str:
     return tree
 
 
-def _write_tree_sync(sandbox_name: str) -> str:
-    rc, out, err = _git_in_sandbox_sync(sandbox_name, "write-tree")
-    if rc != 0:
-        raise RuntimeError(f"git write-tree failed: {err or out}")
-    tree = out.strip()
-    if not tree:
-        raise RuntimeError("git write-tree returned empty tree id")
-    return tree
-
-
 async def capture_baseline(sandbox_name: str, artifact_dir: Path) -> str:
     """Persist the sandbox's frozen tree id as ``base_tree``.
 
@@ -181,17 +171,6 @@ async def ensure_baseline(sandbox_name: str, artifact_dir: Path) -> str:
     return await capture_baseline(sandbox_name, artifact_dir)
 
 
-def capture_baseline_sync(sandbox_name: str, artifact_dir: Path) -> str:
-    return asyncio.run(capture_baseline(sandbox_name, artifact_dir))
-
-
-def ensure_baseline_sync(sandbox_name: str, artifact_dir: Path) -> str:
-    path = base_tree_path(artifact_dir)
-    if path.is_file():
-        return path.read_text(encoding="utf-8").strip()
-    return capture_baseline_sync(sandbox_name, artifact_dir)
-
-
 async def _stage_for_patch(
     sandbox_name: str,
     *,
@@ -202,20 +181,6 @@ async def _stage_for_patch(
         raise RuntimeError(f"git add -A failed: {err}")
     if exclude:
         rc, _, err = await _git_in_sandbox(sandbox_name, "reset", "--", *exclude)
-        if rc != 0:
-            raise RuntimeError(f"git reset failed: {err}")
-
-
-def _stage_for_patch_sync(
-    sandbox_name: str,
-    *,
-    exclude: tuple[str, ...] = (),
-) -> None:
-    rc, _, err = _git_in_sandbox_sync(sandbox_name, "add", "-A")
-    if rc != 0:
-        raise RuntimeError(f"git add -A failed: {err}")
-    if exclude:
-        rc, _, err = _git_in_sandbox_sync(sandbox_name, "reset", "--", *exclude)
         if rc != 0:
             raise RuntimeError(f"git reset failed: {err}")
 
@@ -242,33 +207,6 @@ async def _produce_diff(
     # it git writes only "Binary files ... differ", which apply rejects with
     # "cannot apply binary patch ... without full index line".
     rc, out, err = await _git_in_sandbox(
-        sandbox_name, "diff", "--binary", base_tree, end_tree,
-    )
-    if rc != 0:
-        raise RuntimeError(f"git diff failed: {err or out}")
-    patch_path.write_text(out, encoding="utf-8")
-    return bool(out.strip())
-
-
-def _produce_diff_sync(
-    sandbox_name: str,
-    base_tree: str,
-    patch_path: Path,
-    *,
-    exclude: tuple[str, ...] = (),
-) -> bool:
-    # Seed the index from the frozen base tree so `git add -A` computes a true
-    # delta. Without this the sandbox's git repo was `git init`'d with an empty
-    # index, so `git add -A` skips tracked-but-gitignored files (e.g. _data/**/*.bytes)
-    # and every diff spuriously "deletes" them — which host `git apply` cannot apply.
-    rc, _, err = _git_in_sandbox_sync(sandbox_name, "read-tree", base_tree)
-    if rc != 0:
-        raise RuntimeError(f"git read-tree {base_tree[:12]} failed: {err}")
-    _stage_for_patch_sync(sandbox_name, exclude=exclude)
-    end_tree = _write_tree_sync(sandbox_name)
-    patch_path.parent.mkdir(parents=True, exist_ok=True)
-    # See `_produce_diff`: `--binary` is required for host apply of binary blobs.
-    rc, out, err = _git_in_sandbox_sync(
         sandbox_name, "diff", "--binary", base_tree, end_tree,
     )
     if rc != 0:
@@ -387,10 +325,6 @@ async def _apply_git(
         )
         last_err = combined
     return False, last_err or "git apply failed"
-
-
-def apply_patch_to_host(patch_path: Path) -> tuple[bool, str]:
-    return asyncio.run(_apply_git(None, patch_path))
 
 
 async def apply_patch_on_host(patch_path: Path) -> tuple[bool, str]:

@@ -1306,16 +1306,6 @@ def _pop_pending(chat_id: str) -> dict | None:
     return taken
 
 
-def _clear_ui_prep(chat_id: str) -> None:
-    """Drop previous prep timings so a new exchange starts a fresh debug strip."""
-
-    def _clear(state: dict) -> dict:
-        state["ui_prep"] = []
-        return state
-
-    paths.chat_state(chat_id).update(_clear)
-
-
 def _append_ui_prep(chat_id: str, stage_id: str, label: str, elapsed: float) -> None:
     """Append one completed prep stage (UI-only; bumps chat.json mtime for poll)."""
 

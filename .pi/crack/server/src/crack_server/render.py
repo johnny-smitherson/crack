@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Callable
 
 from crack_server import models as models_mod
 from crack_server import pi_runner
@@ -646,65 +645,6 @@ def render_turn_msgs(
         id_attr = f' data-traj-id="{traj_id}"' if traj_id else ""
         out.append(f'<div class="stage-msg"{id_attr}>{tag}{table}{reason_note}</div>')
     return out
-
-
-def render_turns_trajectory(turns: list[dict], include_text: bool = True) -> str:
-    """Joined trajectory HTML (for embedding inside a single details/summary)."""
-    return "".join(render_turn_msgs(turns, include_text=include_text))
-
-
-def render_exchanges(
-    exchanges: list[dict],
-    render_agent_turns: Callable[[list[dict]], list[str]],
-) -> list[str]:
-    """Shared chat-exchange walk (plan 4.3 A3): one user-prompt bubble per
-    exchange (the recorded ``user_prompt`` entry preferred, else synthesized
-    from the raw user text), then the exchange's agent turns via the caller's
-    renderer (typically :func:`render_turn_msgs`)."""
-    msgs: list[str] = []
-    for exchange in exchanges:
-        user_text = exchange.get("user", "")
-        turns = exchange.get("turns", [])
-        media = exchange.get("media", [])
-        # An ask_user answer exchange shows the read-only Q&A form the user
-        # submitted, not a plain user-message bubble.
-        qa = exchange.get("qa")
-        if qa:
-            from crack_server import chats
-
-            msgs.append(chats.render_answered_question(qa))
-            agent_turns = [t for t in turns if t.get("kind") != "user_prompt"]
-            errors = exchange.get("errors", [])
-            if errors:
-                agent_turns = _merged_trajectory(agent_turns, errors)
-            if agent_turns:
-                msgs.extend(render_agent_turns(agent_turns))
-            continue
-        prompt_entry = next((t for t in turns if t.get("kind") == "user_prompt"), None)
-        if prompt_entry is not None:
-            # Prefer recorded compiled prompt; keep original from the exchange.
-            entry = dict(prompt_entry)
-            entry.setdefault("original", user_text)
-            entry.setdefault("label", "chat")
-            if media:
-                entry.setdefault("media", media)
-            msgs.append(render_user_prompt_msg(entry))
-        else:
-            msgs.append(render_user_prompt_msg({
-                "kind": "user_prompt",
-                "compiled": "",
-                "original": user_text,
-                "label": "chat",
-                **({"media": media} if media else {}),
-            }))
-        agent_turns = [t for t in turns if t.get("kind") != "user_prompt"]
-        errors = exchange.get("errors", [])
-        if errors:
-            agent_turns = _merged_trajectory(agent_turns, errors)
-        if agent_turns:
-            msgs.extend(render_agent_turns(agent_turns))
-    return msgs
-
 
 
 # ---------------------------------------------------------------------------

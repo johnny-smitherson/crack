@@ -45,15 +45,6 @@ MAX_CHAT_HOPS = 8
 MAX_CHAT_NUDGES = 2
 
 
-def run_exchange_sync(**kwargs) -> None:
-    """Sync wrapper over :func:`run_exchange` for thread-based callers (the
-    Finished stage's review chat, dispatched via ``asyncio.to_thread``).
-    Must NOT be called from inside a running event loop."""
-    import asyncio
-
-    return asyncio.run(run_exchange(**kwargs))
-
-
 async def run_exchange(
     *,
     state: JsonState,

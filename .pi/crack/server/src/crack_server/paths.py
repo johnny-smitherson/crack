@@ -81,10 +81,6 @@ def queue_processing_dir(root: Path | None = None) -> Path:
     return queue_dir(root) / "processing"
 
 
-def worker_lock_path(root: Path | None = None) -> Path:
-    return harness_dir(root) / "worker.lock"
-
-
 # ---------------------------------------------------------------------------
 # Unscripted chats
 # ---------------------------------------------------------------------------

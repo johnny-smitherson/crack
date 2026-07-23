@@ -296,15 +296,3 @@ async def stop_background(task: asyncio.Task) -> None:
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await task
-
-
-def main() -> None:
-    """Deprecated: the worker now runs inside the server process (app lifespan)."""
-    raise SystemExit(
-        "crack-worker is retired: the worker runs inside crack-server "
-        "(uvicorn app lifespan). Launch crack-server only."
-    )
-
-
-if __name__ == "__main__":
-    main()

@@ -334,16 +334,6 @@ def test_chat_post_message_stashes_media_onto_the_exchange(root):
     assert exchange["media"] == pending[0]["media"]
 
 
-def test_render_exchanges_shows_prompt_thumbs_from_exchange_media():
-    media = [{"url": "/chats/c1/attachments/x.png", "src": "/abs/x.png",
-              "description": "shot"}]
-    exchanges = [{"user": "look at this", "turns": [], "media": media}]
-    msgs = render.render_exchanges(exchanges, render.render_turn_msgs)
-    assert len(msgs) == 1
-    assert 'class="tool-thumb"' in msgs[0]
-    assert 'src="/chats/c1/attachments/x.png"' in msgs[0]
-
-
 def test_render_user_prompt_msg_renders_media_thumbs():
     html = render.render_user_prompt_msg({
         "kind": "user_prompt",
