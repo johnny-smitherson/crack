@@ -9,35 +9,3 @@ lines. Native-only (`tokio` multi-thread), no wasm target.
 
 Run tests with `./test.sh` (native `cargo test` only). See `README.md` for
 details.
-
-## Auto-generated signatures
-<!-- Updated by gen-context.js -->
-# Code signatures
-
-## SigMap commands
-
-| When | Command |
-|------|---------|
-| Before answering a question about code | `sigmap ask "<your question>"` |
-| To rank files by topic | `sigmap --query "<topic>"` |
-| After changing config or source dirs | `sigmap validate` |
-| To verify an AI answer is grounded | `sigmap judge --response <file>` |
-
-Always run `sigmap ask` (or `sigmap --query`) before searching for files relevant to a task.
-
-## .
-
-### README.md
-```
-h1 chat_cli
-h2 Usage
-h2 Gotchas
-h2 Tests
-code-fence sh
-code-fence plain
-```
-
-### test.sh
-```
-# Smoke tests for chat_cli: native only (bin-only crate).
-```

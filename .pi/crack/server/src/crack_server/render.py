@@ -232,7 +232,7 @@ def _render_tool_action_row(
         middle += _render_media_thumbs(block)
     elif name == "bash":
         command = str(args.get("command") or input_raw)
-        action_type = "sigmap" if command.strip().startswith("sigmap") else "bash"
+        action_type = "bash"
         middle = f'<pre class="cmd">{esc(command)}</pre>'
     elif name in ("edit", "write"):
         action_type = name
